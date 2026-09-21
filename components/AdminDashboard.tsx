@@ -1,0 +1,2179 @@
+'use client';
+
+import React, { useState } from 'react';
+import { useToccoStore } from '@/lib/store';
+import CategoriesManagement from '@/components/CategoriesManagement';
+import CloudinaryImageUploader from '@/components/CloudinaryImageUploader';
+import {
+  Product,
+  Category,
+  Collection,
+  Order,
+  CustomDesignInquiry,
+  EventItem,
+  ProjectItem,
+  PricingMode,
+  OrderStatus,
+  PaymentStatus,
+  ProductFinish,
+  ProductColor,
+  BannerItem,
+} from '@/types';
+import {
+  Layers,
+  Package,
+  FolderTree,
+  Sparkles,
+  Calendar,
+  Image as ImageIcon,
+  Settings,
+  MessageCircle,
+  Plus,
+  Edit2,
+  Trash2,
+  Check,
+  X,
+  ExternalLink,
+  DollarSign,
+  Eye,
+  EyeOff,
+  Star,
+  RefreshCw,
+  Phone,
+  ShieldCheck,
+  ChevronRight,
+  ArrowLeft,
+  Flame,
+  Tag,
+  Compass,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react';
+import Image from '@/components/SafeImage';
+import { orderService } from '@/lib/api/services/orderService';
+import { BackendOrder, BackendOrderStatus } from '@/types/order';
+import { normalizeApiError } from '@/lib/api/errors';
+
+export default function AdminDashboard() {
+  const {
+    products,
+    categories,
+    collections,
+    orders,
+    customInquiries,
+    events,
+    projects,
+    banners,
+    settings,
+    saveProduct,
+    deleteProduct,
+    toggleProductFeatured,
+    toggleProductPricingMode,
+    saveCategory,
+    deleteCategory,
+    saveCollection,
+    deleteCollection,
+    saveEvent,
+    deleteEvent,
+    saveProject,
+    deleteProject,
+    saveBanner,
+    deleteBanner,
+    toggleBannerActive,
+    updateSettings,
+    updateOrderStatus,
+    updatePaymentStatus,
+    updateCustomInquiryStatus,
+    resetAllDataToDefaults,
+    navigateTo,
+  } = useToccoStore();
+
+  const [activeTab, setActiveTab] = useState<
+    | 'products'
+    | 'banners'
+    | 'categories'
+    | 'collections'
+    | 'orders'
+    | 'inquiries'
+    | 'events'
+    | 'projects'
+    | 'settings'
+  >('products');
+
+  // Banner Modal states
+  const [editingBanner, setEditingBanner] = useState<BannerItem | null>(null);
+  const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
+
+  const handleNewBanner = () => {
+    setEditingBanner({
+      id: `ban-${Date.now()}`,
+      type: 'new_product',
+      categoryLabel: 'New Release',
+      badgeText: 'NEW RELEASE · 2026 EDITION',
+      title: '',
+      subtitle: '',
+      tagHighlight: '',
+      image: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80',
+      ctaText: 'Explore New Piece',
+      actionType: 'navigate',
+      targetView: 'shop',
+      targetId: '',
+      promoCode: '',
+      isActive: true,
+      displayOrder: banners.length + 1,
+    });
+    setIsBannerModalOpen(true);
+  };
+
+  // Real Backend Orders Management State
+  const [backendOrders, setBackendOrders] = useState<BackendOrder[]>([]);
+  const [isOrdersLoading, setIsOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
+  const [statusUpdateSuccess, setStatusUpdateSuccess] = useState<string | null>(null);
+
+  const fetchBackendOrders = React.useCallback(async () => {
+    setIsOrdersLoading(true);
+    setOrdersError(null);
+    try {
+      const data = await orderService.getAllOrders();
+      setBackendOrders(data);
+    } catch (err) {
+      const normalized = normalizeApiError(err);
+      setOrdersError(normalized.message);
+    } finally {
+      setIsOrdersLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    let active = true;
+    orderService
+      .getAllOrders()
+      .then((data) => {
+        if (active) setBackendOrders(data);
+      })
+      .catch((err) => {
+        if (active) setOrdersError(normalizeApiError(err).message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleUpdateOrderStatus = async (orderId: number, newStatus: BackendOrderStatus) => {
+    setUpdatingOrderId(orderId);
+    setOrdersError(null);
+    setStatusUpdateSuccess(null);
+    try {
+      const updated = await orderService.updateOrderStatus(orderId, { status: newStatus });
+      setBackendOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
+      setStatusUpdateSuccess(`Order #${updated.order_number} status updated to ${newStatus}`);
+      setTimeout(() => setStatusUpdateSuccess(null), 4000);
+    } catch (err) {
+      const normalized = normalizeApiError(err);
+      setOrdersError(normalized.message);
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
+  // Product Modal / Form states
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+
+  // Category Modal states
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+
+  // Collection Modal states
+  const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
+  const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
+
+  // Event Modal states
+  const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+
+  // Project Modal states
+  const [editingProject, setEditingProject] = useState<ProjectItem | null>(null);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+
+  // Helper to open new product
+  const handleNewProduct = () => {
+    setEditingProduct({
+      id: `prod-${Date.now()}`,
+      name: '',
+      slug: `product-${Date.now()}`,
+      categoryId: categories[0]?.id || 'cat-tables',
+      collectionIds: [],
+      shortDescription: '',
+      detailedDescription: '',
+      price: 25000,
+      pricingMode: 'fixed',
+      depositPercentage: 50,
+      images: [
+        'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&w=1200&q=85',
+      ],
+      finishes: ['Matte', 'Glossy'],
+      colors: [
+        { id: 'c-1', name: 'Alabaster Bone', hex: '#EBE3D5' },
+        { id: 'c-2', name: 'Terracotta Earth', hex: '#A85A3C' },
+      ],
+      dimensions: '80 x 80 x 42 cm',
+      material: 'Reinforced marine-grade fiberglass with UV-stable gelcoat',
+      leadTime: '2–3 weeks handcrafted production',
+      shippingTime: '5–7 days white-glove delivery',
+      isFeatured: false,
+      isPublished: true,
+      inStock: true,
+      allowsCustomization: true,
+      createdAt: new Date().toISOString(),
+    });
+    setIsProductModalOpen(true);
+  };
+
+  // Helper to open new category
+  const handleNewCategory = () => {
+    setEditingCategory({
+      id: `cat-${Date.now()}`,
+      name: '',
+      slug: `category-${Date.now()}`,
+      description: '',
+      image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=85',
+      isFeatured: false,
+      isVisible: true,
+      displayOrder: categories.length + 1,
+    });
+    setIsCategoryModalOpen(true);
+  };
+
+  // Helper to open new collection
+  const handleNewCollection = () => {
+    setEditingCollection({
+      id: `col-${Date.now()}`,
+      name: '',
+      slug: `collection-${Date.now()}`,
+      subtitle: '',
+      description: '',
+      coverImage: 'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&w=1200&q=85',
+      gallery: [],
+      isFeatured: false,
+      isPublished: true,
+      displayOrder: collections.length + 1,
+      productIds: [],
+    });
+    setIsCollectionModalOpen(true);
+  };
+
+  // Helper to open new event
+  const handleNewEvent = () => {
+    setEditingEvent({
+      id: `ev-${Date.now()}`,
+      title: '',
+      location: 'Cairo Atelier',
+      city: 'Cairo',
+      date: 'May 2026',
+      description: '',
+      coverImage: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1200&q=85',
+      status: 'upcoming',
+    });
+    setIsEventModalOpen(true);
+  };
+
+  // Helper to open new project
+  const handleNewProject = () => {
+    setEditingProject({
+      id: `proj-${Date.now()}`,
+      title: '',
+      subtitle: '',
+      location: 'Marassi, North Coast',
+      year: '2026',
+      description: '',
+      coverImage: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=85',
+      gallery: [],
+      productsUsed: ['Peach Blush Cocktail Table'],
+    });
+    setIsProjectModalOpen(true);
+  };
+
+  return (
+    <div id="admin-studio-dashboard" className="pt-24 pb-24 bg-[#FAF8F5] min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        {/* Top Bar with Live Return link and reset */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#EAE4DC]">
+          <div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigateTo('home')}
+                className="text-xs uppercase tracking-wider text-[#736B63] hover:text-[#1C1A19] flex items-center gap-1"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Return to Live Store</span>
+              </button>
+            </div>
+            <h1 className="text-3xl font-normal tracking-tight text-[#1C1A19] mt-2">
+              Tocco House Atelier CMS Studio
+            </h1>
+            <p className="text-xs text-[#736B63]">
+              Manage products, pricing modes, deposit workflows, and content in real-time.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                if (confirm('Reset all catalog, collections, and settings back to original defaults?')) {
+                  resetAllDataToDefaults();
+                }
+              }}
+              className="px-3.5 py-2 rounded-full border border-[#D8CEBF] text-xs text-[#736B63] hover:text-[#B85D38] hover:border-[#B85D38] flex items-center gap-1.5 transition-colors"
+              title="Reset all data to seed defaults"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Reset Defaults</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Dashboard Navigation Tabs */}
+        <div className="flex border-b border-[#EAE4DC] gap-1 overflow-x-auto pb-1 text-xs uppercase tracking-wider font-medium scrollbar-none">
+          {[
+            { key: 'products', label: `Products (${products.length})`, icon: Package },
+            { key: 'banners', label: `Banners & Highlights (${banners.length})`, icon: Flame },
+            { key: 'orders', label: `Orders (${backendOrders.length})`, icon: DollarSign },
+            { key: 'inquiries', label: `Bespoke Inquiries (${customInquiries.length})`, icon: MessageCircle },
+            { key: 'categories', label: 'Categories & Subcategories', icon: FolderTree },
+            { key: 'collections', label: `Collections (${collections.length})`, icon: Sparkles },
+            { key: 'events', label: `Events (${events.length})`, icon: Calendar },
+            { key: 'projects', label: `In Their Space (${projects.length})`, icon: ImageIcon },
+            { key: 'settings', label: 'Store & Deposit Settings', icon: Settings },
+          ].map((t) => {
+            const Icon = t.icon;
+            const isCurrent = activeTab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key as any)}
+                className={`px-4 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap transition-all ${
+                  isCurrent
+                    ? 'bg-[#1C1A19] text-white shadow-xs'
+                    : 'text-[#524B45] hover:bg-[#EFEBE3]'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ----------------- TAB 1: PRODUCTS ----------------- */}
+        {activeTab === 'products' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
+                  Design Catalogue Archive
+                </h3>
+                <p className="text-xs text-[#736B63]">
+                  Configure product details, pricing mode (Fixed vs. Price on Demand), and color swatches.
+                </p>
+              </div>
+              <button
+                onClick={handleNewProduct}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D]"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add New Piece</span>
+              </button>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-[#EAE4DC] shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#FAF8F5] border-b border-[#EAE4DC] text-[#736B63] uppercase tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">Piece</th>
+                      <th className="py-3 px-4">Category</th>
+                      <th className="py-3 px-4">Pricing Mode</th>
+                      <th className="py-3 px-4">Price / 50% Deposit</th>
+                      <th className="py-3 px-4">Finishes</th>
+                      <th className="py-3 px-4">Featured</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#EAE4DC]">
+                    {products.map((p) => {
+                      const cat = categories.find((c) => c.id === p.categoryId);
+                      const isOnDemand = p.pricingMode === 'on_demand';
+
+                      return (
+                        <tr key={p.id} className="hover:bg-[#FAF8F5] transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-[#EFEBE3] shrink-0 border border-[#E0D8CB]">
+                                <Image
+                                  src={p.images[0]}
+                                  alt={p.name}
+                                  fill
+                                  className="object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                              <div>
+                                <span className="font-medium text-[#1C1A19] block">{p.name}</span>
+                                <span className="text-[10px] text-[#8F8880] font-mono">{p.slug}</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-4 text-[#524B45]">{cat?.name || '—'}</td>
+
+                          <td className="py-3 px-4">
+                            <button
+                              onClick={() => toggleProductPricingMode(p.id)}
+                              className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${
+                                isOnDemand
+                                  ? 'bg-[#F2EDE4] text-[#643D26] border-[#D8CEBF]'
+                                  : 'bg-[#FAF0E6] text-[#B85D38] border-[#E8D4C5]'
+                              }`}
+                              title="Click to toggle Pricing Mode"
+                            >
+                              {isOnDemand ? 'Price on Demand' : 'Fixed Price'}
+                            </button>
+                          </td>
+
+                          <td className="py-3 px-4">
+                            {isOnDemand ? (
+                              <span className="text-[#8F8880] italic">WhatsApp Quote</span>
+                            ) : (
+                              <div>
+                                <span className="font-semibold text-[#1C1A19]">
+                                  {p.price?.toLocaleString()} EGP
+                                </span>
+                                <span className="text-[10px] text-[#736B63] block">
+                                  Deposit: {((p.price || 0) * 0.5).toLocaleString()} EGP
+                                </span>
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-4 text-[#736B63]">
+                            {p.finishes.join(', ')}
+                          </td>
+
+                          <td className="py-3 px-4">
+                            <button
+                              onClick={() => toggleProductFeatured(p.id)}
+                              className={`p-1 rounded-md ${
+                                p.isFeatured ? 'text-[#B85D38]' : 'text-[#D8CEBF] hover:text-[#736B63]'
+                              }`}
+                              title="Toggle Featured on Homepage"
+                            >
+                              <Star className="w-4 h-4 fill-current" />
+                            </button>
+                          </td>
+
+                          <td className="py-3 px-4 text-right space-x-2">
+                            <button
+                              onClick={() => {
+                                setEditingProduct(p);
+                                setIsProductModalOpen(true);
+                              }}
+                              className="p-1.5 text-[#524B45] hover:text-[#1C1A19]"
+                              title="Edit Piece"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Delete piece "${p.name}"?`)) {
+                                  deleteProduct(p.id);
+                                }
+                              }}
+                              className="p-1.5 text-[#B85D38] hover:text-red-700"
+                              title="Delete Piece"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- TAB: BANNERS & HIGHLIGHTS ----------------- */}
+        {activeTab === 'banners' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
+                  Atelier Highlights & Banners
+                </h3>
+                <p className="text-xs text-[#736B63]">
+                  Manage mobile-first carousel banners for new arrivals, exclusive promotions, upcoming events, and bespoke commissions.
+                </p>
+              </div>
+              <button
+                id="admin-add-banner-btn"
+                onClick={handleNewBanner}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D]"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Create New Banner</span>
+              </button>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-[#EAE4DC] shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#FAF8F5] border-b border-[#EAE4DC] text-[#736B63] uppercase tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">Banner</th>
+                      <th className="py-3 px-4">Category & Badge</th>
+                      <th className="py-3 px-4">Highlight Pill / Code</th>
+                      <th className="py-3 px-4">Target Action</th>
+                      <th className="py-3 px-4">Active</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#EAE4DC]">
+                    {banners.map((b) => {
+                      return (
+                        <tr key={b.id} className="hover:bg-[#FAF8F5] transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-[#1C1A19] shrink-0 border border-[#E0D8CB]">
+                                <Image
+                                  src={b.image}
+                                  alt={b.title}
+                                  fill
+                                  className="object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                              <div className="max-w-xs">
+                                <span className="font-medium text-[#1C1A19] block truncate">
+                                  {b.title}
+                                </span>
+                                <span className="text-[11px] text-[#736B63] line-clamp-1">
+                                  {b.subtitle}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-4">
+                            <span className="inline-block px-2.5 py-1 rounded-full bg-[#EFEBE3] text-[#524B45] text-[10px] font-semibold uppercase tracking-wider">
+                              {b.categoryLabel}
+                            </span>
+                            <span className="block text-[10px] text-[#8E867D] mt-0.5">
+                              {b.badgeText}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4">
+                            {b.tagHighlight ? (
+                              <span className="inline-block px-2.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-mono text-[11px]">
+                                {b.tagHighlight}
+                              </span>
+                            ) : (
+                              <span className="text-[#8E867D]">—</span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-4 text-[#524B45]">
+                            <span className="capitalize">{b.actionType === 'copy_code' ? 'Copy Code' : `Go to ${b.targetView || 'link'}`}</span>
+                            <span className="block text-[10px] text-[#8E867D]">{b.ctaText}</span>
+                          </td>
+
+                          <td className="py-3 px-4">
+                            <button
+                              onClick={() => toggleBannerActive(b.id)}
+                              className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold transition-colors ${
+                                b.isActive
+                                  ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                  : 'bg-stone-200 text-stone-600 hover:bg-stone-300'
+                              }`}
+                            >
+                              {b.isActive ? 'Live' : 'Hidden'}
+                            </button>
+                          </td>
+
+                          <td className="py-3 px-4 text-right space-x-2">
+                            <button
+                              onClick={() => {
+                                setEditingBanner(b);
+                                setIsBannerModalOpen(true);
+                              }}
+                              className="p-1.5 text-[#524B45] hover:text-[#1C1A19]"
+                              title="Edit Banner"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Delete banner "${b.title}"?`)) {
+                                  deleteBanner(b.id);
+                                }
+                              }}
+                              className="p-1.5 text-[#B85D38] hover:text-red-700"
+                              title="Delete Banner"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- TAB 2: ORDERS ----------------- */}
+        {activeTab === 'orders' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
+                  Customer Orders & Real-time Atelier Status
+                </h3>
+                <p className="text-xs text-[#736B63]">
+                  Authoritative backend orders registry: confirm commissions, inspect deliveries, and advance orders into production.
+                </p>
+              </div>
+
+              <button
+                onClick={fetchBackendOrders}
+                disabled={isOrdersLoading}
+                className="self-start sm:self-auto px-3.5 py-1.5 rounded-full border border-[#D8CEBF] text-xs text-[#524B45] hover:text-[#1C1A19] hover:border-[#1C1A19] flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3 h-3 ${isOrdersLoading ? 'animate-spin' : ''}`} />
+                <span>Refresh Orders</span>
+              </button>
+            </div>
+
+            {statusUpdateSuccess && (
+              <div className="p-4 rounded-xl bg-[#EBF5EE] border border-[#C5E5D0] text-[#1E6B3A] text-xs flex items-center gap-2">
+                <Check className="w-4 h-4 text-[#1E6B3A] shrink-0" />
+                <span>{statusUpdateSuccess}</span>
+              </div>
+            )}
+
+            {ordersError && (
+              <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{ordersError}</span>
+                </div>
+                <button
+                  onClick={fetchBackendOrders}
+                  className="px-3 py-1 bg-red-100 hover:bg-red-200 rounded text-red-800 font-semibold"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {isOrdersLoading ? (
+              <div className="p-12 text-center bg-white rounded-2xl border border-[#EAE4DC] space-y-3">
+                <RefreshCw className="w-6 h-6 animate-spin text-[#643D26] mx-auto" />
+                <p className="text-xs uppercase tracking-wider text-[#736B63]">
+                  Fetching Orders from Atelier Registry...
+                </p>
+              </div>
+            ) : backendOrders.length === 0 ? (
+              <div className="p-12 text-center bg-white rounded-2xl border border-[#EAE4DC] text-xs text-[#736B63]">
+                No customer orders placed yet.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {backendOrders.map((ord) => {
+                  const deposit = Math.round(Number(ord.total_price) * 0.5);
+                  const isUpdating = updatingOrderId === ord.id;
+                  const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                    `Hello, this is Tocco House Atelier regarding Order #${ord.order_number}.`
+                  )}`;
+
+                  return (
+                    <div
+                      key={ord.id}
+                      className="p-6 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#EAE4DC] gap-2">
+                        <div>
+                          <span className="text-xs font-mono font-bold text-[#1C1A19]">
+                            Order #{ord.order_number}
+                          </span>
+                          <span className="text-xs text-[#736B63] ml-2">
+                            · {new Date(ord.created_at).toLocaleString('en-GB')}
+                          </span>
+                        </div>
+
+                        {/* Status Pickers */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <span className="text-[#736B63]">Status:</span>
+                            <select
+                              value={ord.status}
+                              disabled={isUpdating}
+                              onChange={(e) => handleUpdateOrderStatus(ord.id, e.target.value as BackendOrderStatus)}
+                              className="text-xs font-semibold py-1 px-2.5 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5] focus:outline-none disabled:opacity-50"
+                            >
+                              <option value="NOT_CONFIRMED">Not Confirmed (Pending)</option>
+                              <option value="CONFIRMED">Confirmed (In Production)</option>
+                              <option value="CANCELLED">Cancelled</option>
+                            </select>
+                            {isUpdating && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#643D26]" />}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Customer & Address Details */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-[#524B45]">
+                        <div>
+                          <span className="font-semibold text-[#1C1A19] block">Residence & Recipient:</span>
+                          <p className="font-medium text-[#1C1A19]">{ord.shipping_address?.title || 'Private Residence'}</p>
+                          <p className="text-[#736B63]">Account ID: #{ord.user_id}</p>
+                        </div>
+
+                        <div>
+                          <span className="font-semibold text-[#1C1A19] block">Delivery Destination:</span>
+                          {ord.shipping_address ? (
+                            <>
+                              <p>
+                                {ord.shipping_address.building_number ? `Bldg ${ord.shipping_address.building_number}, ` : ''}
+                                {ord.shipping_address.street}
+                              </p>
+                              <p>
+                                {ord.shipping_address.apartment_number ? `Apt ${ord.shipping_address.apartment_number}, ` : ''}
+                                {ord.shipping_address.city}, {ord.shipping_address.country}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-[#8F8880]">No address record attached</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <span className="font-semibold text-[#1C1A19] block">50% Handcrafted Deposit:</span>
+                          <p className="text-[#643D26] font-semibold text-sm font-mono">
+                            {deposit.toLocaleString()} EGP
+                          </p>
+                          <p className="text-[#736B63] font-mono">
+                            Total: {Number(ord.total_price).toLocaleString()} EGP
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Items List */}
+                      <div className="pt-2 border-t border-[#EAE4DC] flex flex-wrap items-center justify-between gap-4">
+                        <div className="space-y-1.5">
+                          {ord.items.map((it) => (
+                            <div
+                              key={it.id}
+                              className="inline-flex items-center gap-2 mr-4 text-xs text-[#1C1A19] font-medium"
+                            >
+                              <div
+                                className="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0"
+                                style={{ backgroundColor: it.color_hex_code }}
+                                title={it.color_name}
+                              />
+                              <span>
+                                {it.product_name} ({it.color_name}) x{it.quantity}
+                              </span>
+                              <span className="font-mono text-[#736B63]">
+                                · {Number(it.subtotal).toLocaleString()} EGP
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {ord.status === 'NOT_CONFIRMED' && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, 'CONFIRMED')}
+                              disabled={isUpdating}
+                              className="px-3 py-1.5 rounded-lg bg-[#D1E7DD] text-[#0F5132] text-xs font-semibold hover:bg-[#C3E6CB] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                            >
+                              {isUpdating ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Check className="w-3 h-3" />
+                              )}
+                              <span>Confirm Order</span>
+                            </button>
+                          )}
+
+                          <a
+                            href={whatsappUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 rounded-lg bg-[#2A2624] text-white text-xs font-medium flex items-center gap-1.5 hover:bg-[#3E3835] transition-colors"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
+                            <span>WhatsApp Client</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ----------------- TAB 3: CUSTOM INQUIRIES ----------------- */}
+        {activeTab === 'inquiries' && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
+                Bespoke Design & Fabrication Requests
+              </h3>
+              <p className="text-xs text-[#736B63]">
+                Custom commission submissions from private villa owners, interior designers, and hospitality projects.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {customInquiries.length === 0 ? (
+                <div className="p-8 text-center bg-white rounded-2xl border border-[#EAE4DC] text-xs text-[#736B63]">
+                  No custom commission requests yet.
+                </div>
+              ) : (
+                customInquiries.map((inq) => {
+                  const whatsappUrl = `https://wa.me/${inq.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                    `Hello ${inq.fullName}, this is Tocco House regarding your bespoke ${inq.pieceCategory} commission inquiry.`
+                  )}`;
+
+                  return (
+                    <div
+                      key={inq.id}
+                      className="p-6 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="text-xs font-semibold text-[#1C1A19] block">
+                            {inq.fullName} · {inq.projectType}
+                          </span>
+                          <span className="text-[11px] text-[#736B63] font-mono">
+                            {inq.phone} · {inq.email || 'No email provided'}
+                          </span>
+                        </div>
+
+                        <select
+                          value={inq.status}
+                          onChange={(e) => updateCustomInquiryStatus(inq.id, e.target.value as any)}
+                          className="text-xs font-semibold py-1 px-3 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5]"
+                        >
+                          <option value="new">New</option>
+                          <option value="contacted">Contacted</option>
+                          <option value="proposal_sent">Proposal Sent</option>
+                          <option value="in_production">In Production</option>
+                          <option value="completed">Completed</option>
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-[#FAF8F5] p-4 rounded-xl">
+                        <div>
+                          <span className="text-[#736B63] block">Piece Type:</span>
+                          <span className="font-semibold text-[#1C1A19]">{inq.pieceCategory}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#736B63] block">Target Dimensions:</span>
+                          <span className="font-mono text-[#1C1A19]">{inq.dimensions || 'Flexible'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#736B63] block">Finish & Color:</span>
+                          <span className="text-[#1C1A19] font-medium">
+                            {inq.finishPreference} · {inq.colorPreference || 'Atelier Advice'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {inq.description && (
+                        <p className="text-xs text-[#524B45] italic">&ldquo;{inq.description}&rdquo;</p>
+                      )}
+
+                      <div className="flex justify-between items-center pt-2">
+                        {inq.referenceImages && inq.referenceImages[0] ? (
+                          <a
+                            href={inq.referenceImages[0]}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-[#B85D38] hover:underline flex items-center gap-1"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>View Reference Media</span>
+                          </a>
+                        ) : (
+                          <span className="text-xs text-[#8F8880]">No reference link attached</span>
+                        )}
+
+                        <a
+                          href={whatsappUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 rounded-full bg-[#2A2624] text-white text-xs font-medium flex items-center gap-1.5"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
+                          <span>Respond on WhatsApp</span>
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- TAB 4: CATEGORIES & SUBCATEGORIES ----------------- */}
+        {activeTab === 'categories' && (
+          <CategoriesManagement />
+        )}
+
+        {/* ----------------- TAB 5: COLLECTIONS ----------------- */}
+        {activeTab === 'collections' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
+                  Editorial Curated Collections
+                </h3>
+                <p className="text-xs text-[#736B63]">
+                  Themed design narratives showcasing coordinated sculptural pieces.
+                </p>
+              </div>
+              <button
+                onClick={handleNewCollection}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Collection</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {collections.map((col) => (
+                <div
+                  key={col.id}
+                  className="p-5 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4"
+                >
+                  <div className="relative aspect-[16/9] rounded-xl overflow-hidden bg-[#EFEBE3]">
+                    <Image
+                      src={col.coverImage}
+                      alt={col.name}
+                      fill
+                      className="object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    {col.isFeatured && (
+                      <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-[#1C1A19] text-white text-[10px] uppercase tracking-wider font-medium">
+                        Featured on Home
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase tracking-widest text-[#B85D38] font-semibold">
+                      {col.subtitle}
+                    </span>
+                    <h4 className="text-base font-semibold text-[#1C1A19]">{col.name}</h4>
+                    <p className="text-xs text-[#736B63] line-clamp-2">{col.description}</p>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#EAE4DC] flex justify-between items-center">
+                    <span className="text-xs text-[#8F8880]">
+                      {products.filter((p) => p.collectionId === col.id).length} pieces assigned
+                    </span>
+                    <div className="space-x-1">
+                      <button
+                        onClick={() => {
+                          setEditingCollection(col);
+                          setIsCollectionModalOpen(true);
+                        }}
+                        className="p-1.5 text-[#524B45] hover:text-[#1C1A19]"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete collection "${col.name}"?`)) {
+                            deleteCollection(col.id);
+                          }
+                        }}
+                        className="p-1.5 text-[#B85D38] hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- TAB 6: EVENTS ----------------- */}
+        {activeTab === 'events' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
+                  Exhibitions & Showcases
+                </h3>
+                <p className="text-xs text-[#736B63]">
+                  Manage presence at Cairo Design Week, pop-ups, and atelier salon viewings.
+                </p>
+              </div>
+              <button
+                onClick={handleNewEvent}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Event</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {events.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="p-5 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4"
+                >
+                  <div className="relative aspect-[16/9] rounded-xl overflow-hidden bg-[#EFEBE3]">
+                    <Image
+                      src={ev.coverImage}
+                      alt={ev.title}
+                      fill
+                      className="object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-white/90 text-[10px] uppercase font-semibold text-[#1C1A19]">
+                      {ev.isUpcoming ? 'Upcoming' : 'Past'}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[11px] text-[#B85D38] font-mono block">
+                      {ev.date} · {ev.location}
+                    </span>
+                    <h4 className="text-base font-semibold text-[#1C1A19]">{ev.title}</h4>
+                    <p className="text-xs text-[#736B63] line-clamp-2">{ev.description}</p>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#EAE4DC] flex justify-end gap-1">
+                    <button
+                      onClick={() => {
+                        setEditingEvent(ev);
+                        setIsEventModalOpen(true);
+                      }}
+                      className="p-1.5 text-[#524B45] hover:text-[#1C1A19]"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Delete event "${ev.title}"?`)) {
+                          deleteEvent(ev.id);
+                        }
+                      }}
+                      className="p-1.5 text-[#B85D38] hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- TAB 7: PROJECTS ----------------- */}
+        {activeTab === 'projects' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
+                  In Their Space (Architectural Portfolio)
+                </h3>
+                <p className="text-xs text-[#736B63]">
+                  Showcase real residential and hospitality installations.
+                </p>
+              </div>
+              <button
+                onClick={handleNewProject}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Project</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.map((proj) => (
+                <div
+                  key={proj.id}
+                  className="p-5 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4"
+                >
+                  <div className="relative aspect-[16/9] rounded-xl overflow-hidden bg-[#EFEBE3]">
+                    <Image
+                      src={proj.coverImage}
+                      alt={proj.title}
+                      fill
+                      className="object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase tracking-widest text-[#B85D38] font-semibold">
+                      {proj.subtitle} · {proj.location}
+                    </span>
+                    <h4 className="text-base font-semibold text-[#1C1A19]">{proj.title}</h4>
+                    <p className="text-xs text-[#736B63] line-clamp-2">{proj.description}</p>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#EAE4DC] flex justify-end gap-1">
+                    <button
+                      onClick={() => {
+                        setEditingProject(proj);
+                        setIsProjectModalOpen(true);
+                      }}
+                      className="p-1.5 text-[#524B45] hover:text-[#1C1A19]"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Delete project "${proj.title}"?`)) {
+                          deleteProject(proj.id);
+                        }
+                      }}
+                      className="p-1.5 text-[#B85D38] hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- TAB 8: SETTINGS & CMS ----------------- */}
+        {activeTab === 'settings' && (
+          <div className="space-y-8 max-w-3xl">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
+                Global Atelier & Payment Settings
+              </h3>
+              <p className="text-xs text-[#736B63]">
+                Manage deposit percentage, InstaPay handle, Mobile Wallet, and contact information.
+              </p>
+            </div>
+
+            {/* Deposit & Lead Time Configuration */}
+            <div className="p-6 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4">
+              <h4 className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
+                Deposit & Production Parameters
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="block text-[#736B63] mb-1">Handcrafted Deposit Percentage (%)</label>
+                  <input
+                    type="number"
+                    value={settings.depositPercentage}
+                    onChange={(e) => updateSettings({ depositPercentage: Number(e.target.value) })}
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#736B63] mb-1">Default Production Lead Time</label>
+                  <input
+                    type="text"
+                    value={settings.defaultLeadTime}
+                    onChange={(e) => updateSettings({ defaultLeadTime: e.target.value })}
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Methods Configuration */}
+            <div className="p-6 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4">
+              <h4 className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
+                Payment Channels (InstaPay, Wallet & Bank)
+              </h4>
+
+              {/* InstaPay */}
+              <div className="space-y-2 text-xs">
+                <label className="block font-medium text-[#1C1A19]">InstaPay IPA / Address</label>
+                <input
+                  type="text"
+                  value={settings.paymentMethods.instapay.address}
+                  onChange={(e) =>
+                    updateSettings({
+                      paymentMethods: {
+                        ...settings.paymentMethods,
+                        instapay: { ...settings.paymentMethods.instapay, address: e.target.value },
+                      },
+                    })
+                  }
+                  className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                />
+              </div>
+
+              {/* Mobile Wallet */}
+              <div className="space-y-2 text-xs">
+                <label className="block font-medium text-[#1C1A19]">Vodafone Cash / Mobile Wallet</label>
+                <input
+                  type="text"
+                  value={settings.paymentMethods.mobileWallet.number}
+                  onChange={(e) =>
+                    updateSettings({
+                      paymentMethods: {
+                        ...settings.paymentMethods,
+                        mobileWallet: {
+                          ...settings.paymentMethods.mobileWallet,
+                          number: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                  className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                />
+              </div>
+
+              {/* Bank Wire */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
+                <div>
+                  <label className="block text-[#736B63] mb-1">Bank Name</label>
+                  <input
+                    type="text"
+                    value={settings.paymentMethods.bankTransfer.bankName}
+                    onChange={(e) =>
+                      updateSettings({
+                        paymentMethods: {
+                          ...settings.paymentMethods,
+                          bankTransfer: {
+                            ...settings.paymentMethods.bankTransfer,
+                            bankName: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#736B63] mb-1">Account Name</label>
+                  <input
+                    type="text"
+                    value={settings.paymentMethods.bankTransfer.accountHolder || settings.paymentMethods.bankTransfer.accountName || ''}
+                    onChange={(e) =>
+                      updateSettings({
+                        paymentMethods: {
+                          ...settings.paymentMethods,
+                          bankTransfer: {
+                            ...settings.paymentMethods.bankTransfer,
+                            accountHolder: e.target.value,
+                            accountName: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#736B63] mb-1">Account Number</label>
+                  <input
+                    type="text"
+                    value={settings.paymentMethods.bankTransfer.accountNumber}
+                    onChange={(e) =>
+                      updateSettings({
+                        paymentMethods: {
+                          ...settings.paymentMethods,
+                          bankTransfer: {
+                            ...settings.paymentMethods.bankTransfer,
+                            accountNumber: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#736B63] mb-1">IBAN</label>
+                  <input
+                    type="text"
+                    value={settings.paymentMethods.bankTransfer.iban}
+                    onChange={(e) =>
+                      updateSettings({
+                        paymentMethods: {
+                          ...settings.paymentMethods,
+                          bankTransfer: {
+                            ...settings.paymentMethods.bankTransfer,
+                            iban: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Details */}
+            <div className="p-6 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4">
+              <h4 className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
+                Atelier Concierge Contact
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="block text-[#736B63] mb-1">WhatsApp Concierge Number</label>
+                  <input
+                    type="text"
+                    value={settings.contact.whatsapp}
+                    onChange={(e) =>
+                      updateSettings({
+                        contact: { ...settings.contact, whatsapp: e.target.value },
+                      })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#736B63] mb-1">Instagram Handle</label>
+                  <input
+                    type="text"
+                    value={settings.contact.instagramHandle}
+                    onChange={(e) =>
+                      updateSettings({
+                        contact: { ...settings.contact, instagramHandle: e.target.value },
+                      })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#736B63] mb-1">Concierge Email</label>
+                  <input
+                    type="text"
+                    value={settings.contact.email}
+                    onChange={(e) =>
+                      updateSettings({
+                        contact: { ...settings.contact, email: e.target.value },
+                      })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#736B63] mb-1">Direct Phone</label>
+                  <input
+                    type="text"
+                    value={settings.contact.phone}
+                    onChange={(e) =>
+                      updateSettings({
+                        contact: { ...settings.contact, phone: e.target.value },
+                      })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[#736B63] mb-1">Atelier Address</label>
+                  <input
+                    type="text"
+                    value={settings.contact.atelierAddress}
+                    onChange={(e) =>
+                      updateSettings({
+                        contact: { ...settings.contact, atelierAddress: e.target.value },
+                      })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- MODAL: EDIT PRODUCT ----------------- */}
+        {isProductModalOpen && editingProduct && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 my-8 border border-[#EAE4DC] shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center pb-4 border-b border-[#EAE4DC]">
+                <h3 className="text-lg font-medium text-[#1C1A19]">
+                  {editingProduct.name ? `Edit: ${editingProduct.name}` : 'Create New Design Piece'}
+                </h3>
+                <button
+                  onClick={() => setIsProductModalOpen(false)}
+                  className="p-1 text-[#736B63] hover:text-[#1C1A19]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Piece Title *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editingProduct.name}
+                      onChange={(e) =>
+                        setEditingProduct({
+                          ...editingProduct,
+                          name: e.target.value,
+                          slug: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                        })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Category</label>
+                    <select
+                      value={editingProduct.categoryId}
+                      onChange={(e) =>
+                        setEditingProduct({ ...editingProduct, categoryId: e.target.value })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    >
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Pricing Mode & Price */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE4DC]">
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Pricing Mode</label>
+                    <select
+                      value={editingProduct.pricingMode}
+                      onChange={(e) =>
+                        setEditingProduct({
+                          ...editingProduct,
+                          pricingMode: e.target.value as PricingMode,
+                        })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    >
+                      <option value="fixed">Fixed Price (with 50% Deposit)</option>
+                      <option value="on_demand">Price on Demand (WhatsApp Inquiry)</option>
+                    </select>
+                  </div>
+
+                  {editingProduct.pricingMode === 'fixed' && (
+                    <div>
+                      <label className="block text-[#1C1A19] font-medium mb-1">Price (EGP)</label>
+                      <input
+                        type="number"
+                        value={editingProduct.price || 0}
+                        onChange={(e) =>
+                          setEditingProduct({
+                            ...editingProduct,
+                            price: Number(e.target.value),
+                          })
+                        }
+                        className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-[#1C1A19] font-medium mb-1">Short Description</label>
+                  <input
+                    type="text"
+                    value={editingProduct.shortDescription}
+                    onChange={(e) =>
+                      setEditingProduct({ ...editingProduct, shortDescription: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#1C1A19] font-medium mb-1">
+                    Detailed Editorial Narrative
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={editingProduct.detailedDescription}
+                    onChange={(e) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        detailedDescription: e.target.value,
+                      })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Dimensions</label>
+                    <input
+                      type="text"
+                      value={editingProduct.dimensions}
+                      onChange={(e) =>
+                        setEditingProduct({ ...editingProduct, dimensions: e.target.value })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Weight</label>
+                    <input
+                      type="text"
+                      value={editingProduct.weight || ''}
+                      onChange={(e) =>
+                        setEditingProduct({ ...editingProduct, weight: e.target.value })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    />
+                  </div>
+                </div>
+
+                {/* Direct Cloudinary Image Uploader & Gallery */}
+                <div className="pt-2">
+                  <CloudinaryImageUploader
+                    productId={editingProduct.id}
+                    images={editingProduct.images || []}
+                    onImagesChange={(newImages) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        images: newImages,
+                      })
+                    }
+                  />
+
+                  {/* Optional Direct URL Fallback */}
+                  <div className="mt-3 pt-3 border-t border-[#EAE4DC]/60">
+                    <label className="block text-[#736B63] text-[11px] mb-1">
+                      Or add/edit primary image URL directly:
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="https://images.unsplash.com/..."
+                      value={editingProduct.images[0] || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const rest = (editingProduct.images || []).slice(1);
+                        setEditingProduct({
+                          ...editingProduct,
+                          images: val ? [val, ...rest] : rest,
+                        });
+                      }}
+                      className="w-full p-2 text-xs rounded-lg border border-[#D8CEBF] font-mono bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-6 pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingProduct.isFeatured}
+                      onChange={(e) =>
+                        setEditingProduct({ ...editingProduct, isFeatured: e.target.checked })
+                      }
+                      className="rounded border-[#D8CEBF]"
+                    />
+                    <span>Feature on Homepage</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingProduct.isPublished}
+                      onChange={(e) =>
+                        setEditingProduct({ ...editingProduct, isPublished: e.target.checked })
+                      }
+                      className="rounded border-[#D8CEBF]"
+                    />
+                    <span>Published in Catalog</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-[#EAE4DC] flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsProductModalOpen(false)}
+                  className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editingProduct.name.trim()) {
+                      saveProduct(editingProduct);
+                      setIsProductModalOpen(false);
+                    }
+                  }}
+                  className="px-6 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium"
+                >
+                  Save Piece
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- MODAL: EDIT CATEGORY ----------------- */}
+        {isCategoryModalOpen && editingCategory && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#EAE4DC] shadow-xl">
+              <h3 className="text-base font-medium text-[#1C1A19]">Category Details</h3>
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Category Name</label>
+                  <input
+                    type="text"
+                    value={editingCategory.name}
+                    onChange={(e) =>
+                      setEditingCategory({ ...editingCategory, name: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Description</label>
+                  <textarea
+                    rows={2}
+                    value={editingCategory.description}
+                    onChange={(e) =>
+                      setEditingCategory({ ...editingCategory, description: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Cover Image URL</label>
+                  <input
+                    type="text"
+                    value={editingCategory.image}
+                    onChange={(e) =>
+                      setEditingCategory({ ...editingCategory, image: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                  />
+                </div>
+              </div>
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editingCategory.name.trim()) {
+                      saveCategory(editingCategory);
+                      setIsCategoryModalOpen(false);
+                    }
+                  }}
+                  className="px-5 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider"
+                >
+                  Save Category
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- MODAL: EDIT COLLECTION ----------------- */}
+        {isCollectionModalOpen && editingCollection && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#EAE4DC] shadow-xl">
+              <h3 className="text-base font-medium text-[#1C1A19]">Collection Narrative</h3>
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Collection Name</label>
+                  <input
+                    type="text"
+                    value={editingCollection.name}
+                    onChange={(e) =>
+                      setEditingCollection({ ...editingCollection, name: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Subtitle / Edition</label>
+                  <input
+                    type="text"
+                    value={editingCollection.subtitle}
+                    onChange={(e) =>
+                      setEditingCollection({ ...editingCollection, subtitle: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Theme Description</label>
+                  <textarea
+                    rows={3}
+                    value={editingCollection.description}
+                    onChange={(e) =>
+                      setEditingCollection({ ...editingCollection, description: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Cover Image URL</label>
+                  <input
+                    type="text"
+                    value={editingCollection.coverImage}
+                    onChange={(e) =>
+                      setEditingCollection({ ...editingCollection, coverImage: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                  />
+                </div>
+                <div className="pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingCollection.isFeatured}
+                      onChange={(e) =>
+                        setEditingCollection({ ...editingCollection, isFeatured: e.target.checked })
+                      }
+                      className="rounded border-[#D8CEBF]"
+                    />
+                    <span>Feature as Primary Showcase on Homepage</span>
+                  </label>
+                </div>
+              </div>
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCollectionModalOpen(false)}
+                  className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editingCollection.name.trim()) {
+                      saveCollection(editingCollection);
+                      setIsCollectionModalOpen(false);
+                    }
+                  }}
+                  className="px-5 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider"
+                >
+                  Save Collection
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- MODAL: EDIT EVENT ----------------- */}
+        {isEventModalOpen && editingEvent && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#EAE4DC] shadow-xl">
+              <h3 className="text-base font-medium text-[#1C1A19]">Event Details</h3>
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Exhibition Title</label>
+                  <input
+                    type="text"
+                    value={editingEvent.title}
+                    onChange={(e) => setEditingEvent({ ...editingEvent, title: e.target.value })}
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[#1C1A19] mb-1">Location</label>
+                    <input
+                      type="text"
+                      value={editingEvent.location}
+                      onChange={(e) =>
+                        setEditingEvent({ ...editingEvent, location: e.target.value })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#1C1A19] mb-1">Date</label>
+                    <input
+                      type="text"
+                      value={editingEvent.date}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, date: e.target.value })}
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Cover Image URL</label>
+                  <input
+                    type="text"
+                    value={editingEvent.coverImage}
+                    onChange={(e) =>
+                      setEditingEvent({ ...editingEvent, coverImage: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Description</label>
+                  <textarea
+                    rows={3}
+                    value={editingEvent.description}
+                    onChange={(e) =>
+                      setEditingEvent({ ...editingEvent, description: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+              </div>
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEventModalOpen(false)}
+                  className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editingEvent.title.trim()) {
+                      saveEvent(editingEvent);
+                      setIsEventModalOpen(false);
+                    }
+                  }}
+                  className="px-5 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider"
+                >
+                  Save Event
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- MODAL: EDIT PROJECT ----------------- */}
+        {isProjectModalOpen && editingProject && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#EAE4DC] shadow-xl">
+              <h3 className="text-base font-medium text-[#1C1A19]">Project Architecture</h3>
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Project Name</label>
+                  <input
+                    type="text"
+                    value={editingProject.title}
+                    onChange={(e) => setEditingProject({ ...editingProject, title: e.target.value })}
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[#1C1A19] mb-1">Subtitle</label>
+                    <input
+                      type="text"
+                      value={editingProject.subtitle}
+                      onChange={(e) =>
+                        setEditingProject({ ...editingProject, subtitle: e.target.value })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#1C1A19] mb-1">Location</label>
+                    <input
+                      type="text"
+                      value={editingProject.location}
+                      onChange={(e) =>
+                        setEditingProject({ ...editingProject, location: e.target.value })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Cover Image URL</label>
+                  <input
+                    type="text"
+                    value={editingProject.coverImage}
+                    onChange={(e) =>
+                      setEditingProject({ ...editingProject, coverImage: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Description</label>
+                  <textarea
+                    rows={3}
+                    value={editingProject.description}
+                    onChange={(e) =>
+                      setEditingProject({ ...editingProject, description: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+              </div>
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsProjectModalOpen(false)}
+                  className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editingProject.title.trim()) {
+                      saveProject(editingProject);
+                      setIsProjectModalOpen(false);
+                    }
+                  }}
+                  className="px-5 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider"
+                >
+                  Save Project
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* ----------------- MODAL: EDIT BANNER ----------------- */}
+        {isBannerModalOpen && editingBanner && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl max-w-xl w-full p-6 sm:p-8 space-y-5 my-8 border border-[#EAE4DC] shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center pb-4 border-b border-[#EAE4DC]">
+                <h3 className="text-lg font-medium text-[#1C1A19]">
+                  {editingBanner.title ? `Edit: ${editingBanner.title}` : 'Create New Banner Highlight'}
+                </h3>
+                <button
+                  onClick={() => setIsBannerModalOpen(false)}
+                  className="p-1 text-[#736B63] hover:text-[#1C1A19]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Banner Type *</label>
+                    <select
+                      value={editingBanner.type}
+                      onChange={(e) => {
+                        const t = e.target.value as any;
+                        let catLabel = 'New Release';
+                        if (t === 'special_offer') catLabel = 'Atelier Privilege';
+                        if (t === 'upcoming_event') catLabel = 'Design Event';
+                        if (t === 'custom_service') catLabel = 'Bespoke Studio';
+                        setEditingBanner({
+                          ...editingBanner,
+                          type: t,
+                          categoryLabel: catLabel,
+                        });
+                      }}
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF] bg-white"
+                    >
+                      <option value="new_product">منتج جديد (New Piece / Product)</option>
+                      <option value="special_offer">اوفر وعرض استثنائي (Special Privilege / Offer)</option>
+                      <option value="upcoming_event">ايفنت ومعرض (Upcoming Event / Exhibition)</option>
+                      <option value="custom_service">تنفيذ وتفصيل خاص (Bespoke Commission)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Badge Text *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. NEW RELEASE · 2026 EDITION"
+                      value={editingBanner.badgeText}
+                      onChange={(e) =>
+                        setEditingBanner({ ...editingBanner, badgeText: e.target.value })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[#1C1A19] font-medium mb-1">Banner Title *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. The Solis Monumental Dining Table"
+                    value={editingBanner.title}
+                    onChange={(e) =>
+                      setEditingBanner({ ...editingBanner, title: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#1C1A19] font-medium mb-1">Subtitle / Description *</label>
+                  <textarea
+                    rows={2}
+                    required
+                    placeholder="Describe the highlight piece, event details, or promotional terms..."
+                    value={editingBanner.subtitle}
+                    onChange={(e) =>
+                      setEditingBanner({ ...editingBanner, subtitle: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Highlight Pill / Tag</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Oct 14-18, New Cairo or Code: TOCCOWHITE"
+                      value={editingBanner.tagHighlight || ''}
+                      onChange={(e) =>
+                        setEditingBanner({ ...editingBanner, tagHighlight: e.target.value })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Promo Code (if offer)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. TOCCOWHITE"
+                      value={editingBanner.promoCode || ''}
+                      onChange={(e) =>
+                        setEditingBanner({
+                          ...editingBanner,
+                          promoCode: e.target.value,
+                          actionType: e.target.value ? 'copy_code' : 'navigate',
+                        })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Button CTA Text *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Explore New Piece"
+                      value={editingBanner.ctaText}
+                      onChange={(e) =>
+                        setEditingBanner({ ...editingBanner, ctaText: e.target.value })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Target Page</label>
+                    <select
+                      value={editingBanner.targetView || 'shop'}
+                      onChange={(e) =>
+                        setEditingBanner({ ...editingBanner, targetView: e.target.value })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF] bg-white"
+                    >
+                      <option value="shop">Catalogue (Shop)</option>
+                      <option value="collections">Collections</option>
+                      <option value="events">Events & Exhibitions</option>
+                      <option value="custom-design">Custom Design (Bespoke)</option>
+                      <option value="our-story">Our Story</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[#1C1A19] font-medium mb-1">Background Image URL</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingBanner.image}
+                    onChange={(e) =>
+                      setEditingBanner({ ...editingBanner, image: e.target.value })
+                    }
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingBanner.isActive}
+                      onChange={(e) =>
+                        setEditingBanner({ ...editingBanner, isActive: e.target.checked })
+                      }
+                      className="rounded border-[#D8CEBF]"
+                    />
+                    <span className="font-medium text-[#1C1A19]">Active (Display on Homepage)</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-[#EAE4DC] flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsBannerModalOpen(false)}
+                  className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editingBanner.title.trim()) {
+                      saveBanner(editingBanner);
+                      setIsBannerModalOpen(false);
+                    }
+                  }}
+                  className="px-6 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D]"
+                >
+                  Save Banner
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

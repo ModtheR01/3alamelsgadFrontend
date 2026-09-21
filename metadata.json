@@ -1,0 +1,6 @@
+{
+  "name": "Tocco House",
+  "description": "Contemporary Egyptian design house specializing in distinctive fiberglass furniture, sculptural pieces, and architectural design objects.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
