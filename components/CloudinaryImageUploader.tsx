@@ -239,25 +239,19 @@ export default function CloudinaryImageUploader({
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Header & Direct Upload Indicator */}
+      {/* Header & Signed Upload Indicator */}
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
             <label className="block text-sm font-medium text-[#1C1A19]">
-              Product Images & Direct Cloudinary Storage
+              Product Images & Signed Cloudinary Storage
             </label>
-            {customCloudName.trim() && customPreset.trim() ? (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Cloudinary Live
-              </span>
-            ) : (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                Local Simulation
-              </span>
-            )}
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Signed Cloudinary Upload
+            </span>
           </div>
           <p className="text-xs text-[#736B63] mt-0.5">
-            Images upload directly from the browser to Cloudinary. Server only stores metadata.
+            Images are uploaded through the server-side signed Cloudinary flow.
           </p>
         </div>
         <button
@@ -275,7 +269,7 @@ export default function CloudinaryImageUploader({
       {showConfig && (
         <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE4DC] text-xs space-y-3">
           <div className="flex items-center justify-between">
-            <span className="font-medium text-[#1C1A19]">Cloudinary Direct Upload Credentials</span>
+            <span className="font-medium text-[#1C1A19]">Cloudinary Upload Settings</span>
             <span className="px-2 py-0.5 rounded-full bg-[#EFECE6] text-[#736B63] text-[10px] font-mono">
               Folder: tocco/products
             </span>
@@ -292,7 +286,7 @@ export default function CloudinaryImageUploader({
               />
             </div>
             <div>
-              <label className="block text-[#736B63] mb-1">Upload Preset (Unsigned)</label>
+              <label className="block text-[#736B63] mb-1">Legacy Preset (Unused)</label>
               <input
                 type="text"
                 placeholder="e.g. tocco_unsigned"
@@ -304,7 +298,7 @@ export default function CloudinaryImageUploader({
           </div>
           <div className="flex items-center justify-between pt-1">
             <p className="text-[11px] text-[#8C827A]">
-              Note: If left empty in dev mode, uploads gracefully run with simulated Cloudinary storage.
+              Uploads use server-side credentials; the Cloudinary API secret never reaches the browser.
             </p>
             <button
               type="button"

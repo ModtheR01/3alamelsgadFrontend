@@ -1,15 +1,8 @@
 /**
- * Direct Cloudinary Image Upload Utility
+ * Signed Cloudinary image upload utility.
  *
- * Uploads images directly from the browser to Cloudinary.
- * The Django backend never receives, processes, or proxies the raw image file.
- *
- * Supports:
- * - Unsigned uploads via NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
- * - Signed uploads via /api/cloudinary/sign (keeping API secret on server)
- * - Granular client-side file validation (type, size)
- * - Real-time progress monitoring (0-100%)
- * - Extraction of secure_url, public_id, format, dimensions
+ * The browser sends the file to the Next.js route. The route keeps the
+ * Cloudinary secret server-side, signs the request, and forwards the file.
  */
 
 export interface CloudinaryUploadResult {
@@ -31,6 +24,7 @@ export interface CloudinaryUploadOptions {
   folder?: string;
   onProgress?: UploadProgressCallback;
   maxSizeInBytes?: number;
+  preserveAspectRatio?: boolean;
 }
 
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -110,72 +104,23 @@ export function validateImageFile(file: File, maxSizeInBytes: number = DEFAULT_M
   }
 }
 
-/**
- * Uploads an image file directly to Cloudinary
- */
+/** Uploads an image through the server-side signed Cloudinary route. */
 export async function uploadDirectToCloudinary(
   file: File,
   options: CloudinaryUploadOptions = {}
 ): Promise<CloudinaryUploadResult> {
-  // 1. Client-side validation
   validateImageFile(file, options.maxSizeInBytes || DEFAULT_MAX_SIZE);
 
-  const cloudName = cloudinaryConfig.getCloudName();
-  const uploadPreset = cloudinaryConfig.getUploadPreset();
-  const folder = options.folder || cloudinaryConfig.getFolder();
-
-  // 2. Prepare Form Data
   const formData = new FormData();
-  formData.append('file', file);
-
-  let endpointUrl = '';
-
-  if (cloudName && uploadPreset) {
-    // Standard Unsigned Upload with configured preset
-    endpointUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
-    formData.append('upload_preset', uploadPreset);
-    if (folder) {
-      formData.append('folder', folder);
-    }
-  } else {
-    // Attempt Server Signature if Cloudinary API secret is configured in Next.js backend
-    try {
-      const signRes = await fetch('/api/cloudinary/sign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folder }),
-      });
-
-      if (signRes.ok) {
-        const signData = await signRes.json();
-        endpointUrl = `https://api.cloudinary.com/v1_1/${signData.cloud_name}/image/upload`;
-        formData.append('api_key', signData.api_key);
-        formData.append('timestamp', signData.timestamp);
-        formData.append('signature', signData.signature);
-        formData.append('folder', signData.folder);
-      } else {
-        const errJson = await signRes.json().catch(() => ({}));
-        throw new Error(errJson.message || 'Signature not available');
-      }
-    } catch {
-      // In mock/test mode without live Cloudinary keys, gracefully simulate the direct upload
-      if (
-        typeof window !== 'undefined' &&
-        (process.env.NEXT_PUBLIC_API_MODE === 'mock' || !cloudinaryConfig.isConfigured())
-      ) {
-        return simulateDirectUpload(file, options);
-      }
-
-      throw new Error(
-        'Cloudinary is not configured. Please set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET in your environment variables, or configure them in the developer console.'
-      );
-    }
+  formData.append('file', file, file.name);
+  if (options.folder) {
+    formData.append('folder', options.folder);
   }
+  formData.append('preserve_aspect_ratio', String(options.preserveAspectRatio ?? false));
 
-  // 3. Upload via XMLHttpRequest to capture accurate upload progress
   return new Promise<CloudinaryUploadResult>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', endpointUrl);
+    xhr.open('POST', '/api/cloudinary/upload');
 
     if (options.onProgress) {
       xhr.upload.onprogress = (event) => {
@@ -189,10 +134,16 @@ export async function uploadDirectToCloudinary(
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
-          const response = JSON.parse(xhr.responseText);
+          const response = JSON.parse(xhr.responseText) as Partial<CloudinaryUploadResult> & {
+            message?: string;
+          };
+          if (!response.url || !response.public_id) {
+            reject(new Error(response.message || 'Cloudinary returned an incomplete upload response.'));
+            return;
+          }
           resolve({
             secure_url: response.secure_url || response.url,
-            url: response.url || response.secure_url,
+            url: response.url,
             public_id: response.public_id,
             resource_type: response.resource_type || 'image',
             format: response.format || '',
@@ -207,7 +158,9 @@ export async function uploadDirectToCloudinary(
         let errorMessage = `Cloudinary upload failed (HTTP ${xhr.status})`;
         try {
           const errPayload = JSON.parse(xhr.responseText);
-          if (errPayload.error?.message) {
+          if (errPayload.message) {
+            errorMessage = errPayload.message;
+          } else if (errPayload.error?.message) {
             errorMessage = errPayload.error.message;
           }
         } catch {
@@ -226,40 +179,5 @@ export async function uploadDirectToCloudinary(
     };
 
     xhr.send(formData);
-  });
-}
-
-/**
- * Simulates direct image upload for development/testing when Cloudinary credentials are not configured.
- * Generates an accurate CloudinaryUploadResult with base64 Data URL and step-wise progress updates.
- */
-async function simulateDirectUpload(
-  file: File,
-  options: CloudinaryUploadOptions = {}
-): Promise<CloudinaryUploadResult> {
-  const steps = [15, 45, 75, 100];
-  for (const step of steps) {
-    await new Promise((resolve) => setTimeout(resolve, 120));
-    options.onProgress?.(step);
-  }
-
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      const cleanName = file.name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
-      resolve({
-        secure_url: dataUrl,
-        url: dataUrl,
-        public_id: `tocco/products/${cleanName}_${Date.now()}`,
-        resource_type: 'image',
-        format: file.type.split('/')[1] || 'jpg',
-        width: 1200,
-        height: 900,
-        bytes: file.size,
-      });
-    };
-    reader.onerror = () => reject(new Error('Failed to read image file for simulation.'));
-    reader.readAsDataURL(file);
   });
 }

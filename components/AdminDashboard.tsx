@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useToccoStore } from '@/lib/store';
 import CategoriesManagement from '@/components/CategoriesManagement';
 import CloudinaryImageUploader from '@/components/CloudinaryImageUploader';
+import CloudinaryImageField from '@/components/CloudinaryImageField';
 import {
   Product,
   Category,
@@ -1673,17 +1674,12 @@ export default function AdminDashboard() {
                     className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
                   />
                 </div>
-                <div>
-                  <label className="block text-[#1C1A19] mb-1">Cover Image URL</label>
-                  <input
-                    type="text"
-                    value={editingCategory.image}
-                    onChange={(e) =>
-                      setEditingCategory({ ...editingCategory, image: e.target.value })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
-                  />
-                </div>
+                <CloudinaryImageField
+                  label="Cover Image"
+                  value={editingCategory.image}
+                  folder="tocco/categories"
+                  onChange={(image) => setEditingCategory({ ...editingCategory, image })}
+                />
               </div>
               <div className="pt-2 flex justify-end gap-2">
                 <button
@@ -1749,17 +1745,12 @@ export default function AdminDashboard() {
                     className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
                   />
                 </div>
-                <div>
-                  <label className="block text-[#1C1A19] mb-1">Cover Image URL</label>
-                  <input
-                    type="text"
-                    value={editingCollection.coverImage}
-                    onChange={(e) =>
-                      setEditingCollection({ ...editingCollection, coverImage: e.target.value })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
-                  />
-                </div>
+                <CloudinaryImageField
+                  label="Cover Image"
+                  value={editingCollection.coverImage}
+                  folder="tocco/collections"
+                  onChange={(coverImage) => setEditingCollection({ ...editingCollection, coverImage })}
+                />
                 <div className="pt-1">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -1836,17 +1827,12 @@ export default function AdminDashboard() {
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-[#1C1A19] mb-1">Cover Image URL</label>
-                  <input
-                    type="text"
-                    value={editingEvent.coverImage}
-                    onChange={(e) =>
-                      setEditingEvent({ ...editingEvent, coverImage: e.target.value })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
-                  />
-                </div>
+                <CloudinaryImageField
+                  label="Cover Image"
+                  value={editingEvent.coverImage}
+                  folder="tocco/events"
+                  onChange={(coverImage) => setEditingEvent({ ...editingEvent, coverImage })}
+                />
                 <div>
                   <label className="block text-[#1C1A19] mb-1">Description</label>
                   <textarea
@@ -1923,17 +1909,12 @@ export default function AdminDashboard() {
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-[#1C1A19] mb-1">Cover Image URL</label>
-                  <input
-                    type="text"
-                    value={editingProject.coverImage}
-                    onChange={(e) =>
-                      setEditingProject({ ...editingProject, coverImage: e.target.value })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
-                  />
-                </div>
+                <CloudinaryImageField
+                  label="Cover Image"
+                  value={editingProject.coverImage}
+                  folder="tocco/projects"
+                  onChange={(coverImage) => setEditingProject({ ...editingProject, coverImage })}
+                />
                 <div>
                   <label className="block text-[#1C1A19] mb-1">Description</label>
                   <textarea
@@ -2121,18 +2102,13 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[#1C1A19] font-medium mb-1">Background Image URL</label>
-                  <input
-                    type="text"
-                    required
-                    value={editingBanner.image}
-                    onChange={(e) =>
-                      setEditingBanner({ ...editingBanner, image: e.target.value })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
-                  />
-                </div>
+                <CloudinaryImageField
+                  label="Background Image"
+                  required
+                  value={editingBanner.image}
+                  folder="tocco/banners"
+                  onChange={(image) => setEditingBanner({ ...editingBanner, image })}
+                />
 
                 <div className="flex items-center gap-2 pt-2">
                   <label className="flex items-center gap-2 cursor-pointer">

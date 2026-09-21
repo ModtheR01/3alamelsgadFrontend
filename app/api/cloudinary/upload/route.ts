@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   const apiKey = process.env.CLOUDINARY_API_KEY;
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
-  const folder = process.env.CLOUDINARY_FOLDER || 'tocco/products';
+  const defaultFolder = process.env.CLOUDINARY_FOLDER || 'tocco/products';
 
   if (!cloudName || !apiKey || !apiSecret) {
     return Response.json({ message: 'Cloudinary is not configured.' }, { status: 500 });
@@ -25,6 +25,10 @@ export async function POST(request: Request) {
 
   const formData = await request.formData();
   const file = formData.get('file');
+  const requestedFolder = formData.get('folder');
+  const folder = typeof requestedFolder === 'string' && requestedFolder.trim()
+    ? requestedFolder.trim()
+    : defaultFolder;
   const preserveAspectRatio = formData.get('preserve_aspect_ratio') === 'true';
 
   if (!(file instanceof File)) {

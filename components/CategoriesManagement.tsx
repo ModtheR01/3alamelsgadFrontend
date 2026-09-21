@@ -13,6 +13,7 @@ import {
 import { categoryService, subcategoryService } from '@/lib/api/services/categoryService';
 import { normalizeApiError, NormalizedError } from '@/lib/api/errors';
 import { useToccoStore } from '@/lib/store';
+import CloudinaryImageField from '@/components/CloudinaryImageField';
 import {
   Folder,
   FolderPlus,
@@ -1109,15 +1110,20 @@ export default function CategoriesManagement() {
                 )}
               </div>
 
-              {/* Image URL with preview */}
+              {/* Image upload with preview */}
               <div>
-                <label className="block text-[#1C1A19] font-medium mb-1">Cover Image URL</label>
-                <input
-                  type="url"
-                  placeholder="https://images.unsplash.com/..."
+                <CloudinaryImageField
+                  label="Cover Image"
                   value={categoryFormData.image || ''}
-                  onChange={(e) => setCategoryFormData({ ...categoryFormData, image: e.target.value })}
-                  className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono text-[11px] text-[#1C1A19] focus:outline-none focus:border-[#1C1A19]"
+                  folder="tocco/categories"
+                  onChange={(image) => setCategoryFormData({ ...categoryFormData, image })}
+                  onUploadResult={(result) =>
+                    setCategoryFormData({
+                      ...categoryFormData,
+                      image: result.secure_url || result.url,
+                      public_id: result.public_id,
+                    })
+                  }
                 />
                 {categoryFormData.image && (
                   <div className="mt-2 relative aspect-[16/9] rounded-lg overflow-hidden border border-[#EAE4DC] bg-[#FAF8F5]">
@@ -1246,17 +1252,20 @@ export default function CategoriesManagement() {
                 )}
               </div>
 
-              {/* Image URL with preview */}
+              {/* Image upload with preview */}
               <div>
-                <label className="block text-[#1C1A19] font-medium mb-1">Image URL</label>
-                <input
-                  type="url"
-                  placeholder="https://images.unsplash.com/..."
+                <CloudinaryImageField
+                  label="Image"
                   value={subcategoryFormData.image || ''}
-                  onChange={(e) =>
-                    setSubcategoryFormData({ ...subcategoryFormData, image: e.target.value })
+                  folder="tocco/subcategories"
+                  onChange={(image) => setSubcategoryFormData({ ...subcategoryFormData, image })}
+                  onUploadResult={(result) =>
+                    setSubcategoryFormData({
+                      ...subcategoryFormData,
+                      image: result.secure_url || result.url,
+                      public_id: result.public_id,
+                    })
                   }
-                  className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono text-[11px] text-[#1C1A19] focus:outline-none focus:border-[#1C1A19]"
                 />
                 {subcategoryFormData.image && (
                   <div className="mt-2 relative aspect-[16/9] rounded-lg overflow-hidden border border-[#EAE4DC] bg-[#FAF8F5]">
