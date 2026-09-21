@@ -61,9 +61,20 @@ export async function POST(request: Request) {
 
   if (!cloudinaryResponse.ok) {
     const errorText = await cloudinaryResponse.text();
+    let cloudinaryMessage = 'Cloudinary upload failed.';
+    try {
+      const errorPayload = JSON.parse(errorText) as { error?: { message?: string } };
+      cloudinaryMessage = errorPayload.error?.message || cloudinaryMessage;
+    } catch {
+      // Keep the generic message when Cloudinary does not return JSON.
+    }
+
     return Response.json(
-      { message: 'Cloudinary upload failed.', details: errorText },
-      { status: 502 }
+      {
+        message: cloudinaryMessage,
+        details: errorText,
+      },
+      { status: cloudinaryResponse.status === 403 ? 403 : 502 }
     );
   }
 
