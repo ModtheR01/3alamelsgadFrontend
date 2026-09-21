@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useSyncExternalStore } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   BackendUser,
   ProfileResponse,
@@ -15,9 +15,7 @@ import {
 import { authService } from '../api/services/authService';
 import { userService } from '../api/services/userService';
 import { addressService } from '../api/services/addressService';
-import { apiConfig, ApiMode } from '../api/config';
 import { apiClient } from '../api/client';
-import { mockState, TestScenario } from '../api/mock/mockState';
 
 interface AuthContextType {
   user: BackendUser | null;
@@ -27,8 +25,6 @@ interface AuthContextType {
   isAddressesLoading: boolean;
   isAuthenticated: boolean;
   role: UserRole | null;
-  apiMode: ApiMode;
-  activeScenario: TestScenario;
 
   // Actions
   login: (data: LoginRequest) => Promise<void>;
@@ -45,22 +41,9 @@ interface AuthContextType {
   deleteAddress: (id: number) => Promise<void>;
   setDefaultAddress: (id: number) => Promise<void>;
 
-  // Developer / Mock Testing controls
-  switchApiMode: (mode: ApiMode) => void;
-  setScenario: (scenario: TestScenario) => void;
-  switchSimulatedUser: (role: UserRole) => void;
-  resetMockData: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
-
-const subscribeApiConfig = (onStoreChange: () => void) => apiConfig.subscribe(onStoreChange);
-const getApiMode = () => apiConfig.getMode();
-const getServerApiMode = () => 'mock' as ApiMode;
-
-const subscribeMockState = (onStoreChange: () => void) => mockState.subscribe(onStoreChange);
-const getScenario = () => mockState.getScenario();
-const getServerScenario = () => 'normal' as TestScenario;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<BackendUser | null>(null);
@@ -68,8 +51,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddressesLoading, setIsAddressesLoading] = useState(false);
-  const apiMode = useSyncExternalStore(subscribeApiConfig, getApiMode, getServerApiMode);
-  const activeScenario = useSyncExternalStore(subscribeMockState, getScenario, getServerScenario);
 
   const loadAddresses = useCallback(async () => {
     try {
@@ -238,26 +219,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await loadAddresses();
   };
 
-  // Testing controls
-  const switchApiMode = (mode: ApiMode) => {
-    apiConfig.setMode(mode);
-    initAuth();
-  };
-
-  const setScenario = (scenario: TestScenario) => {
-    mockState.setScenario(scenario);
-  };
-
-  const switchSimulatedUser = (role: UserRole) => {
-    mockState.switchSimulatedUser(role);
-    initAuth();
-  };
-
-  const resetMockData = () => {
-    mockState.resetMockData();
-    initAuth();
-  };
-
   const value: AuthContextType = {
     user,
     profile,
@@ -266,8 +227,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAddressesLoading,
     isAuthenticated: Boolean(user),
     role: user?.role || null,
-    apiMode,
-    activeScenario,
     login,
     register,
     logout,
@@ -279,10 +238,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updateAddress,
     deleteAddress,
     setDefaultAddress,
-    switchApiMode,
-    setScenario,
-    switchSimulatedUser,
-    resetMockData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

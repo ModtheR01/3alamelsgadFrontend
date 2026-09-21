@@ -16,19 +16,115 @@ import {
   PaymentStatus,
   PricingMode,
   BannerItem,
+  ProductFinish,
 } from '@/types';
 import { BackendOrder } from '@/types/order';
-import {
-  INITIAL_CATEGORIES,
-  INITIAL_COLLECTIONS,
-  INITIAL_PRODUCTS,
-  INITIAL_EVENTS,
-  INITIAL_PROJECTS,
-  INITIAL_STORE_SETTINGS,
-  INITIAL_BANNERS,
-} from './data';
+import { productService } from '@/lib/api/services/productService';
+import { categoryService } from '@/lib/api/services/categoryService';
+import { cartService } from '@/lib/api/services/cartService';
+import { orderService } from '@/lib/api/services/orderService';
+import { BackendProduct, BackendProductImage } from '@/types/product';
+import { BackendCategory } from '@/types/category';
+import { BackendCartItem } from '@/types/cart';
+import { eventService } from '@/lib/api/services/eventService';
+import { dashboardService } from '@/lib/api/services/dashboardService';
+import { BackendEvent } from '@/types/event';
 
-const STORAGE_KEY_PREFIX = 'tocco_house_v1_';
+const EMPTY_SETTINGS: StoreSettings = {
+  brandName: 'Tocco House',
+  tagline: '',
+  subTagline: '',
+  depositPercentage: 50,
+  defaultLeadTime: '',
+  defaultShippingTime: '',
+  contact: { phone: '', whatsapp: '', email: '', atelierAddress: '', instagramHandle: '', hours: '' },
+  paymentMethods: {
+    instapay: { active: false, address: '', accountName: '', instructions: '' },
+    mobileWallet: { active: false, number: '', provider: '', instructions: '' },
+    vodafoneCash: { active: false, number: '', instructions: '' },
+    bankTransfer: { active: false, bankName: '', accountNumber: '', iban: '', swift: '', accountHolder: '', instructions: '' },
+  },
+  homepage: { heroHeading: '', heroSubheading: '', heroCtaText: '', heroImage: '', featuredCollectionId: '', storyQuote: '', storySubtext: '' },
+  policies: { shipping: '', returns: '', privacy: '', terms: '', faq: [] },
+};
+
+function mapBackendProduct(product: BackendProduct): Product {
+  return {
+    id: String(product.id),
+    slug: String(product.id),
+    name: product.name,
+    categoryId: String(product.subcategory_ids[0] || ''),
+    collectionIds: [],
+    shortDescription: product.description,
+    detailedDescription: product.description,
+    pricingMode: 'fixed',
+    price: Number(product.price),
+    depositPercentage: 50,
+    images: product.images.map((image: BackendProductImage) => image.image),
+    dimensions: product.dimensions,
+    weight: product.height ? String(product.height) : '',
+    material: product.material,
+    finishes: product.finish ? [product.finish as ProductFinish] : [],
+    colors: product.colors.map((color) => ({ id: String(color.id), name: color.name, hex: color.hex_code })),
+    sizes: [],
+    leadTime: product.delivery_date || '',
+    shippingTime: '',
+    isFeatured: false,
+    isPublished: !product.deleted_at,
+    inStock: true,
+    allowsCustomization: false,
+    createdAt: product.created_at,
+    seoTitle: product.name,
+    seoDescription: product.description,
+  };
+}
+
+function mapBackendCategory(category: BackendCategory): Category {
+  return {
+    id: String(category.id),
+    name: category.name,
+    slug: String(category.id),
+    description: '',
+    image: category.image || '',
+    isFeatured: false,
+    displayOrder: category.id,
+    isVisible: true,
+  };
+}
+
+function mapBackendEvent(event: BackendEvent): EventItem {
+  const eventDate = new Date(`${event.event_date}T00:00:00`);
+  const isUpcoming = eventDate.getTime() >= Date.now();
+  return {
+    id: String(event.id),
+    title: event.title,
+    subtitle: '',
+    description: event.description || '',
+    location: '',
+    city: '',
+    date: event.event_date,
+    time: undefined,
+    coverImage: event.image,
+    publicId: event.public_id,
+    status: isUpcoming ? 'upcoming' : 'past',
+    isUpcoming,
+  };
+}
+
+function mapBackendCartItem(item: BackendCartItem): CartItem {
+  return {
+    id: String(item.id),
+    productId: String(item.product_id),
+    productName: item.product_name,
+    productImage: item.product_image || '',
+    unitPrice: Number(item.product_price),
+    selectedFinish: 'Matte',
+    selectedColor: item.selected_color
+      ? { id: String(item.selected_color.id), name: item.selected_color.name, hex: item.selected_color.hex_code }
+      : { id: '', name: '', hex: '#000000' },
+    quantity: item.quantity,
+  };
+}
 
 export type AppView =
   | 'home'
@@ -125,7 +221,6 @@ interface StoreContextType {
   toggleBannerActive: (bannerId: string) => void;
 
   updateSettings: (newSettings: Partial<StoreSettings>) => void;
-  resetAllDataToDefaults: () => void;
 
   // User auth & profile
   loginUser: (email: string, fullName: string, phone: string) => void;
@@ -142,105 +237,6 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | null>(null);
 
-const DEFAULT_USER: CustomerUser = {
-  id: 'usr-default',
-  fullName: 'Karim Mansour',
-  email: 'karim.mansour@example.com',
-  phone: '+20 100 987 6543',
-  savedAddresses: [
-    {
-      id: 'addr-1',
-      label: 'Sahel Summer Residence',
-      governorate: 'Matrouh',
-      city: 'Marassi, Sidi Abdel Rahman',
-      street: 'Catania Village, Villa 42',
-      building: 'Private Villa',
-    },
-    {
-      id: 'addr-2',
-      label: 'Cairo Residence',
-      governorate: 'Cairo',
-      city: 'New Cairo, First Settlement',
-      street: 'El Narges 3, Building 18',
-      building: 'Apt 402',
-    },
-  ],
-};
-
-const SAMPLE_ORDERS: Order[] = [
-  {
-    id: 'ord-1001',
-    orderNumber: 'TH-2026-8812',
-    createdAt: '2026-03-08T14:20:00Z',
-    customer: {
-      fullName: 'Karim Mansour',
-      phone: '+20 100 987 6543',
-      email: 'karim.mansour@example.com',
-      governorate: 'Matrouh',
-      city: 'Marassi, North Coast',
-      street: 'Catania Village, Villa 42',
-      buildingDetails: 'Private Villa with pool deck access',
-    },
-    items: [
-      {
-        id: 'ci-1',
-        productId: 'prod-peach-table',
-        productName: 'Peach Blush Cocktail Table',
-        productImage: 'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&w=1200&q=85',
-        unitPrice: 26500,
-        selectedFinish: 'Glossy',
-        selectedColor: { id: 'c-peach', name: 'Peach Blush', hex: '#D97750' },
-        quantity: 1,
-        customNote: 'Please ensure high gloss UV lacquer suitable for outdoor coastal terrace.',
-      },
-    ],
-    totalAmount: 26500,
-    depositPercentage: 50,
-    depositAmount: 13250,
-    remainingAmount: 13250,
-    paymentMethod: 'instapay',
-    paymentStatus: 'payment_verified',
-    orderStatus: 'in_production',
-    orderNote: 'Delivery requested before Eid weekend.',
-    paymentProofNote: 'InstaPay reference #IP894723 sent via WhatsApp on March 8.',
-    paymentProofDate: '2026-03-08T14:35:00Z',
-  },
-  {
-    id: 'ord-1002',
-    orderNumber: 'TH-2026-8809',
-    createdAt: '2026-03-04T11:15:00Z',
-    customer: {
-      fullName: 'Nour El Din',
-      phone: '+20 102 334 5566',
-      email: 'nour.eldin@example.com',
-      governorate: 'Cairo',
-      city: 'Zamalek',
-      street: '26th of July St, Apt 7B',
-    },
-    items: [
-      {
-        id: 'ci-2',
-        productId: 'prod-cocona-table',
-        productName: 'Cocona Sculptural Table',
-        productImage: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=85',
-        unitPrice: 38000,
-        selectedFinish: 'Textured Mineral',
-        selectedColor: { id: 'c-travertine', name: 'Travertine Bone', hex: '#EBE3D5' },
-        quantity: 1,
-      },
-    ],
-    totalAmount: 38000,
-    depositPercentage: 50,
-    depositAmount: 19000,
-    remainingAmount: 19000,
-    paymentMethod: 'bank_transfer',
-    paymentStatus: 'payment_verified',
-    orderStatus: 'ready_for_shipping',
-    paymentProofNote: 'CIB wire transfer confirmation uploaded.',
-    paymentProofDate: '2026-03-04T16:00:00Z',
-  },
-];
-
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Navigation
   const [activeView, setActiveView] = useState<AppView>('home');
@@ -251,104 +247,77 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState<boolean>(false);
 
   // Entities
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
-  const [collections, setCollections] = useState<Collection[]>(INITIAL_COLLECTIONS);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [customInquiries, setCustomInquiries] = useState<CustomDesignInquiry[]>([]);
-  const [events, setEvents] = useState<EventItem[]>(INITIAL_EVENTS);
-  const [projects, setProjects] = useState<ProjectItem[]>(INITIAL_PROJECTS);
-  const [banners, setBanners] = useState<BannerItem[]>(INITIAL_BANNERS);
-  const [settings, setSettings] = useState<StoreSettings>(INITIAL_STORE_SETTINGS);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [banners, setBanners] = useState<BannerItem[]>([]);
+  const [settings, setSettings] = useState<StoreSettings>(EMPTY_SETTINGS);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [user, setUser] = useState<CustomerUser | null>(DEFAULT_USER);
+  const [user, setUser] = useState<CustomerUser | null>(null);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<BackendOrder | Order | null>(null);
-  const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
-  // Load from local storage
+  // Load catalog data from the production backend.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    let active = true;
+    Promise.all([productService.getProducts(), categoryService.getCategories()])
+      .then(([backendProducts, backendCategories]) => {
+        if (!active) return;
+        setProducts(backendProducts.map(mapBackendProduct));
+        setCategories(backendCategories.map(mapBackendCategory));
+      })
+      .catch(() => {
+        if (!active) return;
+        setProducts([]);
+        setCategories([]);
+      })
+      .finally(() => {
+      });
 
-    const timer = setTimeout(() => {
-      try {
-        const savedProducts = localStorage.getItem(STORAGE_KEY_PREFIX + 'products');
-        if (savedProducts) setProducts(JSON.parse(savedProducts));
+    eventService.getEvents().then((items) => {
+      if (active) setEvents(items.map(mapBackendEvent));
+    }).catch(() => {
+      if (active) setEvents([]);
+    });
 
-        const savedCategories = localStorage.getItem(STORAGE_KEY_PREFIX + 'categories');
-        if (savedCategories) setCategories(JSON.parse(savedCategories));
+    dashboardService.getSettings().then((data) => {
+      if (!active) return;
+      setSettings((current) => ({
+        ...current,
+        depositPercentage: Number(data.deposit_percentage),
+        paymentMethods: {
+          ...current.paymentMethods,
+          mobileWallet: {
+            ...current.paymentMethods.mobileWallet,
+            number: data.payment_wallets.vodafone_cash || current.paymentMethods.mobileWallet.number,
+          },
+          instapay: {
+            ...current.paymentMethods.instapay,
+            address: data.payment_wallets.instapay || current.paymentMethods.instapay.address,
+          },
+          vodafoneCash: {
+            ...current.paymentMethods.vodafoneCash,
+            number: data.payment_wallets.vodafone_cash || current.paymentMethods.vodafoneCash.number,
+          },
+        },
+      }));
+    }).catch(() => undefined);
 
-        const savedCollections = localStorage.getItem(STORAGE_KEY_PREFIX + 'collections');
-        if (savedCollections) setCollections(JSON.parse(savedCollections));
-
-        const savedOrders = localStorage.getItem(STORAGE_KEY_PREFIX + 'orders');
-        if (savedOrders) setOrders(JSON.parse(savedOrders));
-
-        const savedInquiries = localStorage.getItem(STORAGE_KEY_PREFIX + 'custom_inquiries');
-        if (savedInquiries) setCustomInquiries(JSON.parse(savedInquiries));
-
-        const savedEvents = localStorage.getItem(STORAGE_KEY_PREFIX + 'events');
-        if (savedEvents) setEvents(JSON.parse(savedEvents));
-
-        const savedProjects = localStorage.getItem(STORAGE_KEY_PREFIX + 'projects');
-        if (savedProjects) setProjects(JSON.parse(savedProjects));
-
-        const savedSettings = localStorage.getItem(STORAGE_KEY_PREFIX + 'settings');
-        if (savedSettings) {
-          const parsed = JSON.parse(savedSettings);
-          if (parsed?.homepage?.heroImage?.includes('photo-1512917774080')) {
-            parsed.homepage.heroImage = '/images/hero_villa_clean.jpg';
-          }
-          if (parsed?.contact) {
-            parsed.contact.phone = '+20 10 80182663';
-            parsed.contact.whatsapp = '+201080182663';
-          }
-          if (parsed?.paymentMethods?.mobileWallet) {
-            parsed.paymentMethods.mobileWallet.number = '010 8018 2663';
-          }
-          if (parsed?.paymentMethods?.vodafoneCash) {
-            parsed.paymentMethods.vodafoneCash.number = '010 8018 2663';
-          }
-          setSettings(parsed);
-        }
-
-        const savedCart = localStorage.getItem(STORAGE_KEY_PREFIX + 'cart');
-        if (savedCart) setCart(JSON.parse(savedCart));
-
-        const savedUser = localStorage.getItem(STORAGE_KEY_PREFIX + 'user');
-        if (savedUser) setUser(JSON.parse(savedUser));
-      } catch (e) {
-        console.warn('Could not read from localStorage', e);
-      } finally {
-        setIsInitialized(true);
-      }
-    }, 0);
-
-    return () => clearTimeout(timer);
+    cartService
+      .getCartItems()
+      .then((items) => {
+        if (active) setCart(items.map(mapBackendCartItem));
+      })
+      .catch(() => {
+        if (active) setCart([]);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
-
-  // Save to local storage on state change
-  useEffect(() => {
-    if (!isInitialized || typeof window === 'undefined') return;
-
-    try {
-      localStorage.setItem(STORAGE_KEY_PREFIX + 'products', JSON.stringify(products));
-      localStorage.setItem(STORAGE_KEY_PREFIX + 'categories', JSON.stringify(categories));
-      localStorage.setItem(STORAGE_KEY_PREFIX + 'collections', JSON.stringify(collections));
-      localStorage.setItem(STORAGE_KEY_PREFIX + 'orders', JSON.stringify(orders));
-      localStorage.setItem(STORAGE_KEY_PREFIX + 'custom_inquiries', JSON.stringify(customInquiries));
-      localStorage.setItem(STORAGE_KEY_PREFIX + 'events', JSON.stringify(events));
-      localStorage.setItem(STORAGE_KEY_PREFIX + 'projects', JSON.stringify(projects));
-      localStorage.setItem(STORAGE_KEY_PREFIX + 'settings', JSON.stringify(settings));
-      localStorage.setItem(STORAGE_KEY_PREFIX + 'cart', JSON.stringify(cart));
-      if (user) {
-        localStorage.setItem(STORAGE_KEY_PREFIX + 'user', JSON.stringify(user));
-      } else {
-        localStorage.removeItem(STORAGE_KEY_PREFIX + 'user');
-      }
-    } catch (e) {
-      console.warn('Could not save to localStorage', e);
-    }
-  }, [products, categories, collections, orders, customInquiries, events, projects, settings, cart, user, isInitialized]);
 
   // Navigation action
   const navigateTo = useCallback(
@@ -370,48 +339,42 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Cart logic
-  const addToCart = useCallback((itemData: Omit<CartItem, 'id'>) => {
-    setCart((prev) => {
-      // check if identical item exists (same product, finish, color, size)
-      const existingIdx = prev.findIndex(
-        (it) =>
-          it.productId === itemData.productId &&
-          it.selectedFinish === itemData.selectedFinish &&
-          it.selectedColor.id === itemData.selectedColor.id &&
-          it.selectedSize?.id === itemData.selectedSize?.id
-      );
+  const addToCart = useCallback(async (itemData: Omit<CartItem, 'id'>) => {
+    const productId = Number(itemData.productId);
+    const colorId = itemData.selectedColor.id ? Number(itemData.selectedColor.id) : null;
+    if (!Number.isInteger(productId)) {
+      throw new Error('This product is not connected to a backend product record.');
+    }
 
-      if (existingIdx >= 0) {
-        const updated = [...prev];
-        updated[existingIdx] = {
-          ...updated[existingIdx],
-          quantity: updated[existingIdx].quantity + itemData.quantity,
-          customNote: itemData.customNote || updated[existingIdx].customNote,
-        };
-        return updated;
-      }
-
-      const newItem: CartItem = {
-        ...itemData,
-        id: `cart-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      };
-      return [...prev, newItem];
+    const backendItem = await cartService.addItem({
+      product_id: productId,
+      color_id: Number.isInteger(colorId) ? colorId : null,
+      quantity: itemData.quantity,
     });
-
+    setCart((prev) => {
+      const nextItem = mapBackendCartItem(backendItem);
+      const existing = prev.find((item) => item.id === nextItem.id);
+      return existing
+        ? prev.map((item) => (item.id === nextItem.id ? { ...item, ...nextItem } : item))
+        : [...prev, nextItem];
+    });
     setIsCartDrawerOpen(true);
   }, []);
 
-  const removeFromCart = useCallback((cartItemId: string) => {
+  const removeFromCart = useCallback(async (cartItemId: string) => {
+    await cartService.removeItem(Number(cartItemId));
     setCart((prev) => prev.filter((item) => item.id !== cartItemId));
   }, []);
 
-  const updateCartQuantity = useCallback((cartItemId: string, quantity: number) => {
+  const updateCartQuantity = useCallback(async (cartItemId: string, quantity: number) => {
     if (quantity <= 0) {
+      await cartService.removeItem(Number(cartItemId));
       setCart((prev) => prev.filter((item) => item.id !== cartItemId));
       return;
     }
+    const updatedItem = await cartService.updateItem(Number(cartItemId), { quantity });
     setCart((prev) =>
-      prev.map((item) => (item.id === cartItemId ? { ...item, quantity } : item))
+      prev.map((item) => (item.id === cartItemId ? mapBackendCartItem(updatedItem) : item))
     );
   }, []);
 
@@ -421,7 +384,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
-  const clearCart = useCallback(() => {
+  const clearCart = useCallback(async () => {
+    await cartService.clearCart();
     setCart([]);
   }, []);
 
@@ -522,17 +486,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Admin CRUD for Products
-  const saveProduct = useCallback((productToSave: Product) => {
+  const saveProduct = useCallback(async (productToSave: Product) => {
+    const payload = {
+      name: productToSave.name,
+      description: productToSave.detailedDescription || productToSave.shortDescription,
+      dimensions: productToSave.dimensions,
+      price: productToSave.price || 0,
+      material: productToSave.material,
+      finish: productToSave.finishes[0] || '',
+      faq: [],
+      subcategory_ids: Number.isInteger(Number(productToSave.categoryId)) ? [Number(productToSave.categoryId)] : [],
+      color_ids: productToSave.colors
+        .map((color) => Number(color.id))
+        .filter((id) => Number.isInteger(id)),
+    };
+    const productId = Number(productToSave.id);
+    const saved = Number.isInteger(productId)
+      ? await productService.updateProduct(productId, payload)
+      : await productService.createProduct(payload);
+    const mapped = mapBackendProduct(saved);
     setProducts((prev) => {
-      const exists = prev.some((p) => p.id === productToSave.id);
-      if (exists) {
-        return prev.map((p) => (p.id === productToSave.id ? productToSave : p));
-      }
-      return [productToSave, ...prev];
+      const exists = prev.some((product) => product.id === mapped.id);
+      return exists ? prev.map((product) => (product.id === mapped.id ? mapped : product)) : [mapped, ...prev];
     });
   }, []);
 
-  const deleteProduct = useCallback((productId: string) => {
+  const deleteProduct = useCallback(async (productId: string) => {
+    const numericId = Number(productId);
+    if (!Number.isInteger(numericId)) throw new Error('Product is not connected to a backend record.');
+    await productService.deleteProduct(numericId);
     setProducts((prev) => prev.filter((p) => p.id !== productId));
   }, []);
 
@@ -559,17 +541,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Admin CRUD for Categories
-  const saveCategory = useCallback((categoryToSave: Category) => {
+  const saveCategory = useCallback(async (categoryToSave: Category) => {
+    const payload = { name: categoryToSave.name, image: categoryToSave.image || null };
+    const categoryId = Number(categoryToSave.id);
+    const saved = Number.isInteger(categoryId)
+      ? await categoryService.updateCategory(categoryId, payload)
+      : await categoryService.createCategory(payload);
+    const mapped = mapBackendCategory(saved);
     setCategories((prev) => {
-      const exists = prev.some((c) => c.id === categoryToSave.id);
-      if (exists) {
-        return prev.map((c) => (c.id === categoryToSave.id ? categoryToSave : c));
-      }
-      return [...prev, categoryToSave];
+      const exists = prev.some((category) => category.id === mapped.id);
+      return exists ? prev.map((category) => (category.id === mapped.id ? mapped : category)) : [...prev, mapped];
     });
   }, []);
 
-  const deleteCategory = useCallback((categoryId: string) => {
+  const deleteCategory = useCallback(async (categoryId: string) => {
+    const numericId = Number(categoryId);
+    if (!Number.isInteger(numericId)) throw new Error('Category is not connected to a backend record.');
+    await categoryService.deleteCategory(numericId);
     setCategories((prev) => prev.filter((c) => c.id !== categoryId));
   }, []);
 
@@ -589,17 +577,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Admin CRUD for Events
-  const saveEvent = useCallback((eventToSave: EventItem) => {
+  const saveEvent = useCallback(async (eventToSave: EventItem) => {
+    const eventId = Number(eventToSave.id);
+    const payload = {
+      title: eventToSave.title,
+      description: eventToSave.description,
+      image: eventToSave.coverImage,
+      public_id: eventToSave.publicId || '',
+      event_date: eventToSave.date,
+    };
+    if (!payload.public_id) {
+      throw new Error('Upload the event image before saving the event.');
+    }
+    const saved = Number.isInteger(eventId)
+      ? await eventService.updateEvent(eventId, payload)
+      : await eventService.createEvent(payload);
+    const mapped = mapBackendEvent(saved);
     setEvents((prev) => {
-      const exists = prev.some((e) => e.id === eventToSave.id);
-      if (exists) {
-        return prev.map((e) => (e.id === eventToSave.id ? eventToSave : e));
-      }
-      return [eventToSave, ...prev];
+      const exists = prev.some((event) => event.id === mapped.id);
+      return exists ? prev.map((event) => (event.id === mapped.id ? mapped : event)) : [mapped, ...prev];
     });
   }, []);
 
-  const deleteEvent = useCallback((eventId: string) => {
+  const deleteEvent = useCallback(async (eventId: string) => {
+    const numericId = Number(eventId);
+    if (!Number.isInteger(numericId)) throw new Error('Event is not connected to a backend record.');
+    await eventService.deleteEvent(numericId);
     setEvents((prev) => prev.filter((e) => e.id !== eventId));
   }, []);
 
@@ -640,38 +643,43 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Settings
-  const updateSettings = useCallback((newSettings: Partial<StoreSettings>) => {
+  const updateSettings = useCallback(async (newSettings: Partial<StoreSettings>) => {
+    const paymentWallets: Record<string, string> = {};
+    const mobileWallet = newSettings.paymentMethods?.mobileWallet?.number;
+    const vodafoneCash = newSettings.paymentMethods?.vodafoneCash?.number;
+    const instapay = newSettings.paymentMethods?.instapay?.address;
+    if (mobileWallet) paymentWallets.mobile_wallet = mobileWallet;
+    if (vodafoneCash) paymentWallets.vodafone_cash = vodafoneCash;
+    if (instapay) paymentWallets.instapay = instapay;
+
+    const dashboardPatch = {
+      deposit_percentage: newSettings.depositPercentage,
+      payment_wallets: Object.keys(paymentWallets).length > 0 ? paymentWallets : undefined,
+    };
+    if (dashboardPatch.deposit_percentage === undefined && !dashboardPatch.payment_wallets) {
+      return;
+    }
+
+    const saved = await dashboardService.updateSettings(dashboardPatch);
     setSettings((prev) => ({
       ...prev,
-      ...newSettings,
-      contact: { ...prev.contact, ...(newSettings.contact || {}) },
-      homepage: { ...prev.homepage, ...(newSettings.homepage || {}) },
-      paymentMethods: { ...prev.paymentMethods, ...(newSettings.paymentMethods || {}) },
-      policies: { ...prev.policies, ...(newSettings.policies || {}) },
+      depositPercentage: Number(saved.deposit_percentage),
+      paymentMethods: {
+        ...prev.paymentMethods,
+        mobileWallet: {
+          ...prev.paymentMethods.mobileWallet,
+          number: saved.payment_wallets.mobile_wallet || prev.paymentMethods.mobileWallet.number,
+        },
+        vodafoneCash: {
+          ...prev.paymentMethods.vodafoneCash,
+          number: saved.payment_wallets.vodafone_cash || prev.paymentMethods.vodafoneCash.number,
+        },
+        instapay: {
+          ...prev.paymentMethods.instapay,
+          address: saved.payment_wallets.instapay || prev.paymentMethods.instapay.address,
+        },
+      },
     }));
-  }, []);
-
-  const resetAllDataToDefaults = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY_PREFIX + 'products');
-      localStorage.removeItem(STORAGE_KEY_PREFIX + 'categories');
-      localStorage.removeItem(STORAGE_KEY_PREFIX + 'collections');
-      localStorage.removeItem(STORAGE_KEY_PREFIX + 'orders');
-      localStorage.removeItem(STORAGE_KEY_PREFIX + 'custom_inquiries');
-      localStorage.removeItem(STORAGE_KEY_PREFIX + 'events');
-      localStorage.removeItem(STORAGE_KEY_PREFIX + 'projects');
-      localStorage.removeItem(STORAGE_KEY_PREFIX + 'settings');
-      localStorage.removeItem(STORAGE_KEY_PREFIX + 'cart');
-    }
-    setProducts(INITIAL_PRODUCTS);
-    setCategories(INITIAL_CATEGORIES);
-    setCollections(INITIAL_COLLECTIONS);
-    setOrders([]);
-    setCustomInquiries([]);
-    setEvents(INITIAL_EVENTS);
-    setProjects(INITIAL_PROJECTS);
-    setSettings(INITIAL_STORE_SETTINGS);
-    setCart([]);
   }, []);
 
   // User auth & profile
@@ -797,7 +805,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         deleteBanner,
         toggleBannerActive,
         updateSettings,
-        resetAllDataToDefaults,
         loginUser,
         logoutUser,
         saveUserAddress,

@@ -36,53 +36,6 @@ const ALLOWED_MIME_TYPES = [
   'image/gif',
 ];
 
-class CloudinaryConfigManager {
-  private cloudName: string = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '';
-  private uploadPreset: string = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || '';
-  private defaultFolder: string = process.env.NEXT_PUBLIC_CLOUDINARY_FOLDER || 'tocco/products';
-
-  constructor() {
-    if (typeof window !== 'undefined') {
-      const storedCloud = localStorage.getItem('tocco_cloudinary_cloud_name');
-      if (storedCloud) this.cloudName = storedCloud;
-      const storedPreset = localStorage.getItem('tocco_cloudinary_upload_preset');
-      if (storedPreset) this.uploadPreset = storedPreset;
-    }
-  }
-
-  getCloudName(): string {
-    return this.cloudName;
-  }
-
-  setCloudName(name: string) {
-    this.cloudName = name;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('tocco_cloudinary_cloud_name', name);
-    }
-  }
-
-  getUploadPreset(): string {
-    return this.uploadPreset;
-  }
-
-  setUploadPreset(preset: string) {
-    this.uploadPreset = preset;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('tocco_cloudinary_upload_preset', preset);
-    }
-  }
-
-  getFolder(): string {
-    return this.defaultFolder;
-  }
-
-  isConfigured(): boolean {
-    return Boolean(this.cloudName && this.uploadPreset);
-  }
-}
-
-export const cloudinaryConfig = new CloudinaryConfigManager();
-
 /**
  * Validates file type and file size before upload
  */

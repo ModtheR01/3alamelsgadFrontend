@@ -1,5 +1,4 @@
 import { apiConfig } from './config';
-import { handleMockRequest } from './mock/mockService';
 import { normalizeApiError, ApiError } from './errors';
 
 export interface RequestOptions extends Omit<RequestInit, 'body'> {
@@ -59,35 +58,6 @@ class ApiClient {
       }
     }
 
-    // ----------------------------------------------------
-    // MOCK API MODE DISPATCH
-    // ----------------------------------------------------
-    if (apiConfig.isMock()) {
-      try {
-        return await handleMockRequest<T>(urlPath, method, body);
-      } catch (err: any) {
-        // Check for 401 and auto-refresh
-        if (
-          err?.status === 401 &&
-          !skipAuthRefresh &&
-          !this.isAuthEndpoint(urlPath)
-        ) {
-          const refreshed = await this.handleTokenRefresh();
-          if (refreshed) {
-            // Retry original request once
-            return await handleMockRequest<T>(urlPath, method, body);
-          } else {
-            this.notifyAuthFailure();
-            throw err;
-          }
-        }
-        throw err instanceof ApiError ? err : new ApiError(normalizeApiError(err));
-      }
-    }
-
-    // ----------------------------------------------------
-    // REAL BACKEND API MODE DISPATCH (Fetch with credentials)
-    // ----------------------------------------------------
     const fullUrl = `${apiConfig.getBaseUrl()}${urlPath}`;
 
     const requestHeaders: Record<string, string> = {
@@ -159,11 +129,6 @@ class ApiClient {
 
     this.refreshPromise = (async () => {
       try {
-        if (apiConfig.isMock()) {
-          await handleMockRequest('/auth/refresh/', 'POST');
-          return true;
-        }
-
         // Real backend: POST /auth/refresh/ with credentials: 'include'
         // Empty body! Refresh token is read from HttpOnly cookie by Django backend
         const refreshUrl = `${apiConfig.getBaseUrl()}/auth/refresh/`;

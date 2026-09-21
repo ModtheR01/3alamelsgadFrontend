@@ -172,6 +172,7 @@ export interface EventItem {
   date: string;
   time?: string;
   coverImage: string;
+  publicId?: string;
   gallery?: string[];
   status: 'upcoming' | 'ongoing' | 'past';
   isUpcoming?: boolean;

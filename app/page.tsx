@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { StoreProvider, useToccoStore } from '@/lib/store';
 import { AuthProvider } from '@/lib/context/AuthContext';
-import ApiTestScenariosWidget from '@/components/ApiTestScenariosWidget';
+import { useAuth } from '@/lib/context/AuthContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import CartDrawer from '@/components/CartDrawer';
@@ -40,6 +40,15 @@ import { MessageCircle } from 'lucide-react';
 
 function ToccoApp() {
   const { activeView, navigateTo, settings } = useToccoStore();
+  const { user, isLoading } = useAuth();
+
+  const canAccessAdmin = user?.role === 'ADMIN' || user?.role === 'MODERATOR';
+
+  useEffect(() => {
+    if (!isLoading && activeView === 'admin' && !canAccessAdmin) {
+      navigateTo('home');
+    }
+  }, [activeView, canAccessAdmin, isLoading, navigateTo]);
 
   // Scroll to top on route change
   useEffect(() => {
@@ -105,7 +114,7 @@ function ToccoApp() {
 
         {activeView === 'account' && <AccountView />}
 
-        {activeView === 'admin' && <AdminDashboard />}
+        {activeView === 'admin' && canAccessAdmin && <AdminDashboard />}
 
         {activeView === 'shipping' && <ShippingView />}
 
@@ -151,8 +160,6 @@ function ToccoApp() {
         </aside>
       )}
 
-      {/* DRF Integration & Mock Scenarios Console */}
-      <ApiTestScenariosWidget />
     </div>
   );
 }

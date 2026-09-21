@@ -9,13 +9,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Settings,
   ExternalLink,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 import {
   uploadDirectToCloudinary,
-  cloudinaryConfig,
   CloudinaryUploadResult,
 } from '@/lib/api/cloudinary';
 import { productImageService } from '@/lib/api/services/productImageService';
@@ -43,12 +41,6 @@ export default function CloudinaryImageUploader({
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [backendImages, setBackendImages] = useState<BackendProductImage[]>([]);
-  const [showConfig, setShowConfig] = useState(false);
-
-  // Cloudinary settings state for admin inspection / override
-  const [customCloudName, setCustomCloudName] = useState(cloudinaryConfig.getCloudName());
-  const [customPreset, setCustomPreset] = useState(cloudinaryConfig.getUploadPreset());
-  const [configSaved, setConfigSaved] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -146,12 +138,7 @@ export default function CloudinaryImageUploader({
 
       onImagesChange(currentList);
       setStatusStep('success');
-      const hasSimulated = currentList.some((url) => url.startsWith('data:'));
-      if (hasSimulated) {
-        setStatusMessage('Image stored locally (Simulation Mode). Enter Cloudinary credentials to upload to your live account.');
-      } else {
-        setStatusMessage('Direct Cloudinary upload & backend sync complete!');
-      }
+      setStatusMessage('Signed Cloudinary upload & backend sync complete!');
       setTimeout(() => {
         setStatusStep('idle');
         setStatusMessage('');
@@ -230,13 +217,6 @@ export default function CloudinaryImageUploader({
     }
   };
 
-  const saveCustomConfig = () => {
-    cloudinaryConfig.setCloudName(customCloudName.trim());
-    cloudinaryConfig.setUploadPreset(customPreset.trim());
-    setConfigSaved(true);
-    setTimeout(() => setConfigSaved(false), 2500);
-  };
-
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Header & Signed Upload Indicator */}
@@ -254,62 +234,7 @@ export default function CloudinaryImageUploader({
             Images are uploaded through the server-side signed Cloudinary flow.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowConfig(!showConfig)}
-          className="flex items-center gap-1.5 text-xs text-[#736B63] hover:text-[#1C1A19] px-2.5 py-1 rounded-md border border-[#EAE4DC] hover:border-[#D8CEBF] transition-colors"
-          title="Cloudinary Direct Upload Settings"
-        >
-          <Settings className="w-3.5 h-3.5" />
-          <span>{showConfig ? 'Hide Config' : 'Cloudinary Config'}</span>
-        </button>
       </div>
-
-      {/* Cloudinary Config Accordion */}
-      {showConfig && (
-        <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE4DC] text-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="font-medium text-[#1C1A19]">Cloudinary Upload Settings</span>
-            <span className="px-2 py-0.5 rounded-full bg-[#EFECE6] text-[#736B63] text-[10px] font-mono">
-              Folder: tocco/products
-            </span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[#736B63] mb-1">Cloud Name</label>
-              <input
-                type="text"
-                placeholder="e.g. tocco-design"
-                value={customCloudName}
-                onChange={(e) => setCustomCloudName(e.target.value)}
-                className="w-full p-2 rounded-lg border border-[#D8CEBF] bg-white font-mono text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-[#736B63] mb-1">Legacy Preset (Unused)</label>
-              <input
-                type="text"
-                placeholder="e.g. tocco_unsigned"
-                value={customPreset}
-                onChange={(e) => setCustomPreset(e.target.value)}
-                className="w-full p-2 rounded-lg border border-[#D8CEBF] bg-white font-mono text-xs"
-              />
-            </div>
-          </div>
-          <div className="flex items-center justify-between pt-1">
-            <p className="text-[11px] text-[#8C827A]">
-              Uploads use server-side credentials; the Cloudinary API secret never reaches the browser.
-            </p>
-            <button
-              type="button"
-              onClick={saveCustomConfig}
-              className="px-3 py-1.5 rounded-md bg-[#1C1A19] text-white text-xs hover:bg-[#333] transition-colors"
-            >
-              {configSaved ? 'Saved!' : 'Save Preset'}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Drag & Drop Upload Zone */}
       <div

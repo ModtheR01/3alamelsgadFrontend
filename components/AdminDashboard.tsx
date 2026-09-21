@@ -52,8 +52,44 @@ import {
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 import { orderService } from '@/lib/api/services/orderService';
+import { offerService } from '@/lib/api/services/offerService';
+import { collaborationService } from '@/lib/api/services/collaborationService';
 import { BackendOrder, BackendOrderStatus } from '@/types/order';
+import { BackendOffer, OfferCreateRequest, OfferProductRequest, OfferType } from '@/types/offer';
+import { BackendCollaboration, CollaborationCreateRequest } from '@/types/collaboration';
 import { normalizeApiError } from '@/lib/api/errors';
+
+type OfferDraft = {
+  id?: number;
+  name: string;
+  offer_type: OfferType;
+  percentage: string;
+  bundle_price: string;
+  products: { product_id: string; quantity: string }[];
+  starts_at: string;
+  ends_at: string;
+  is_active: boolean;
+};
+
+type CollaborationDraft = {
+  id?: number;
+  title: string;
+  image: string;
+  public_id: string;
+};
+
+const formatCurrency = (value: string | number | null | undefined) => {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat('en-EG', {
+    style: 'currency',
+    currency: 'EGP',
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+
+const toDateTimeInputValue = (value: string | null) => (value ? value.slice(0, 16) : '');
+
+const toBackendDateTime = (value: string) => (value ? new Date(value).toISOString() : null);
 
 export default function AdminDashboard() {
   const {
@@ -85,7 +121,6 @@ export default function AdminDashboard() {
     updateOrderStatus,
     updatePaymentStatus,
     updateCustomInquiryStatus,
-    resetAllDataToDefaults,
     navigateTo,
   } = useToccoStore();
 
@@ -97,6 +132,8 @@ export default function AdminDashboard() {
     | 'orders'
     | 'inquiries'
     | 'events'
+    | 'offers'
+    | 'collaborations'
     | 'projects'
     | 'settings'
   >('products');
@@ -132,6 +169,51 @@ export default function AdminDashboard() {
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState<string | null>(null);
+
+  const [offers, setOffers] = useState<BackendOffer[]>([]);
+  const [collaborations, setCollaborations] = useState<BackendCollaboration[]>([]);
+  const [isOffersLoading, setIsOffersLoading] = useState(true);
+  const [isCollaborationsLoading, setIsCollaborationsLoading] = useState(true);
+  const [offersError, setOffersError] = useState<string | null>(null);
+  const [collaborationsError, setCollaborationsError] = useState<string | null>(null);
+  const [editingOffer, setEditingOffer] = useState<OfferDraft | null>(null);
+  const [editingCollaboration, setEditingCollaboration] = useState<CollaborationDraft | null>(null);
+  const [isOfferSaving, setIsOfferSaving] = useState(false);
+  const [isCollaborationSaving, setIsCollaborationSaving] = useState(false);
+  const [deletingOfferId, setDeletingOfferId] = useState<number | null>(null);
+  const [deletingCollaborationId, setDeletingCollaborationId] = useState<number | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+
+    offerService
+      .getOffers()
+      .then((data) => {
+        if (active) setOffers(data);
+      })
+      .catch((err) => {
+        if (active) setOffersError(normalizeApiError(err).message);
+      })
+      .finally(() => {
+        if (active) setIsOffersLoading(false);
+      });
+
+    collaborationService
+      .getCollaborations()
+      .then((data) => {
+        if (active) setCollaborations(data);
+      })
+      .catch((err) => {
+        if (active) setCollaborationsError(normalizeApiError(err).message);
+      })
+      .finally(() => {
+        if (active) setIsCollaborationsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const fetchBackendOrders = React.useCallback(async () => {
     setIsOrdersLoading(true);
@@ -176,6 +258,132 @@ export default function AdminDashboard() {
       setOrdersError(normalized.message);
     } finally {
       setUpdatingOrderId(null);
+    }
+  };
+
+  const createOfferDraft = (offer?: BackendOffer): OfferDraft => ({
+    id: offer?.id,
+    name: offer?.name || '',
+    offer_type: offer?.offer_type || 'PERCENTAGE',
+    percentage: offer?.percentage != null ? String(offer.percentage) : '',
+    bundle_price: offer?.bundle_price != null ? String(offer.bundle_price) : '',
+    products: offer?.products.length
+      ? offer.products.map((item) => ({
+          product_id: String(item.product_id),
+          quantity: String(item.quantity),
+        }))
+      : [{ product_id: products[0]?.id || '', quantity: '1' }],
+    starts_at: toDateTimeInputValue(offer?.starts_at || null),
+    ends_at: toDateTimeInputValue(offer?.ends_at || null),
+    is_active: offer?.is_active ?? true,
+  });
+
+  const createCollaborationDraft = (collaboration?: BackendCollaboration): CollaborationDraft => ({
+    id: collaboration?.id,
+    title: collaboration?.title || '',
+    image: collaboration?.image || '',
+    public_id: collaboration?.public_id || '',
+  });
+
+  const buildOfferPayload = (draft: OfferDraft): OfferCreateRequest => {
+    const selectedProducts: OfferProductRequest[] = draft.products
+      .map((item) => ({
+        product_id: Number(item.product_id),
+        quantity: Number(item.quantity || 1),
+      }))
+      .filter((item) => Number.isInteger(item.product_id) && item.product_id > 0 && item.quantity > 0);
+
+    if (!draft.name.trim()) throw new Error('Offer name is required.');
+    if (!selectedProducts.length) throw new Error('Select at least one backend product for this offer.');
+    if (draft.offer_type === 'PERCENTAGE' && Number(draft.percentage) <= 0) {
+      throw new Error('Add a valid percentage for this offer.');
+    }
+    if (draft.offer_type === 'BUNDLE' && Number(draft.bundle_price) <= 0) {
+      throw new Error('Add a valid bundle price for this offer.');
+    }
+
+    return {
+      name: draft.name.trim(),
+      offer_type: draft.offer_type,
+      percentage: draft.offer_type === 'PERCENTAGE' ? Number(draft.percentage) : null,
+      bundle_price: draft.offer_type === 'BUNDLE' ? Number(draft.bundle_price) : null,
+      products: selectedProducts,
+      starts_at: toBackendDateTime(draft.starts_at),
+      ends_at: toBackendDateTime(draft.ends_at),
+      is_active: draft.is_active,
+    };
+  };
+
+  const handleSaveOffer = async () => {
+    if (!editingOffer) return;
+    setIsOfferSaving(true);
+    setOffersError(null);
+    try {
+      const payload = buildOfferPayload(editingOffer);
+      const saved = editingOffer.id
+        ? await offerService.updateOffer(editingOffer.id, payload)
+        : await offerService.createOffer(payload);
+      setOffers((prev) => {
+        const exists = prev.some((offer) => offer.id === saved.id);
+        return exists ? prev.map((offer) => (offer.id === saved.id ? saved : offer)) : [saved, ...prev];
+      });
+      setEditingOffer(null);
+    } catch (err) {
+      setOffersError(normalizeApiError(err).message);
+    } finally {
+      setIsOfferSaving(false);
+    }
+  };
+
+  const handleDeleteOffer = async (offer: BackendOffer) => {
+    if (!confirm(`Delete offer "${offer.name}"?`)) return;
+    setDeletingOfferId(offer.id);
+    setOffersError(null);
+    try {
+      await offerService.deleteOffer(offer.id);
+      setOffers((prev) => prev.filter((item) => item.id !== offer.id));
+    } catch (err) {
+      setOffersError(normalizeApiError(err).message);
+    } finally {
+      setDeletingOfferId(null);
+    }
+  };
+
+  const handleSaveCollaboration = async () => {
+    if (!editingCollaboration) return;
+    setIsCollaborationSaving(true);
+    setCollaborationsError(null);
+    try {
+      if (!editingCollaboration.title.trim()) throw new Error('Collaboration title is required.');
+      if (!editingCollaboration.image || !editingCollaboration.public_id) {
+        throw new Error('Upload the collaboration image before saving.');
+      }
+      const payload: CollaborationCreateRequest = {
+        title: editingCollaboration.title.trim(),
+        image: editingCollaboration.image,
+        public_id: editingCollaboration.public_id,
+      };
+      const saved = await collaborationService.createCollaboration(payload);
+      setCollaborations((prev) => [saved, ...prev]);
+      setEditingCollaboration(null);
+    } catch (err) {
+      setCollaborationsError(normalizeApiError(err).message);
+    } finally {
+      setIsCollaborationSaving(false);
+    }
+  };
+
+  const handleDeleteCollaboration = async (collaboration: BackendCollaboration) => {
+    if (!confirm(`Delete collaboration "${collaboration.title}"?`)) return;
+    setDeletingCollaborationId(collaboration.id);
+    setCollaborationsError(null);
+    try {
+      await collaborationService.deleteCollaboration(collaboration.id);
+      setCollaborations((prev) => prev.filter((item) => item.id !== collaboration.id));
+    } catch (err) {
+      setCollaborationsError(normalizeApiError(err).message);
+    } finally {
+      setDeletingCollaborationId(null);
     }
   };
 
@@ -273,9 +481,10 @@ export default function AdminDashboard() {
       title: '',
       location: 'Cairo Atelier',
       city: 'Cairo',
-      date: 'May 2026',
+      date: '2026-05-01',
       description: '',
       coverImage: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1200&q=85',
+      publicId: '',
       status: 'upcoming',
     });
     setIsEventModalOpen(true);
@@ -320,20 +529,6 @@ export default function AdminDashboard() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                if (confirm('Reset all catalog, collections, and settings back to original defaults?')) {
-                  resetAllDataToDefaults();
-                }
-              }}
-              className="px-3.5 py-2 rounded-full border border-[#D8CEBF] text-xs text-[#736B63] hover:text-[#B85D38] hover:border-[#B85D38] flex items-center gap-1.5 transition-colors"
-              title="Reset all data to seed defaults"
-            >
-              <RefreshCw className="w-3 h-3" />
-              <span>Reset Defaults</span>
-            </button>
-          </div>
         </div>
 
         {/* Dashboard Navigation Tabs */}
@@ -346,6 +541,8 @@ export default function AdminDashboard() {
             { key: 'categories', label: 'Categories & Subcategories', icon: FolderTree },
             { key: 'collections', label: `Collections (${collections.length})`, icon: Sparkles },
             { key: 'events', label: `Events (${events.length})`, icon: Calendar },
+            { key: 'offers', label: `Offers (${offers.length})`, icon: Tag },
+            { key: 'collaborations', label: `Collaborations (${collaborations.length})`, icon: Compass },
             { key: 'projects', label: `In Their Space (${projects.length})`, icon: ImageIcon },
             { key: 'settings', label: 'Store & Deposit Settings', icon: Settings },
           ].map((t) => {
@@ -1172,7 +1369,185 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ----------------- TAB 8: SETTINGS & CMS ----------------- */}
+        {/* ----------------- TAB 8: OFFERS ----------------- */}
+        {activeTab === 'offers' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
+                  Atelier Offers
+                </h3>
+                <p className="text-xs text-[#736B63]">
+                  Build percentage privileges, bundles, and free-shipping moments from backend products.
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingOffer(createOfferDraft())}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D]"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Offer</span>
+              </button>
+            </div>
+
+            {offersError && (
+              <div className="flex items-start gap-2 rounded-2xl border border-[#E2B6A2] bg-[#FFF5F0] px-4 py-3 text-xs text-[#8A3D25]">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{offersError}</span>
+              </div>
+            )}
+
+            {isOffersLoading ? (
+              <div className="rounded-2xl border border-[#EAE4DC] bg-white p-8 text-sm text-[#736B63] flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading offers...
+              </div>
+            ) : offers.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-[#D8CEBF] bg-white p-8 text-center">
+                <p className="text-sm text-[#1C1A19]">No offers are configured yet.</p>
+                <p className="text-xs text-[#736B63] mt-1">Create the first offer and it will sync with the backend.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {offers.map((offer) => (
+                  <div key={offer.id} className="rounded-2xl bg-white border border-[#EAE4DC] shadow-sm p-5 space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] uppercase tracking-widest text-[#B85D38] font-semibold">
+                            {offer.offer_type.replace('_', ' ')}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${offer.is_active ? 'bg-[#EAF4EA] text-[#2F6B3F]' : 'bg-[#EFEBE3] text-[#736B63]'}`}>
+                            {offer.is_active ? 'Active' : 'Paused'}
+                          </span>
+                        </div>
+                        <h4 className="text-base font-semibold text-[#1C1A19]">{offer.name}</h4>
+                        <p className="text-xs text-[#736B63]">
+                          {offer.products.length} product{offer.products.length === 1 ? '' : 's'} · {formatCurrency(offer.offer_price)} offer price
+                        </p>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <button
+                          onClick={() => setEditingOffer(createOfferDraft(offer))}
+                          className="p-2 rounded-full text-[#524B45] hover:bg-[#FAF8F5] hover:text-[#1C1A19]"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteOffer(offer)}
+                          disabled={deletingOfferId === offer.id}
+                          className="p-2 rounded-full text-[#B85D38] hover:bg-[#FFF5F0] disabled:opacity-60"
+                        >
+                          {deletingOfferId === offer.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="rounded-xl bg-[#FAF8F5] p-3 min-w-0">
+                        <span className="block text-[#8F8880]">Original</span>
+                        <span className="font-mono text-[#1C1A19] break-words">{formatCurrency(offer.original_price)}</span>
+                      </div>
+                      <div className="rounded-xl bg-[#FAF8F5] p-3 min-w-0">
+                        <span className="block text-[#8F8880]">Discount</span>
+                        <span className="font-mono text-[#1C1A19] break-words">{formatCurrency(offer.discount_amount)}</span>
+                      </div>
+                      <div className="rounded-xl bg-[#FAF8F5] p-3 min-w-0">
+                        <span className="block text-[#8F8880]">Final</span>
+                        <span className="font-mono text-[#1C1A19] break-words">{formatCurrency(offer.offer_price)}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {offer.products.map((item) => (
+                        <div key={`${offer.id}-${item.product_id}`} className="flex items-center justify-between gap-3 rounded-xl border border-[#EAE4DC] px-3 py-2 text-xs">
+                          <span className="text-[#1C1A19] line-clamp-1">{item.product_name}</span>
+                          <span className="font-mono text-[#736B63] shrink-0">x{item.quantity}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ----------------- TAB 9: COLLABORATIONS ----------------- */}
+        {activeTab === 'collaborations' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
+                  Collaborations
+                </h3>
+                <p className="text-xs text-[#736B63]">
+                  Curate partner moments with Cloudinary images and backend-backed deletion.
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingCollaboration(createCollaborationDraft())}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D]"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Collaboration</span>
+              </button>
+            </div>
+
+            {collaborationsError && (
+              <div className="flex items-start gap-2 rounded-2xl border border-[#E2B6A2] bg-[#FFF5F0] px-4 py-3 text-xs text-[#8A3D25]">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{collaborationsError}</span>
+              </div>
+            )}
+
+            {isCollaborationsLoading ? (
+              <div className="rounded-2xl border border-[#EAE4DC] bg-white p-8 text-sm text-[#736B63] flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading collaborations...
+              </div>
+            ) : collaborations.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-[#D8CEBF] bg-white p-8 text-center">
+                <p className="text-sm text-[#1C1A19]">No collaborations have been published yet.</p>
+                <p className="text-xs text-[#736B63] mt-1">Upload a Cloudinary image to save the first collaboration.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {collaborations.map((collaboration) => (
+                  <div key={collaboration.id} className="rounded-2xl bg-white border border-[#EAE4DC] shadow-sm overflow-hidden">
+                    <div className="relative aspect-[4/3] bg-[#EFEBE3]">
+                      <Image
+                        src={collaboration.image}
+                        alt={collaboration.title}
+                        fill
+                        className="object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <div className="p-5 space-y-3">
+                      <div>
+                        <span className="text-[10px] uppercase tracking-widest text-[#B85D38] font-semibold">Partner Feature</span>
+                        <h4 className="text-base font-semibold text-[#1C1A19] mt-1">{collaboration.title}</h4>
+                      </div>
+                      <div className="pt-2 border-t border-[#EAE4DC] flex justify-end">
+                        <button
+                          onClick={() => handleDeleteCollaboration(collaboration)}
+                          disabled={deletingCollaborationId === collaboration.id}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs uppercase tracking-wider text-[#B85D38] hover:bg-[#FFF5F0] disabled:opacity-60"
+                        >
+                          {deletingCollaborationId === collaboration.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ----------------- TAB 10: SETTINGS & CMS ----------------- */}
         {activeTab === 'settings' && (
           <div className="space-y-8 max-w-3xl">
             <div>
@@ -1818,9 +2193,9 @@ export default function AdminDashboard() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[#1C1A19] mb-1">Date</label>
+                    <label className="block text-[#1C1A19] mb-1">Event Date</label>
                     <input
-                      type="text"
+                      type="date"
                       value={editingEvent.date}
                       onChange={(e) => setEditingEvent({ ...editingEvent, date: e.target.value })}
                       className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
@@ -1832,6 +2207,13 @@ export default function AdminDashboard() {
                   value={editingEvent.coverImage}
                   folder="tocco/events"
                   onChange={(coverImage) => setEditingEvent({ ...editingEvent, coverImage })}
+                  onUploadResult={(result) =>
+                    setEditingEvent({
+                      ...editingEvent,
+                      coverImage: result.secure_url || result.url,
+                      publicId: result.public_id,
+                    })
+                  }
                 />
                 <div>
                   <label className="block text-[#1C1A19] mb-1">Description</label>
@@ -1946,6 +2328,269 @@ export default function AdminDashboard() {
                   className="px-5 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider"
                 >
                   Save Project
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* ----------------- MODAL: EDIT OFFER ----------------- */}
+        {editingOffer && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-5 my-8 border border-[#EAE4DC] shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#EAE4DC]">
+                <div>
+                  <h3 className="text-lg font-medium text-[#1C1A19]">
+                    {editingOffer.id ? 'Edit Offer' : 'Create Offer'}
+                  </h3>
+                  <p className="text-xs text-[#736B63] mt-1">Offers are saved directly to the production backend.</p>
+                </div>
+                <button
+                  onClick={() => setEditingOffer(null)}
+                  className="p-1 text-[#736B63] hover:text-[#1C1A19]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {offersError && (
+                <div className="flex items-start gap-2 rounded-xl border border-[#E2B6A2] bg-[#FFF5F0] px-3 py-2 text-xs text-[#8A3D25]">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{offersError}</span>
+                </div>
+              )}
+
+              <div className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Offer Name *</label>
+                    <input
+                      type="text"
+                      value={editingOffer.name}
+                      onChange={(e) => setEditingOffer({ ...editingOffer, name: e.target.value })}
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Offer Type</label>
+                    <select
+                      value={editingOffer.offer_type}
+                      onChange={(e) => setEditingOffer({ ...editingOffer, offer_type: e.target.value as OfferType })}
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF] bg-white"
+                    >
+                      <option value="PERCENTAGE">Percentage Discount</option>
+                      <option value="BUNDLE">Bundle Price</option>
+                      <option value="FREE_SHIPPING">Free Shipping</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE4DC]">
+                  {editingOffer.offer_type === 'PERCENTAGE' && (
+                    <div>
+                      <label className="block text-[#1C1A19] font-medium mb-1">Percentage (%) *</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={editingOffer.percentage}
+                        onChange={(e) => setEditingOffer({ ...editingOffer, percentage: e.target.value })}
+                        className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono bg-white"
+                      />
+                    </div>
+                  )}
+                  {editingOffer.offer_type === 'BUNDLE' && (
+                    <div>
+                      <label className="block text-[#1C1A19] font-medium mb-1">Bundle Price (EGP) *</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={editingOffer.bundle_price}
+                        onChange={(e) => setEditingOffer({ ...editingOffer, bundle_price: e.target.value })}
+                        className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono bg-white"
+                      />
+                    </div>
+                  )}
+                  <label className="flex items-center gap-2 self-end pb-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingOffer.is_active}
+                      onChange={(e) => setEditingOffer({ ...editingOffer, is_active: e.target.checked })}
+                      className="rounded border-[#D8CEBF]"
+                    />
+                    <span className="font-medium text-[#1C1A19]">Active on backend</span>
+                  </label>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="block text-[#1C1A19] font-medium">Included Products *</label>
+                    <button
+                      type="button"
+                      onClick={() => setEditingOffer({
+                        ...editingOffer,
+                        products: [...editingOffer.products, { product_id: products[0]?.id || '', quantity: '1' }],
+                      })}
+                      className="text-[11px] uppercase tracking-wider text-[#B85D38] hover:text-[#1C1A19]"
+                    >
+                      Add Product
+                    </button>
+                  </div>
+                  {editingOffer.products.map((item, index) => (
+                    <div key={index} className="grid grid-cols-[1fr_84px_32px] gap-2 items-center">
+                      <select
+                        value={item.product_id}
+                        onChange={(e) => {
+                          const nextProducts = editingOffer.products.map((current, itemIndex) =>
+                            itemIndex === index ? { ...current, product_id: e.target.value } : current
+                          );
+                          setEditingOffer({ ...editingOffer, products: nextProducts });
+                        }}
+                        className="w-full p-2.5 rounded-lg border border-[#D8CEBF] bg-white min-w-0"
+                      >
+                        <option value="">Select backend product</option>
+                        {products
+                          .filter((product) => Number.isInteger(Number(product.id)))
+                          .map((product) => (
+                            <option key={product.id} value={product.id}>{product.name}</option>
+                          ))}
+                      </select>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const nextProducts = editingOffer.products.map((current, itemIndex) =>
+                            itemIndex === index ? { ...current, quantity: e.target.value } : current
+                          );
+                          setEditingOffer({ ...editingOffer, products: nextProducts });
+                        }}
+                        className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setEditingOffer({
+                          ...editingOffer,
+                          products: editingOffer.products.filter((_, itemIndex) => itemIndex !== index),
+                        })}
+                        disabled={editingOffer.products.length === 1}
+                        className="p-2 text-[#B85D38] disabled:text-[#C9C0B4]"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Starts At</label>
+                    <input
+                      type="datetime-local"
+                      value={editingOffer.starts_at}
+                      onChange={(e) => setEditingOffer({ ...editingOffer, starts_at: e.target.value })}
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Ends At</label>
+                    <input
+                      type="datetime-local"
+                      value={editingOffer.ends_at}
+                      onChange={(e) => setEditingOffer({ ...editingOffer, ends_at: e.target.value })}
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-[#EAE4DC] flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingOffer(null)}
+                  className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveOffer}
+                  disabled={isOfferSaving}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium disabled:opacity-70"
+                >
+                  {isOfferSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Save Offer</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- MODAL: EDIT COLLABORATION ----------------- */}
+        {editingCollaboration && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 my-8 border border-[#EAE4DC] shadow-xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#EAE4DC]">
+                <div>
+                  <h3 className="text-base font-medium text-[#1C1A19]">Collaboration Details</h3>
+                  <p className="text-xs text-[#736B63] mt-1">Use the uploaded Cloudinary image returned by the backend flow.</p>
+                </div>
+                <button
+                  onClick={() => setEditingCollaboration(null)}
+                  className="p-1 text-[#736B63] hover:text-[#1C1A19]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {collaborationsError && (
+                <div className="flex items-start gap-2 rounded-xl border border-[#E2B6A2] bg-[#FFF5F0] px-3 py-2 text-xs text-[#8A3D25]">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{collaborationsError}</span>
+                </div>
+              )}
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-[#1C1A19] font-medium mb-1">Title *</label>
+                  <input
+                    type="text"
+                    value={editingCollaboration.title}
+                    onChange={(e) => setEditingCollaboration({ ...editingCollaboration, title: e.target.value })}
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+                <CloudinaryImageField
+                  label="Collaboration Image"
+                  required
+                  value={editingCollaboration.image}
+                  folder="tocco/collaborations"
+                  onChange={(image) => setEditingCollaboration({ ...editingCollaboration, image })}
+                  onUploadResult={(result) =>
+                    setEditingCollaboration({
+                      ...editingCollaboration,
+                      image: result.secure_url || result.url,
+                      public_id: result.public_id,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="pt-2 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingCollaboration(null)}
+                  className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveCollaboration}
+                  disabled={isCollaborationSaving}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider disabled:opacity-70"
+                >
+                  {isCollaborationSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Save Collaboration</span>
                 </button>
               </div>
             </div>

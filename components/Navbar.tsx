@@ -174,7 +174,7 @@ export default function Navbar() {
           </button>
 
           {/* Admin Dashboard CMS Toggle (Desktop) */}
-          <button
+          {(user?.role === 'ADMIN' || user?.role === 'MODERATOR') && <button
             id="nav-admin-btn"
             onClick={() => handleNavClick('admin')}
             className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-[11px] tracking-wider uppercase font-medium rounded-full border transition-all duration-200 ${
@@ -188,7 +188,7 @@ export default function Navbar() {
           >
             <SlidersHorizontal className="w-3 h-3" />
             <span>Admin CMS</span>
-          </button>
+          </button>}
 
           {/* Mobile Hamburger Toggle */}
           <button
@@ -291,7 +291,7 @@ export default function Navbar() {
 
           {/* Bottom Actions inside Mobile Drawer */}
           <div className="pt-6 border-t border-[#EAE4DC] space-y-3">
-            <button
+            {(user?.role === 'ADMIN' || user?.role === 'MODERATOR') && <button
               onClick={() => handleNavClick('admin')}
               className="flex items-center justify-between w-full py-3 px-4 rounded-xl bg-[#F2EDE4] text-xs uppercase tracking-widest font-medium text-[#643D26]"
             >
@@ -300,7 +300,7 @@ export default function Navbar() {
                 Admin CMS Studio
               </span>
               <span className="text-[10px] text-[#8F8880]">Manage</span>
-            </button>
+            </button>}
 
             <div className="flex items-center justify-between pt-2 text-xs text-[#8F8880]">
               <span>Tocco House Cairo</span>
