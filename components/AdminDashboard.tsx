@@ -508,13 +508,14 @@ export default function AdminDashboard() {
       images: [
         'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&w=1200&q=85',
       ],
-      finishes: ['Matte', 'Glossy'],
+      finishes: ['MATTE', 'GLOSSY'],
       colors: [],
       dimensions: '80 x 80 x 42 cm',
+      deliveryDays: 21,
       height: '',
       material: 'Reinforced marine-grade fiberglass with UV-stable gelcoat',
       faq: [],
-      leadTime: '2–3 weeks handcrafted production',
+      leadTime: '21 days',
       shippingTime: '5–7 days white-glove delivery',
       isFeatured: false,
       isPublished: true,
@@ -1932,14 +1933,20 @@ export default function AdminDashboard() {
                   </div>
 
                   <div>
-                    <label className="block text-[#1C1A19] font-medium mb-1">Height (cm)</label>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Delivery Days</label>
                     <input
-                      type="text"
-                      value={editingProduct.height || ''}
-                      onChange={(e) =>
-                        setEditingProduct({ ...editingProduct, height: e.target.value })
-                      }
-                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                      type="number"
+                      min="0"
+                      value={editingProduct.deliveryDays ?? ''}
+                      onChange={(e) => {
+                        const nextValue = e.target.value;
+                        setEditingProduct({
+                          ...editingProduct,
+                          deliveryDays: nextValue === '' ? null : Number(nextValue),
+                          leadTime: nextValue === '' ? '' : `${Number(nextValue)} days`,
+                        });
+                      }}
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
                     />
                   </div>
                 </div>
@@ -1959,14 +1966,29 @@ export default function AdminDashboard() {
 
                   <div>
                     <label className="block text-[#1C1A19] font-medium mb-1">Finish</label>
-                    <input
-                      type="text"
-                      value={editingProduct.finishes[0] || ''}
-                      onChange={(e) =>
-                        setEditingProduct({ ...editingProduct, finishes: [e.target.value] })
-                      }
-                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
-                    />
+                    <div className="flex gap-2 p-2.5 rounded-lg border border-[#D8CEBF] bg-white">
+                      {(['MATTE', 'GLOSSY'] as ProductFinish[]).map((finish) => {
+                        const checked = editingProduct.finishes.includes(finish);
+                        return (
+                          <label key={finish} className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                setEditingProduct({
+                                  ...editingProduct,
+                                  finishes: checked
+                                    ? editingProduct.finishes.filter((item) => item !== finish)
+                                    : [...editingProduct.finishes, finish],
+                                })
+                              }
+                              className="rounded border-[#D8CEBF]"
+                            />
+                            <span>{finish === 'MATTE' ? 'Matte' : 'Glossy'}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 

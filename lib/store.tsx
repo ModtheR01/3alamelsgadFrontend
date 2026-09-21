@@ -14,9 +14,7 @@ import {
   CustomerUser,
   OrderStatus,
   PaymentStatus,
-  PricingMode,
   BannerItem,
-  ProductFinish,
 } from '@/types';
 import { BackendOrder } from '@/types/order';
 import { productService } from '@/lib/api/services/productService';
@@ -96,22 +94,21 @@ function mapBackendProduct(product: BackendProduct, subcategories: BackendSubcat
     collectionIds: [],
     shortDescription: product.description,
     detailedDescription: product.description,
-    pricingMode: 'fixed',
     price: Number(product.price),
+    pricingMode: 'fixed',
     depositPercentage: 50,
     images: imageRecords.map((image) => image.image),
     imageRecords,
     dimensions: product.dimensions,
-    height: product.height ? String(product.height) : '',
+    deliveryDays: product.delivery_days,
     material: product.material,
-    finishes: product.finish ? [product.finish as ProductFinish] : [],
+    finishes: product.finish || [],
     colors: product.colors.map((color) => ({ id: String(color.id), name: color.name, hex: color.hex_code })),
     sizes: [],
-    deliveryDate: product.delivery_date,
     faq: product.faq || [],
-    leadTime: product.delivery_date || EMPTY_SETTINGS.defaultLeadTime,
+    leadTime: product.delivery_days ? `${product.delivery_days} days` : EMPTY_SETTINGS.defaultLeadTime,
     shippingTime: '',
-    isFeatured: false,
+    isFeatured: product.featured,
     isPublished: !product.deleted_at,
     inStock: true,
     allowsCustomization: false,
@@ -161,7 +158,7 @@ function mapBackendCartItem(item: BackendCartItem, products: Product[] = []): Ca
     productName: item.product_name,
     productImage: product?.images[0] || '',
     unitPrice: Number(item.product_price),
-    selectedFinish: 'Matte',
+    selectedFinish: 'MATTE',
     selectedColor: item.color_id
       ? { id: String(item.color_id), name: item.color_name || '', hex: item.color_hex_code || '#000000' }
       : { id: '', name: '', hex: '#000000' },
@@ -253,7 +250,7 @@ interface StoreContextType {
   // Admin CRUD operations
   saveProduct: (product: Product) => void;
   deleteProduct: (productId: string) => void;
-  toggleProductFeatured: (productId: string) => void;
+  toggleProductFeatured: (productId: string) => Promise<void>;
   toggleProductPricingMode: (productId: string) => void;
 
   saveCategory: (category: Category) => void;
@@ -582,22 +579,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const colorIds = productToSave.colors
       .map((color) => Number(color.id))
       .filter((id) => Number.isInteger(id));
-    const heightValue = productToSave.height?.trim()
-      ? Number(productToSave.height)
-      : null;
 
     const payload = {
       name: productToSave.name.trim(),
       description: (productToSave.detailedDescription || productToSave.shortDescription || '').trim(),
       dimensions: productToSave.dimensions.trim(),
-      height: Number.isFinite(heightValue) ? heightValue : null,
       price: productToSave.price || 0,
-      delivery_date: productToSave.deliveryDate || null,
+      delivery_days: productToSave.deliveryDays ?? null,
       material: productToSave.material.trim(),
-      finish: productToSave.finishes[0]?.trim() || '',
+      finish: productToSave.finishes,
       faq: (productToSave.faq || []).filter((item) => item.question.trim() || item.answer.trim()),
       subcategory_ids: subcategoryIds,
       color_ids: colorIds,
+      featured: productToSave.isFeatured,
     };
     const productId = Number(productToSave.id);
     let saved = Number.isInteger(productId)
@@ -637,25 +631,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setProducts((prev) => prev.filter((p) => p.id !== productId));
   }, []);
 
-  const toggleProductFeatured = useCallback((productId: string) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === productId ? { ...p, isFeatured: !p.isFeatured } : p))
-    );
-  }, []);
+  const toggleProductFeatured = useCallback(async (productId: string) => {
+    const product = products.find((item) => item.id === productId);
+    const numericId = Number(productId);
+    if (!product || !Number.isInteger(numericId)) throw new Error('Product is not connected to a backend record.');
+
+    const nextFeatured = !product.isFeatured;
+    const saved = await productService.updateProduct(numericId, { featured: nextFeatured });
+    const mapped = mapBackendProduct(saved, subcategories);
+    setProducts((prev) => prev.map((item) => (item.id === productId ? mapped : item)));
+  }, [products, subcategories]);
 
   const toggleProductPricingMode = useCallback((productId: string) => {
     setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id === productId) {
-          const newMode: PricingMode = p.pricingMode === 'fixed' ? 'on_demand' : 'fixed';
-          return {
-            ...p,
-            pricingMode: newMode,
-            price: newMode === 'fixed' && !p.price ? 25000 : p.price,
-          };
-        }
-        return p;
-      })
+      prev.map((product) =>
+        product.id === productId
+          ? { ...product, pricingMode: product.pricingMode === 'on_demand' ? 'fixed' : 'on_demand' }
+          : product
+      )
     );
   }, []);
 

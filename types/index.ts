@@ -1,6 +1,6 @@
-export type PricingMode = 'fixed' | 'on_demand';
+export type ProductFinish = 'MATTE' | 'GLOSSY';
 
-export type ProductFinish = string;
+export type PricingMode = 'fixed' | 'on_demand';
 
 export interface ProductColor {
   id: string;
@@ -32,18 +32,17 @@ export interface Product {
   collectionId?: string;
   shortDescription: string;
   detailedDescription: string;
+  price: number; // in EGP
   pricingMode: PricingMode;
-  price?: number; // in EGP, for fixed mode
   depositPercentage?: number; // defaults to 50
   images: string[];
   imageRecords?: ProductImageDraft[];
   dimensions: string;
-  height?: string;
+  deliveryDays?: number | null;
   material: string;
   finishes: ProductFinish[];
   colors: ProductColor[];
   sizes?: ProductSize[];
-  deliveryDate?: string | null;
   faq: { question: string; answer: string }[];
   leadTime: string; // e.g. "2–3 weeks handcrafted production"
   shippingTime?: string; // e.g. "5–7 days white-glove delivery"

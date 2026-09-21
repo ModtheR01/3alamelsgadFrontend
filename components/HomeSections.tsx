@@ -135,6 +135,8 @@ export function SignaturePiecesSection() {
   const { products, navigateTo, addToCart, settings } = useToccoStore();
   const featuredProducts = products.filter((p) => p.isFeatured).slice(0, 4);
 
+  if (!featuredProducts.length) return null;
+
   return (
     <section id="signature-pieces-section" className="py-14 sm:py-24 bg-[#F5F2EB] border-b border-[#E8E1D5]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -184,9 +186,9 @@ export function SignaturePiecesSection() {
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                     referrerPolicy="no-referrer"
                   />
-                  {/* Lead Time Badge */}
+                  {/* Delivery Timeline Badge */}
                   <div className="absolute top-2 left-2 sm:top-3 sm:left-3 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-white/90 backdrop-blur-sm text-[9px] sm:text-[10px] uppercase tracking-wider text-[#524B45] font-medium">
-                    {product.leadTime.split(' ')[0]} {product.leadTime.split(' ')[1]}
+                    {product.deliveryDays ? `${product.deliveryDays} days` : product.leadTime}
                   </div>
 
                   {/* Pricing Mode Badge */}

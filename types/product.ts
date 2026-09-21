@@ -57,20 +57,22 @@ export interface FAQItem {
   answer: string;
 }
 
+export type FinishOption = 'MATTE' | 'GLOSSY';
+
 export interface BackendProduct {
   id: number;
   name: string;
   description: string;
   dimensions: string;
-  height: string | number | null;
   price: string | number;
-  delivery_date: string | null;
+  delivery_days: number | null;
   material: string;
-  finish: string;
+  finish: FinishOption[];
   faq: FAQItem[];
   subcategory_ids: number[];
   colors: BackendColor[];
   images: BackendProductImage[];
+  featured: boolean;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -80,26 +82,26 @@ export interface ProductCreateRequest {
   name: string;
   description?: string;
   dimensions?: string;
-  height?: string | number | null;
   price: string | number;
-  delivery_date?: string | null;
+  delivery_days?: number | null;
   material?: string;
-  finish?: string;
+  finish?: FinishOption[];
   faq?: FAQItem[];
   subcategory_ids: number[];
   color_ids?: number[];
+  featured?: boolean;
 }
 
 export interface ProductUpdateRequest {
   name?: string;
   description?: string;
   dimensions?: string;
-  height?: string | number | null;
   price?: string | number;
-  delivery_date?: string | null;
+  delivery_days?: number | null;
   material?: string;
-  finish?: string;
+  finish?: FinishOption[];
   faq?: FAQItem[];
   subcategory_ids?: number[];
   color_ids?: number[];
+  featured?: boolean;
 }

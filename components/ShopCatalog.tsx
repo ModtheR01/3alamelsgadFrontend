@@ -209,7 +209,7 @@ export default function ShopCatalog() {
                     {/* Top Badges */}
                     <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex flex-col gap-1">
                       <span className="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-white/90 backdrop-blur-sm text-[8px] sm:text-[10px] uppercase tracking-wider text-[#524B45] font-medium shadow-2xs">
-                        {product.leadTime.split(' ')[0]} {product.leadTime.split(' ')[1]}
+                        {product.deliveryDays ? `${product.deliveryDays} days` : product.leadTime}
                       </span>
                     </div>
 

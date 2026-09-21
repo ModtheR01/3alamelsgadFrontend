@@ -361,13 +361,8 @@ Could you please provide pricing and production details?`;
               <div className="flex items-center gap-2">
                 <Clock className="w-3.5 h-3.5 text-[#643D26]" />
                 <span>
-                  <strong className="text-[#1C1A19]">Production:</strong> {product.leadTime}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Truck className="w-3.5 h-3.5 text-[#643D26]" />
-                <span>
-                  <strong className="text-[#1C1A19]">Delivery:</strong> {product.shippingTime || settings.defaultShippingTime}
+                  <strong className="text-[#1C1A19]">Estimated manufacturing & delivery:</strong>{' '}
+                  {product.deliveryDays ? `${product.deliveryDays} days` : product.leadTime}
                 </span>
               </div>
             </div>
