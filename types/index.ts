@@ -44,6 +44,7 @@ export interface Product {
   colors: ProductColor[];
   sizes?: ProductSize[];
   faq: { question: string; answer: string }[];
+  height?: string;
   leadTime: string; // e.g. "2–3 weeks handcrafted production"
   shippingTime?: string; // e.g. "5–7 days white-glove delivery"
   isFeatured: boolean;

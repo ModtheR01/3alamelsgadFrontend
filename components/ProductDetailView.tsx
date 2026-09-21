@@ -34,7 +34,7 @@ export default function ProductDetailView() {
   // Active state for configurable attributes
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [selectedFinish, setSelectedFinish] = useState<ProductFinish>(
-    product?.finishes[0] || 'Matte'
+    product?.finishes[0] || 'MATTE'
   );
   const [selectedColor, setSelectedColor] = useState<ProductColor>(
     product?.colors[0] || { id: 'c-default', name: 'Default', hex: '#643D26' }
