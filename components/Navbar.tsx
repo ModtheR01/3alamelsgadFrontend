@@ -60,7 +60,7 @@ export default function Navbar() {
         <button
           id="nav-logo-btn"
           onClick={() => handleNavClick('home')}
-          className="group flex items-center text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#643D26]"
+          className="group flex items-center text-left focus:outline-none"
           aria-label="Tocco House Home"
         >
           <ToccoLogo size="sm" showSubtitle={false} theme={isTransparent ? 'light' : 'dark'} />

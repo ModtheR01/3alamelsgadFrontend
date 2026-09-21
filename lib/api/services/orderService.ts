@@ -38,12 +38,13 @@ export const orderService = {
 
   /**
    * Creates an order from the user's cart using the specified address.
-   * Only sends { address_id }. The backend computes items, prices, and clears cart.
+   * Sends { address_id, customer_notes? }. The backend computes items, prices, and clears cart.
    * Endpoint: POST /api/orders/
    */
   async createOrder(data: CreateOrderRequest): Promise<BackendOrder> {
     return apiClient.post<BackendOrder>('/orders/', {
       address_id: data.address_id,
+      customer_notes: data.customer_notes,
     });
   },
 

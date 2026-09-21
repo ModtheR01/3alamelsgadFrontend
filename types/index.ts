@@ -1,6 +1,6 @@
 export type PricingMode = 'fixed' | 'on_demand';
 
-export type ProductFinish = 'Matte' | 'Glossy' | 'Textured Mineral';
+export type ProductFinish = string;
 
 export interface ProductColor {
   id: string;
@@ -15,11 +15,19 @@ export interface ProductSize {
   priceDelta: number; // in EGP
 }
 
+export interface ProductImageDraft {
+  image: string;
+  public_id?: string;
+  is_primary?: boolean;
+  sort_order?: number;
+}
+
 export interface Product {
   id: string;
   slug: string;
   name: string;
   categoryId: string;
+  subcategoryIds: string[];
   collectionIds: string[];
   collectionId?: string;
   shortDescription: string;
@@ -28,12 +36,15 @@ export interface Product {
   price?: number; // in EGP, for fixed mode
   depositPercentage?: number; // defaults to 50
   images: string[];
+  imageRecords?: ProductImageDraft[];
   dimensions: string;
-  weight?: string;
+  height?: string;
   material: string;
   finishes: ProductFinish[];
   colors: ProductColor[];
   sizes?: ProductSize[];
+  deliveryDate?: string | null;
+  faq: { question: string; answer: string }[];
   leadTime: string; // e.g. "2–3 weeks handcrafted production"
   shippingTime?: string; // e.g. "5–7 days white-glove delivery"
   isFeatured: boolean;
@@ -82,6 +93,11 @@ export interface CartItem {
   selectedSize?: ProductSize;
   quantity: number;
   customNote?: string;
+  // Backend-computed pricing (from active offers), when available
+  subtotal?: number;
+  originalSubtotal?: number;
+  discountAmount?: number;
+  offerName?: string;
 }
 
 export type OrderStatus =

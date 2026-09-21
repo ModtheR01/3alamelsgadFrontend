@@ -49,24 +49,24 @@ export const productService = {
    * Soft delete a product (sets deleted_at timestamp)
    * DELETE /api/products/<id>/
    */
-  async deleteProduct(id: number): Promise<{ detail: string }> {
-    return apiClient.delete<{ detail: string }>(`/products/${id}/`);
+  async deleteProduct(id: number): Promise<void> {
+    return apiClient.delete<void>(`/products/${id}/`);
   },
 
   /**
    * Permanently delete a product
    * DELETE /api/products/<id>/hard-delete/
    */
-  async hardDeleteProduct(id: number): Promise<{ detail: string }> {
-    return apiClient.delete<{ detail: string }>(`/products/${id}/hard-delete/`);
+  async hardDeleteProduct(id: number): Promise<void> {
+    return apiClient.delete<void>(`/products/${id}/hard-delete/`);
   },
 
   /**
    * Restore a soft-deleted product
    * POST /api/products/<id>/restore/
    */
-  async restoreProduct(id: number): Promise<{ detail: string } & BackendProduct> {
-    return apiClient.post<{ detail: string } & BackendProduct>(`/products/${id}/restore/`, {});
+  async restoreProduct(id: number): Promise<{ detail: string }> {
+    return apiClient.post<{ detail: string }>(`/products/${id}/restore/`, {});
   },
 
   /**

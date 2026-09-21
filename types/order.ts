@@ -19,20 +19,31 @@ export interface BackendOrderItem {
   product_id: number;
   product_name: string;
   product_price: string;
-  color_name: string;
-  color_hex_code: string;
+  color_name: string | null;
+  color_hex_code: string | null;
   quantity: number;
   subtotal: string;
+}
+
+export interface BackendOrderUser {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
 }
 
 export interface BackendOrder {
   id: number;
   order_number: string; // UUID
-  user_id: number;
+  user: BackendOrderUser;
   address_id: number;
   shipping_address: BackendShippingAddress;
   status: BackendOrderStatus;
+  customer_notes: string;
   total_price: string;
+  deposit_percentage: string;
+  deposit_amount: string;
   items: BackendOrderItem[];
   created_at: string;
   updated_at: string;
@@ -40,6 +51,7 @@ export interface BackendOrder {
 
 export interface CreateOrderRequest {
   address_id: number;
+  customer_notes?: string;
 }
 
 export interface UpdateOrderStatusRequest {

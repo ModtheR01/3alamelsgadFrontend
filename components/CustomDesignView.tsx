@@ -12,9 +12,9 @@ import {
   Compass,
   Hammer,
   ShieldCheck,
-  Upload,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
+import CloudinaryImageField from '@/components/CloudinaryImageField';
 
 export default function CustomDesignView() {
   const { submitCustomInquiry, settings } = useToccoStore();
@@ -294,7 +294,7 @@ export default function CustomDesignView() {
                   </div>
                 </div>
 
-                {/* Description & Reference Link */}
+                {/* Description & Reference Image */}
                 <div className="space-y-1.5">
                   <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
                     Project Vision & Details
@@ -309,15 +309,11 @@ export default function CustomDesignView() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
-                    Reference Image URL (Optional)
-                  </label>
-                  <input
-                    type="url"
+                  <CloudinaryImageField
+                    label="Reference Image"
                     value={referenceUrl}
-                    onChange={(e) => setReferenceUrl(e.target.value)}
-                    placeholder="https://... (Pinterest, Google Drive, or image link)"
-                    className="w-full text-xs px-3.5 py-3 rounded-lg bg-[#FAF8F5] border border-[#D8CEBF] text-[#1C1A19] focus:outline-none"
+                    folder="tocco/custom-design"
+                    onChange={setReferenceUrl}
                   />
                 </div>
 

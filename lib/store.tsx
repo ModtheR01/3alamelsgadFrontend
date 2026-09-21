@@ -20,54 +20,96 @@ import {
 } from '@/types';
 import { BackendOrder } from '@/types/order';
 import { productService } from '@/lib/api/services/productService';
-import { categoryService } from '@/lib/api/services/categoryService';
+import { productImageService } from '@/lib/api/services/productImageService';
+import { categoryService, subcategoryService } from '@/lib/api/services/categoryService';
 import { cartService } from '@/lib/api/services/cartService';
 import { orderService } from '@/lib/api/services/orderService';
 import { BackendProduct, BackendProductImage } from '@/types/product';
-import { BackendCategory } from '@/types/category';
+import { BackendCategory, BackendSubcategory } from '@/types/category';
 import { BackendCartItem } from '@/types/cart';
 import { eventService } from '@/lib/api/services/eventService';
 import { dashboardService } from '@/lib/api/services/dashboardService';
+import { collaborationService } from '@/lib/api/services/collaborationService';
 import { BackendEvent } from '@/types/event';
+import { BackendCollaboration } from '@/types/collaboration';
 
 const EMPTY_SETTINGS: StoreSettings = {
   brandName: 'Tocco House',
   tagline: '',
   subTagline: '',
   depositPercentage: 50,
-  defaultLeadTime: '',
-  defaultShippingTime: '',
-  contact: { phone: '', whatsapp: '', email: '', atelierAddress: '', instagramHandle: '', hours: '' },
-  paymentMethods: {
-    instapay: { active: false, address: '', accountName: '', instructions: '' },
-    mobileWallet: { active: false, number: '', provider: '', instructions: '' },
-    vodafoneCash: { active: false, number: '', instructions: '' },
-    bankTransfer: { active: false, bankName: '', accountNumber: '', iban: '', swift: '', accountHolder: '', instructions: '' },
+  defaultLeadTime: 'Made to order',
+  defaultShippingTime: 'Shipping details confirmed after order review',
+  contact: {
+    phone: 'Phone number coming soon',
+    whatsapp: '',
+    email: 'Email coming soon',
+    atelierAddress: 'Cairo atelier details coming soon',
+    instagramHandle: '@tocco_house',
+    hours: 'By appointment',
   },
-  homepage: { heroHeading: '', heroSubheading: '', heroCtaText: '', heroImage: '', featuredCollectionId: '', storyQuote: '', storySubtext: '' },
+  paymentMethods: {
+    instapay: { active: false, address: '', accountName: '', instructions: 'InstaPay details will appear here once configured.' },
+    mobileWallet: { active: false, number: '', provider: '', instructions: 'Mobile wallet details will appear here once configured.' },
+    vodafoneCash: { active: false, number: '', instructions: 'Vodafone Cash details will appear here once configured.' },
+    bankTransfer: {
+      active: false,
+      bankName: 'Bank details coming soon',
+      accountNumber: 'Account number coming soon',
+      iban: 'IBAN coming soon',
+      swift: '',
+      accountHolder: 'Account name coming soon',
+      instructions: 'Bank transfer details will be confirmed by the atelier team.',
+    },
+  },
+  homepage: {
+    heroHeading: 'Objects with character.',
+    heroSubheading: 'Contemporary Egyptian design house specializing in distinctive fiberglass furniture, sculptural pieces, and architectural design objects.',
+    heroCtaText: 'Discover Tocco House',
+    heroImage: '/images/hero_villa_clean.jpg',
+    featuredCollectionId: '',
+    storyQuote: '',
+    storySubtext: '',
+  },
   policies: { shipping: '', returns: '', privacy: '', terms: '', faq: [] },
 };
 
-function mapBackendProduct(product: BackendProduct): Product {
+function mapBackendProduct(product: BackendProduct, subcategories: BackendSubcategory[] = []): Product {
+  const subcategoryIds = product.subcategory_ids.map((id) => String(id));
+  const primarySubcategory = subcategories.find((subcategory) => subcategory.id === product.subcategory_ids[0]);
+  const categoryId = primarySubcategory?.category_id
+    ? String(primarySubcategory.category_id)
+    : '';
+  const imageRecords = product.images.map((image: BackendProductImage, index) => ({
+    image: image.image,
+    public_id: image.public_id,
+    is_primary: image.is_primary,
+    sort_order: image.sort_order ?? index,
+  }));
+
   return {
     id: String(product.id),
     slug: String(product.id),
     name: product.name,
-    categoryId: String(product.subcategory_ids[0] || ''),
+    categoryId,
+    subcategoryIds,
     collectionIds: [],
     shortDescription: product.description,
     detailedDescription: product.description,
     pricingMode: 'fixed',
     price: Number(product.price),
     depositPercentage: 50,
-    images: product.images.map((image: BackendProductImage) => image.image),
+    images: imageRecords.map((image) => image.image),
+    imageRecords,
     dimensions: product.dimensions,
-    weight: product.height ? String(product.height) : '',
+    height: product.height ? String(product.height) : '',
     material: product.material,
     finishes: product.finish ? [product.finish as ProductFinish] : [],
     colors: product.colors.map((color) => ({ id: String(color.id), name: color.name, hex: color.hex_code })),
     sizes: [],
-    leadTime: product.delivery_date || '',
+    deliveryDate: product.delivery_date,
+    faq: product.faq || [],
+    leadTime: product.delivery_date || EMPTY_SETTINGS.defaultLeadTime,
     shippingTime: '',
     isFeatured: false,
     isPublished: !product.deleted_at,
@@ -111,18 +153,23 @@ function mapBackendEvent(event: BackendEvent): EventItem {
   };
 }
 
-function mapBackendCartItem(item: BackendCartItem): CartItem {
+function mapBackendCartItem(item: BackendCartItem, products: Product[] = []): CartItem {
+  const product = products.find((p) => p.id === String(item.product_id));
   return {
     id: String(item.id),
     productId: String(item.product_id),
     productName: item.product_name,
-    productImage: item.product_image || '',
+    productImage: product?.images[0] || '',
     unitPrice: Number(item.product_price),
     selectedFinish: 'Matte',
-    selectedColor: item.selected_color
-      ? { id: String(item.selected_color.id), name: item.selected_color.name, hex: item.selected_color.hex_code }
+    selectedColor: item.color_id
+      ? { id: String(item.color_id), name: item.color_name || '', hex: item.color_hex_code || '#000000' }
       : { id: '', name: '', hex: '#000000' },
     quantity: item.quantity,
+    subtotal: item.subtotal !== undefined ? Number(item.subtotal) : undefined,
+    originalSubtotal: item.original_subtotal !== undefined ? Number(item.original_subtotal) : undefined,
+    discountAmount: item.discount_amount !== undefined ? Number(item.discount_amount) : undefined,
+    offerName: item.offer?.name,
   };
 }
 
@@ -165,12 +212,14 @@ interface StoreContextType {
   // Data
   products: Product[];
   categories: Category[];
+  subcategories: BackendSubcategory[];
   collections: Collection[];
   orders: Order[];
   customInquiries: CustomDesignInquiry[];
   events: EventItem[];
   projects: ProjectItem[];
   banners: BannerItem[];
+  collaborations: BackendCollaboration[];
   settings: StoreSettings;
   cart: CartItem[];
   user: CustomerUser | null;
@@ -187,6 +236,9 @@ interface StoreContextType {
   cartDepositAmount: number;
   cartRemainingAmount: number;
   cartItemsCount: number;
+  cartOriginalTotal: number;
+  cartDiscountTotal: number;
+  cartFreeShipping: boolean;
 
   // Checkout & Orders
   createOrder: (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>) => Order;
@@ -249,30 +301,64 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Entities
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subcategories, setSubcategories] = useState<BackendSubcategory[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [customInquiries, setCustomInquiries] = useState<CustomDesignInquiry[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [banners, setBanners] = useState<BannerItem[]>([]);
+  const [collaborations, setCollaborations] = useState<BackendCollaboration[]>([]);
   const [settings, setSettings] = useState<StoreSettings>(EMPTY_SETTINGS);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartPricing, setCartPricing] = useState({
+    originalTotal: 0,
+    discountTotal: 0,
+    total: 0,
+    freeShipping: false,
+  });
   const [user, setUser] = useState<CustomerUser | null>(null);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<BackendOrder | Order | null>(null);
 
   // Load catalog data from the production backend.
   useEffect(() => {
     let active = true;
-    Promise.all([productService.getProducts(), categoryService.getCategories()])
-      .then(([backendProducts, backendCategories]) => {
+    Promise.all([
+      productService.getProducts(),
+      categoryService.getCategories(),
+      subcategoryService.getSubcategories(),
+    ])
+      .then(([backendProducts, backendCategories, backendSubcategories]) => {
         if (!active) return;
-        setProducts(backendProducts.map(mapBackendProduct));
+        setSubcategories(backendSubcategories);
+        const mappedProducts = backendProducts.map((product) => mapBackendProduct(product, backendSubcategories));
+        setProducts(mappedProducts);
         setCategories(backendCategories.map(mapBackendCategory));
+
+        // Cart items reference product images by id, so hydrate the cart only
+        // once the product catalog is available to resolve thumbnails correctly.
+        return cartService
+          .getCart()
+          .then((backendCart) => {
+            if (!active) return;
+            setCart(backendCart.items.map((item) => mapBackendCartItem(item, mappedProducts)));
+            setCartPricing({
+              originalTotal: Number(backendCart.original_total),
+              discountTotal: Number(backendCart.discount_amount),
+              total: Number(backendCart.total_price),
+              freeShipping: backendCart.free_shipping,
+            });
+          })
+          .catch(() => {
+            if (active) setCart([]);
+          });
       })
       .catch(() => {
         if (!active) return;
         setProducts([]);
         setCategories([]);
+        setSubcategories([]);
+        setCart([]);
       })
       .finally(() => {
       });
@@ -281,6 +367,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (active) setEvents(items.map(mapBackendEvent));
     }).catch(() => {
       if (active) setEvents([]);
+    });
+
+    collaborationService.getCollaborations().then((items) => {
+      if (active) setCollaborations(items);
+    }).catch(() => {
+      if (active) setCollaborations([]);
     });
 
     dashboardService.getSettings().then((data) => {
@@ -292,7 +384,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           ...current.paymentMethods,
           mobileWallet: {
             ...current.paymentMethods.mobileWallet,
-            number: data.payment_wallets.vodafone_cash || current.paymentMethods.mobileWallet.number,
+            number: data.payment_wallets.mobile_wallet || current.paymentMethods.mobileWallet.number,
           },
           instapay: {
             ...current.paymentMethods.instapay,
@@ -306,14 +398,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
     }).catch(() => undefined);
 
-    cartService
-      .getCartItems()
-      .then((items) => {
-        if (active) setCart(items.map(mapBackendCartItem));
-      })
-      .catch(() => {
-        if (active) setCart([]);
-      });
     return () => {
       active = false;
     };
@@ -339,6 +423,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Cart logic
+  const refreshCart = useCallback(async () => {
+    const backendCart = await cartService.getCart();
+    setCart(backendCart.items.map((item) => mapBackendCartItem(item, products)));
+    setCartPricing({
+      originalTotal: Number(backendCart.original_total),
+      discountTotal: Number(backendCart.discount_amount),
+      total: Number(backendCart.total_price),
+      freeShipping: backendCart.free_shipping,
+    });
+  }, [products]);
+
   const addToCart = useCallback(async (itemData: Omit<CartItem, 'id'>) => {
     const productId = Number(itemData.productId);
     const colorId = itemData.selectedColor.id ? Number(itemData.selectedColor.id) : null;
@@ -346,37 +441,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       throw new Error('This product is not connected to a backend product record.');
     }
 
-    const backendItem = await cartService.addItem({
+    await cartService.addItem({
       product_id: productId,
       color_id: Number.isInteger(colorId) ? colorId : null,
       quantity: itemData.quantity,
     });
-    setCart((prev) => {
-      const nextItem = mapBackendCartItem(backendItem);
-      const existing = prev.find((item) => item.id === nextItem.id);
-      return existing
-        ? prev.map((item) => (item.id === nextItem.id ? { ...item, ...nextItem } : item))
-        : [...prev, nextItem];
-    });
+    await refreshCart();
     setIsCartDrawerOpen(true);
-  }, []);
+  }, [refreshCart]);
 
   const removeFromCart = useCallback(async (cartItemId: string) => {
     await cartService.removeItem(Number(cartItemId));
-    setCart((prev) => prev.filter((item) => item.id !== cartItemId));
-  }, []);
+    await refreshCart();
+  }, [refreshCart]);
 
   const updateCartQuantity = useCallback(async (cartItemId: string, quantity: number) => {
     if (quantity <= 0) {
       await cartService.removeItem(Number(cartItemId));
-      setCart((prev) => prev.filter((item) => item.id !== cartItemId));
-      return;
+    } else {
+      await cartService.updateItem(Number(cartItemId), { quantity });
     }
-    const updatedItem = await cartService.updateItem(Number(cartItemId), { quantity });
-    setCart((prev) =>
-      prev.map((item) => (item.id === cartItemId ? mapBackendCartItem(updatedItem) : item))
-    );
-  }, []);
+    await refreshCart();
+  }, [refreshCart]);
 
   const updateCartItemNote = useCallback((cartItemId: string, note: string) => {
     setCart((prev) =>
@@ -387,10 +473,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const clearCart = useCallback(async () => {
     await cartService.clearCart();
     setCart([]);
+    setCartPricing({ originalTotal: 0, discountTotal: 0, total: 0, freeShipping: false });
   }, []);
 
   // Cart calculations
-  const cartSubtotal = cart.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
+  // Prefer the backend's offer-aware total (accounts for active discounts); fall back
+  // to a naive client-side sum only if the cart hasn't synced with the backend yet.
+  const cartSubtotal = cart.length > 0 ? cartPricing.total : 0;
   const depositRatio = (settings.depositPercentage || 50) / 100;
   const cartDepositAmount = Math.round(cartSubtotal * depositRatio);
   const cartRemainingAmount = cartSubtotal - cartDepositAmount;
@@ -487,29 +576,59 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Admin CRUD for Products
   const saveProduct = useCallback(async (productToSave: Product) => {
+    const subcategoryIds = productToSave.subcategoryIds
+      .map((id) => Number(id))
+      .filter((id) => Number.isInteger(id));
+    const colorIds = productToSave.colors
+      .map((color) => Number(color.id))
+      .filter((id) => Number.isInteger(id));
+    const heightValue = productToSave.height?.trim()
+      ? Number(productToSave.height)
+      : null;
+
     const payload = {
-      name: productToSave.name,
-      description: productToSave.detailedDescription || productToSave.shortDescription,
-      dimensions: productToSave.dimensions,
+      name: productToSave.name.trim(),
+      description: (productToSave.detailedDescription || productToSave.shortDescription || '').trim(),
+      dimensions: productToSave.dimensions.trim(),
+      height: Number.isFinite(heightValue) ? heightValue : null,
       price: productToSave.price || 0,
-      material: productToSave.material,
-      finish: productToSave.finishes[0] || '',
-      faq: [],
-      subcategory_ids: Number.isInteger(Number(productToSave.categoryId)) ? [Number(productToSave.categoryId)] : [],
-      color_ids: productToSave.colors
-        .map((color) => Number(color.id))
-        .filter((id) => Number.isInteger(id)),
+      delivery_date: productToSave.deliveryDate || null,
+      material: productToSave.material.trim(),
+      finish: productToSave.finishes[0]?.trim() || '',
+      faq: (productToSave.faq || []).filter((item) => item.question.trim() || item.answer.trim()),
+      subcategory_ids: subcategoryIds,
+      color_ids: colorIds,
     };
     const productId = Number(productToSave.id);
-    const saved = Number.isInteger(productId)
+    let saved = Number.isInteger(productId)
       ? await productService.updateProduct(productId, payload)
       : await productService.createProduct(payload);
-    const mapped = mapBackendProduct(saved);
+
+    if (!Number.isInteger(productId) && productToSave.images.length > 0) {
+      const createdImages = await Promise.all(
+        productToSave.images.map((imageUrl, index) => {
+          const imageRecord = productToSave.imageRecords?.find((record) => record.image === imageUrl);
+          return productImageService.createProductImage({
+            product: saved.id,
+            image: imageUrl,
+            public_id: imageRecord?.public_id || '',
+            is_primary: index === 0,
+            sort_order: index,
+          });
+        })
+      );
+      saved = {
+        ...saved,
+        images: createdImages,
+      };
+    }
+
+    const mapped = mapBackendProduct(saved, subcategories);
     setProducts((prev) => {
       const exists = prev.some((product) => product.id === mapped.id);
       return exists ? prev.map((product) => (product.id === mapped.id ? mapped : product)) : [mapped, ...prev];
     });
-  }, []);
+  }, [subcategories]);
 
   const deleteProduct = useCallback(async (productId: string) => {
     const numericId = Number(productId);
@@ -763,12 +882,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setSearchQuery,
         products,
         categories,
+        subcategories,
         collections,
         orders,
         customInquiries,
         events,
         projects,
         banners,
+        collaborations,
         settings,
         cart,
         user,
@@ -783,6 +904,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         cartDepositAmount,
         cartRemainingAmount,
         cartItemsCount,
+        cartOriginalTotal: cartPricing.originalTotal,
+        cartDiscountTotal: cartPricing.discountTotal,
+        cartFreeShipping: cartPricing.freeShipping,
         createOrder,
         submitPaymentProof,
         updateOrderStatus,

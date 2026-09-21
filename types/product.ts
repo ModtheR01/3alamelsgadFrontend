@@ -40,6 +40,7 @@ export interface ProductImageCreateRequest {
 }
 
 export interface ProductImageUpdateRequest {
+  product?: number;
   image?: string;
   public_id?: string;
   is_primary?: boolean;
@@ -69,7 +70,6 @@ export interface BackendProduct {
   faq: FAQItem[];
   subcategory_ids: number[];
   colors: BackendColor[];
-  color_ids?: number[];
   images: BackendProductImage[];
   created_at: string;
   updated_at: string;
@@ -78,16 +78,16 @@ export interface BackendProduct {
 
 export interface ProductCreateRequest {
   name: string;
-  description: string;
-  dimensions: string;
+  description?: string;
+  dimensions?: string;
   height?: string | number | null;
   price: string | number;
   delivery_date?: string | null;
-  material: string;
-  finish: string;
-  faq: FAQItem[];
+  material?: string;
+  finish?: string;
+  faq?: FAQItem[];
   subcategory_ids: number[];
-  color_ids: number[];
+  color_ids?: number[];
 }
 
 export interface ProductUpdateRequest {

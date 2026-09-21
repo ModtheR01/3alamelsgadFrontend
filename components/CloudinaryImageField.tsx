@@ -1,7 +1,8 @@
 'use client';
 
 import { ChangeEvent, useRef, useState } from 'react';
-import { Loader2, UploadCloud } from 'lucide-react';
+import { Loader2, UploadCloud, X } from 'lucide-react';
+import Image from '@/components/SafeImage';
 import {
   CloudinaryUploadResult,
   uploadDirectToCloudinary,
@@ -47,25 +48,53 @@ export default function CloudinaryImageField({
   };
 
   return (
-    <div>
-      <label className="block text-[#1C1A19] mb-1">{label}</label>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          required={required}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="min-w-0 flex-1 p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
-        />
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <label className="block text-[#1C1A19] mb-1">
+          {label}{required ? <span className="text-rose-600"> *</span> : null}
+        </label>
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={isUploading}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5] px-3 text-xs text-[#1C1A19] hover:bg-[#F1ECE4] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#D8CEBF] bg-[#FAF8F5] px-3 py-2 text-xs text-[#1C1A19] hover:bg-[#F1ECE4] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UploadCloud className="h-3.5 w-3.5" />}
           {isUploading ? 'Uploading' : 'Upload'}
         </button>
+      </div>
+      <div className="relative aspect-[16/9] rounded-xl overflow-hidden border border-[#EAE4DC] bg-[#FAF8F5]">
+        {value ? (
+          <>
+            <Image
+              src={value}
+              alt={`${label} preview`}
+              fill
+              className="object-cover"
+              referrerPolicy="no-referrer"
+            />
+            <button
+              type="button"
+              onClick={() => onChange('')}
+              className="absolute top-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-[#1C1A19] shadow-sm hover:bg-white"
+              aria-label="Remove image"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={isUploading}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[#736B63] disabled:opacity-60"
+          >
+            {isUploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <UploadCloud className="h-7 w-7" />}
+            <span className="text-xs uppercase tracking-wider">
+              {isUploading ? 'Uploading image' : 'Upload image'}
+            </span>
+          </button>
+        )}
       </div>
       <input
         ref={inputRef}

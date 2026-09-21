@@ -16,6 +16,8 @@ export default function CartDrawer() {
     cartSubtotal,
     cartDepositAmount,
     cartRemainingAmount,
+    cartDiscountTotal,
+    cartFreeShipping,
     navigateTo,
     settings,
   } = useToccoStore();
@@ -153,11 +155,26 @@ export default function CartDrawer() {
                           </div>
 
                           <p className="text-xs sm:text-sm font-semibold text-[#1C1A19]">
-                            {(item.unitPrice * item.quantity).toLocaleString()} EGP
+                            {item.discountAmount ? (
+                              <span className="flex flex-col items-end">
+                                <span className="text-[10px] text-[#8F8880] line-through font-normal">
+                                  {(item.originalSubtotal ?? item.unitPrice * item.quantity).toLocaleString()} EGP
+                                </span>
+                                <span>{(item.subtotal ?? item.unitPrice * item.quantity).toLocaleString()} EGP</span>
+                              </span>
+                            ) : (
+                              `${(item.subtotal ?? item.unitPrice * item.quantity).toLocaleString()} EGP`
+                            )}
                           </p>
                         </div>
                       </div>
                     </div>
+
+                    {item.offerName && (
+                      <span className="inline-flex w-fit items-center gap-1 px-2 py-0.5 rounded-full bg-[#F5EBE6] text-[#B85D38] text-[10px] font-medium uppercase tracking-wider">
+                        {item.offerName}
+                      </span>
+                    )}
 
                     {/* Order Note per item */}
                     <div className="pt-0.5">
@@ -191,6 +208,18 @@ export default function CartDrawer() {
 
               {/* Price calculations */}
               <div className="space-y-1 text-xs text-[#524B45]">
+                {cartDiscountTotal > 0 && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Offer Savings</span>
+                    <span className="font-medium">-{cartDiscountTotal.toLocaleString()} EGP</span>
+                  </div>
+                )}
+                {cartFreeShipping && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Shipping</span>
+                    <span className="font-medium">Free</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span>Total Order Value</span>
                   <span className="font-medium text-[#1C1A19]">{cartSubtotal.toLocaleString()} EGP</span>

@@ -14,6 +14,7 @@ import {
   SignaturePiecesSection,
   StoryTeaserSection,
   CategoriesShowcase,
+  CollaborationsSection,
   CustomDesignTeaser,
   ProjectsAndInstagramSection,
 } from '@/components/HomeSections';
@@ -89,6 +90,7 @@ function ToccoApp() {
             <SignaturePiecesSection />
             <StoryTeaserSection />
             <CategoriesShowcase />
+            <CollaborationsSection />
             <CustomDesignTeaser />
             <ProjectsAndInstagramSection />
           </div>

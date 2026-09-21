@@ -49,7 +49,7 @@ export const colorService = {
    * Delete a color
    * DELETE /api/products/colors/<id>/
    */
-  async deleteColor(id: number): Promise<void | { detail: string }> {
-    return apiClient.delete<void | { detail: string }>(`/products/colors/${id}/`);
+  async deleteColor(id: number): Promise<void> {
+    return apiClient.delete<void>(`/products/colors/${id}/`);
   },
 };

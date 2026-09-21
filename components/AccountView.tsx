@@ -863,17 +863,23 @@ export default function AccountView() {
                             {ord.items.map((item) => (
                               <div key={item.id} className="flex items-center gap-4 py-2 border-b border-[#FAF8F5] last:border-0">
                                 <div className="w-12 h-12 rounded-lg bg-[#F5F1EA] overflow-hidden shrink-0 relative flex items-center justify-center border border-[#EAE4DC]">
-                                  <div
-                                    className="w-5 h-5 rounded-full border border-black/10 shadow-xs"
-                                    style={{ backgroundColor: item.color_hex_code }}
-                                    title={item.color_name}
-                                  />
+                                  {item.color_hex_code && (
+                                    <div
+                                      className="w-5 h-5 rounded-full border border-black/10 shadow-xs"
+                                      style={{ backgroundColor: item.color_hex_code }}
+                                      title={item.color_name || undefined}
+                                    />
+                                  )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <h4 className="text-xs sm:text-sm font-medium text-[#1C1A19] truncate">{item.product_name}</h4>
                                   <p className="text-[11px] text-[#736B63] flex items-center gap-1.5 mt-0.5">
-                                    <span>Color: {item.color_name}</span>
-                                    <span>•</span>
+                                    {item.color_name && (
+                                      <>
+                                        <span>Color: {item.color_name}</span>
+                                        <span>•</span>
+                                      </>
+                                    )}
                                     <span>Qty: {item.quantity}</span>
                                     <span>•</span>
                                     <span className="font-mono">{Number(item.product_price).toLocaleString()} EGP each</span>

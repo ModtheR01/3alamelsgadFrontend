@@ -49,14 +49,17 @@ import {
   Compass,
   AlertCircle,
   Loader2,
+  Palette,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 import { orderService } from '@/lib/api/services/orderService';
 import { offerService } from '@/lib/api/services/offerService';
 import { collaborationService } from '@/lib/api/services/collaborationService';
+import { colorService } from '@/lib/api/services/colorService';
 import { BackendOrder, BackendOrderStatus } from '@/types/order';
 import { BackendOffer, OfferCreateRequest, OfferProductRequest, OfferType } from '@/types/offer';
 import { BackendCollaboration, CollaborationCreateRequest } from '@/types/collaboration';
+import { BackendColor, ColorCreateRequest } from '@/types/product';
 import { normalizeApiError } from '@/lib/api/errors';
 
 type OfferDraft = {
@@ -78,6 +81,12 @@ type CollaborationDraft = {
   public_id: string;
 };
 
+type ColorDraft = {
+  id?: number;
+  name: string;
+  hex_code: string;
+};
+
 const formatCurrency = (value: string | number | null | undefined) => {
   const amount = Number(value || 0);
   return new Intl.NumberFormat('en-EG', {
@@ -95,6 +104,7 @@ export default function AdminDashboard() {
   const {
     products,
     categories,
+    subcategories,
     collections,
     orders,
     customInquiries,
@@ -135,6 +145,7 @@ export default function AdminDashboard() {
     | 'offers'
     | 'collaborations'
     | 'projects'
+    | 'colors'
     | 'settings'
   >('products');
 
@@ -172,16 +183,22 @@ export default function AdminDashboard() {
 
   const [offers, setOffers] = useState<BackendOffer[]>([]);
   const [collaborations, setCollaborations] = useState<BackendCollaboration[]>([]);
+  const [colors, setColors] = useState<BackendColor[]>([]);
   const [isOffersLoading, setIsOffersLoading] = useState(true);
   const [isCollaborationsLoading, setIsCollaborationsLoading] = useState(true);
+  const [isColorsLoading, setIsColorsLoading] = useState(true);
   const [offersError, setOffersError] = useState<string | null>(null);
   const [collaborationsError, setCollaborationsError] = useState<string | null>(null);
+  const [colorsError, setColorsError] = useState<string | null>(null);
   const [editingOffer, setEditingOffer] = useState<OfferDraft | null>(null);
   const [editingCollaboration, setEditingCollaboration] = useState<CollaborationDraft | null>(null);
+  const [editingColor, setEditingColor] = useState<ColorDraft | null>(null);
   const [isOfferSaving, setIsOfferSaving] = useState(false);
   const [isCollaborationSaving, setIsCollaborationSaving] = useState(false);
+  const [isColorSaving, setIsColorSaving] = useState(false);
   const [deletingOfferId, setDeletingOfferId] = useState<number | null>(null);
   const [deletingCollaborationId, setDeletingCollaborationId] = useState<number | null>(null);
+  const [deletingColorId, setDeletingColorId] = useState<number | null>(null);
 
   React.useEffect(() => {
     let active = true;
@@ -208,6 +225,18 @@ export default function AdminDashboard() {
       })
       .finally(() => {
         if (active) setIsCollaborationsLoading(false);
+      });
+
+    colorService
+      .getColors()
+      .then((data) => {
+        if (active) setColors(data);
+      })
+      .catch((err) => {
+        if (active) setColorsError(normalizeApiError(err).message);
+      })
+      .finally(() => {
+        if (active) setIsColorsLoading(false);
       });
 
     return () => {
@@ -387,6 +416,61 @@ export default function AdminDashboard() {
     }
   };
 
+  const createColorDraft = (color?: BackendColor): ColorDraft => ({
+    id: color?.id,
+    name: color?.name || '',
+    hex_code: color?.hex_code || '#EBE3D5',
+  });
+
+  const handleSaveColor = async () => {
+    if (!editingColor) return;
+    setIsColorSaving(true);
+    setColorsError(null);
+    try {
+      if (!editingColor.name.trim()) throw new Error('Color name is required.');
+      const payload: ColorCreateRequest = {
+        name: editingColor.name.trim(),
+        hex_code: editingColor.hex_code.trim(),
+      };
+      const saved = editingColor.id
+        ? await colorService.updateColor(editingColor.id, payload)
+        : await colorService.createColor(payload);
+      setColors((prev) => {
+        const exists = prev.some((color) => color.id === saved.id);
+        return exists ? prev.map((color) => (color.id === saved.id ? saved : color)) : [saved, ...prev];
+      });
+      setEditingColor(null);
+    } catch (err) {
+      setColorsError(normalizeApiError(err).message);
+    } finally {
+      setIsColorSaving(false);
+    }
+  };
+
+  const handleDeleteColor = async (color: BackendColor) => {
+    if (!confirm(`Delete color "${color.name}"?`)) return;
+    setDeletingColorId(color.id);
+    setColorsError(null);
+    try {
+      await colorService.deleteColor(color.id);
+      setColors((prev) => prev.filter((item) => item.id !== color.id));
+    } catch (err) {
+      setColorsError(normalizeApiError(err).message);
+    } finally {
+      setDeletingColorId(null);
+    }
+  };
+
+  const toggleProductColor = (color: BackendColor) => {
+    if (!editingProduct) return;
+    const colorIdStr = String(color.id);
+    const exists = editingProduct.colors.some((c) => c.id === colorIdStr);
+    const nextColors: ProductColor[] = exists
+      ? editingProduct.colors.filter((c) => c.id !== colorIdStr)
+      : [...editingProduct.colors, { id: colorIdStr, name: color.name, hex: color.hex_code }];
+    setEditingProduct({ ...editingProduct, colors: nextColors });
+  };
+
   // Product Modal / Form states
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -414,6 +498,7 @@ export default function AdminDashboard() {
       name: '',
       slug: `product-${Date.now()}`,
       categoryId: categories[0]?.id || 'cat-tables',
+      subcategoryIds: [],
       collectionIds: [],
       shortDescription: '',
       detailedDescription: '',
@@ -424,12 +509,11 @@ export default function AdminDashboard() {
         'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&w=1200&q=85',
       ],
       finishes: ['Matte', 'Glossy'],
-      colors: [
-        { id: 'c-1', name: 'Alabaster Bone', hex: '#EBE3D5' },
-        { id: 'c-2', name: 'Terracotta Earth', hex: '#A85A3C' },
-      ],
+      colors: [],
       dimensions: '80 x 80 x 42 cm',
+      height: '',
       material: 'Reinforced marine-grade fiberglass with UV-stable gelcoat',
+      faq: [],
       leadTime: '2–3 weeks handcrafted production',
       shippingTime: '5–7 days white-glove delivery',
       isFeatured: false,
@@ -544,6 +628,7 @@ export default function AdminDashboard() {
             { key: 'offers', label: `Offers (${offers.length})`, icon: Tag },
             { key: 'collaborations', label: `Collaborations (${collaborations.length})`, icon: Compass },
             { key: 'projects', label: `In Their Space (${projects.length})`, icon: ImageIcon },
+            { key: 'colors', label: `Colors (${colors.length})`, icon: Palette },
             { key: 'settings', label: 'Store & Deposit Settings', icon: Settings },
           ].map((t) => {
             const Icon = t.icon;
@@ -895,7 +980,7 @@ export default function AdminDashboard() {
             ) : (
               <div className="space-y-4">
                 {backendOrders.map((ord) => {
-                  const deposit = Math.round(Number(ord.total_price) * 0.5);
+                  const deposit = Number(ord.deposit_amount);
                   const isUpdating = updatingOrderId === ord.id;
                   const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
                     `Hello, this is Tocco House Atelier regarding Order #${ord.order_number}.`
@@ -940,7 +1025,9 @@ export default function AdminDashboard() {
                         <div>
                           <span className="font-semibold text-[#1C1A19] block">Residence & Recipient:</span>
                           <p className="font-medium text-[#1C1A19]">{ord.shipping_address?.title || 'Private Residence'}</p>
-                          <p className="text-[#736B63]">Account ID: #{ord.user_id}</p>
+                          <p className="text-[#736B63]">
+                            {ord.user ? `${ord.user.first_name} ${ord.user.last_name}`.trim() || ord.user.email : 'Unknown customer'}
+                          </p>
                         </div>
 
                         <div>
@@ -962,7 +1049,7 @@ export default function AdminDashboard() {
                         </div>
 
                         <div>
-                          <span className="font-semibold text-[#1C1A19] block">50% Handcrafted Deposit:</span>
+                          <span className="font-semibold text-[#1C1A19] block">{Number(ord.deposit_percentage)}% Handcrafted Deposit:</span>
                           <p className="text-[#643D26] font-semibold text-sm font-mono">
                             {deposit.toLocaleString()} EGP
                           </p>
@@ -972,6 +1059,13 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
+                      {ord.customer_notes && (
+                        <div className="text-xs text-[#524B45] bg-[#FAF8F5] border border-[#EAE4DC] rounded-xl p-3">
+                          <span className="font-semibold text-[#1C1A19] block mb-0.5">Customer Notes:</span>
+                          <p>{ord.customer_notes}</p>
+                        </div>
+                      )}
+
                       {/* Items List */}
                       <div className="pt-2 border-t border-[#EAE4DC] flex flex-wrap items-center justify-between gap-4">
                         <div className="space-y-1.5">
@@ -980,13 +1074,16 @@ export default function AdminDashboard() {
                               key={it.id}
                               className="inline-flex items-center gap-2 mr-4 text-xs text-[#1C1A19] font-medium"
                             >
-                              <div
-                                className="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0"
-                                style={{ backgroundColor: it.color_hex_code }}
-                                title={it.color_name}
-                              />
+                              {it.color_hex_code && (
+                                <div
+                                  className="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0"
+                                  style={{ backgroundColor: it.color_hex_code }}
+                                  title={it.color_name || undefined}
+                                />
+                              )}
                               <span>
-                                {it.product_name} ({it.color_name}) x{it.quantity}
+                                {it.product_name}
+                                {it.color_name ? ` (${it.color_name})` : ''} x{it.quantity}
                               </span>
                               <span className="font-mono text-[#736B63]">
                                 · {Number(it.subtotal).toLocaleString()} EGP
@@ -1378,7 +1475,7 @@ export default function AdminDashboard() {
                   Atelier Offers
                 </h3>
                 <p className="text-xs text-[#736B63]">
-                  Build percentage privileges, bundles, and free-shipping moments from backend products.
+                  Build percentage privileges, bundles, and free-shipping moments from catalogue products.
                 </p>
               </div>
               <button
@@ -1405,7 +1502,7 @@ export default function AdminDashboard() {
             ) : offers.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-[#D8CEBF] bg-white p-8 text-center">
                 <p className="text-sm text-[#1C1A19]">No offers are configured yet.</p>
-                <p className="text-xs text-[#736B63] mt-1">Create the first offer and it will sync with the backend.</p>
+                <p className="text-xs text-[#736B63] mt-1">Create the first offer and it will be ready for customers.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -1482,7 +1579,7 @@ export default function AdminDashboard() {
                   Collaborations
                 </h3>
                 <p className="text-xs text-[#736B63]">
-                  Curate partner moments with Cloudinary images and backend-backed deletion.
+                  Curate partner moments with uploaded images.
                 </p>
               </div>
               <button
@@ -1547,6 +1644,82 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* ----------------- TAB: COLORS ----------------- */}
+        {activeTab === 'colors' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
+                  Colors
+                </h3>
+                <p className="text-xs text-[#736B63]">
+                  Manage the swatch palette available for product color assignment.
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingColor(createColorDraft())}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D]"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Color</span>
+              </button>
+            </div>
+
+            {colorsError && (
+              <div className="flex items-start gap-2 rounded-2xl border border-[#E2B6A2] bg-[#FFF5F0] px-4 py-3 text-xs text-[#8A3D25]">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{colorsError}</span>
+              </div>
+            )}
+
+            {isColorsLoading ? (
+              <div className="rounded-2xl border border-[#EAE4DC] bg-white p-8 text-sm text-[#736B63] flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading colors...
+              </div>
+            ) : colors.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-[#D8CEBF] bg-white p-8 text-center">
+                <p className="text-sm text-[#1C1A19]">No colors have been created yet.</p>
+                <p className="text-xs text-[#736B63] mt-1">Add a color to make it available on product forms.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {colors.map((color) => (
+                  <div key={color.id} className="rounded-2xl bg-white border border-[#EAE4DC] shadow-sm p-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        className="w-9 h-9 rounded-full border border-[#D8CEBF] shrink-0"
+                        style={{ backgroundColor: color.hex_code }}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-[#1C1A19] truncate">{color.name}</p>
+                        <p className="text-[11px] font-mono text-[#736B63]">{color.hex_code}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => setEditingColor(createColorDraft(color))}
+                        className="p-1.5 text-[#524B45] hover:text-[#1C1A19] hover:bg-[#EFEBE3] rounded-lg transition-colors"
+                        title="Edit Color"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteColor(color)}
+                        disabled={deletingColorId === color.id}
+                        className="p-1.5 text-[#B85D38] hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors disabled:opacity-60"
+                        title="Delete Color"
+                      >
+                        {deletingColorId === color.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ----------------- TAB 10: SETTINGS & CMS ----------------- */}
         {activeTab === 'settings' && (
           <div className="space-y-8 max-w-3xl">
@@ -1555,16 +1728,16 @@ export default function AdminDashboard() {
                 Global Atelier & Payment Settings
               </h3>
               <p className="text-xs text-[#736B63]">
-                Manage deposit percentage, InstaPay handle, Mobile Wallet, and contact information.
+                Manage the deposit percentage and payment wallet details saved by the backend.
               </p>
             </div>
 
-            {/* Deposit & Lead Time Configuration */}
+            {/* Deposit Configuration */}
             <div className="p-6 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4">
               <h4 className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
-                Deposit & Production Parameters
+                Deposit Parameters
               </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="text-xs">
                 <div>
                   <label className="block text-[#736B63] mb-1">Handcrafted Deposit Percentage (%)</label>
                   <input
@@ -1574,22 +1747,13 @@ export default function AdminDashboard() {
                     className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
                   />
                 </div>
-                <div>
-                  <label className="block text-[#736B63] mb-1">Default Production Lead Time</label>
-                  <input
-                    type="text"
-                    value={settings.defaultLeadTime}
-                    onChange={(e) => updateSettings({ defaultLeadTime: e.target.value })}
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
-                  />
-                </div>
               </div>
             </div>
 
             {/* Payment Methods Configuration */}
             <div className="p-6 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4">
               <h4 className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
-                Payment Channels (InstaPay, Wallet & Bank)
+                Payment Wallets
               </h4>
 
               {/* InstaPay */}
@@ -1631,160 +1795,6 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              {/* Bank Wire */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
-                <div>
-                  <label className="block text-[#736B63] mb-1">Bank Name</label>
-                  <input
-                    type="text"
-                    value={settings.paymentMethods.bankTransfer.bankName}
-                    onChange={(e) =>
-                      updateSettings({
-                        paymentMethods: {
-                          ...settings.paymentMethods,
-                          bankTransfer: {
-                            ...settings.paymentMethods.bankTransfer,
-                            bankName: e.target.value,
-                          },
-                        },
-                      })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#736B63] mb-1">Account Name</label>
-                  <input
-                    type="text"
-                    value={settings.paymentMethods.bankTransfer.accountHolder || settings.paymentMethods.bankTransfer.accountName || ''}
-                    onChange={(e) =>
-                      updateSettings({
-                        paymentMethods: {
-                          ...settings.paymentMethods,
-                          bankTransfer: {
-                            ...settings.paymentMethods.bankTransfer,
-                            accountHolder: e.target.value,
-                            accountName: e.target.value,
-                          },
-                        },
-                      })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#736B63] mb-1">Account Number</label>
-                  <input
-                    type="text"
-                    value={settings.paymentMethods.bankTransfer.accountNumber}
-                    onChange={(e) =>
-                      updateSettings({
-                        paymentMethods: {
-                          ...settings.paymentMethods,
-                          bankTransfer: {
-                            ...settings.paymentMethods.bankTransfer,
-                            accountNumber: e.target.value,
-                          },
-                        },
-                      })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#736B63] mb-1">IBAN</label>
-                  <input
-                    type="text"
-                    value={settings.paymentMethods.bankTransfer.iban}
-                    onChange={(e) =>
-                      updateSettings({
-                        paymentMethods: {
-                          ...settings.paymentMethods,
-                          bankTransfer: {
-                            ...settings.paymentMethods.bankTransfer,
-                            iban: e.target.value,
-                          },
-                        },
-                      })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Contact Details */}
-            <div className="p-6 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4">
-              <h4 className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
-                Atelier Concierge Contact
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <label className="block text-[#736B63] mb-1">WhatsApp Concierge Number</label>
-                  <input
-                    type="text"
-                    value={settings.contact.whatsapp}
-                    onChange={(e) =>
-                      updateSettings({
-                        contact: { ...settings.contact, whatsapp: e.target.value },
-                      })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#736B63] mb-1">Instagram Handle</label>
-                  <input
-                    type="text"
-                    value={settings.contact.instagramHandle}
-                    onChange={(e) =>
-                      updateSettings({
-                        contact: { ...settings.contact, instagramHandle: e.target.value },
-                      })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#736B63] mb-1">Concierge Email</label>
-                  <input
-                    type="text"
-                    value={settings.contact.email}
-                    onChange={(e) =>
-                      updateSettings({
-                        contact: { ...settings.contact, email: e.target.value },
-                      })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#736B63] mb-1">Direct Phone</label>
-                  <input
-                    type="text"
-                    value={settings.contact.phone}
-                    onChange={(e) =>
-                      updateSettings({
-                        contact: { ...settings.contact, phone: e.target.value },
-                      })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-[#736B63] mb-1">Atelier Address</label>
-                  <input
-                    type="text"
-                    value={settings.contact.atelierAddress}
-                    onChange={(e) =>
-                      updateSettings({
-                        contact: { ...settings.contact, atelierAddress: e.target.value },
-                      })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
-                  />
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -1922,15 +1932,114 @@ export default function AdminDashboard() {
                   </div>
 
                   <div>
-                    <label className="block text-[#1C1A19] font-medium mb-1">Weight</label>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Height (cm)</label>
                     <input
                       type="text"
-                      value={editingProduct.weight || ''}
+                      value={editingProduct.height || ''}
                       onChange={(e) =>
-                        setEditingProduct({ ...editingProduct, weight: e.target.value })
+                        setEditingProduct({ ...editingProduct, height: e.target.value })
                       }
                       className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
                     />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Material</label>
+                    <input
+                      type="text"
+                      value={editingProduct.material}
+                      onChange={(e) =>
+                        setEditingProduct({ ...editingProduct, material: e.target.value })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#1C1A19] font-medium mb-1">Finish</label>
+                    <input
+                      type="text"
+                      value={editingProduct.finishes[0] || ''}
+                      onChange={(e) =>
+                        setEditingProduct({ ...editingProduct, finishes: [e.target.value] })
+                      }
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[#1C1A19] font-medium mb-1">Subcategories *</label>
+                  <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-[#D8CEBF] bg-[#FAF8F5] max-h-32 overflow-y-auto">
+                    {subcategories.length === 0 ? (
+                      <p className="text-[#8F8880]">No subcategories available yet.</p>
+                    ) : (
+                      subcategories.map((sub) => {
+                        const subId = String(sub.id);
+                        const checked = editingProduct.subcategoryIds.includes(subId);
+                        const parentCategory = categories.find((c) => c.id === String(sub.category_id));
+                        return (
+                          <label
+                            key={sub.id}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] cursor-pointer ${
+                              checked ? 'bg-[#1C1A19] text-white border-[#1C1A19]' : 'bg-white border-[#D8CEBF] text-[#524B45]'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                setEditingProduct({
+                                  ...editingProduct,
+                                  subcategoryIds: checked
+                                    ? editingProduct.subcategoryIds.filter((id) => id !== subId)
+                                    : [...editingProduct.subcategoryIds, subId],
+                                })
+                              }
+                              className="hidden"
+                            />
+                            <span>{parentCategory ? `${parentCategory.name} · ${sub.name}` : sub.name}</span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[#1C1A19] font-medium mb-1">Colors</label>
+                  <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-[#D8CEBF] bg-[#FAF8F5] max-h-32 overflow-y-auto">
+                    {colors.length === 0 ? (
+                      <p className="text-[#8F8880]">
+                        No colors available yet. Add one from the Colors tab.
+                      </p>
+                    ) : (
+                      colors.map((color) => {
+                        const checked = editingProduct.colors.some((c) => c.id === String(color.id));
+                        return (
+                          <label
+                            key={color.id}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] cursor-pointer ${
+                              checked ? 'bg-[#1C1A19] text-white border-[#1C1A19]' : 'bg-white border-[#D8CEBF] text-[#524B45]'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleProductColor(color)}
+                              className="hidden"
+                            />
+                            <span
+                              className="w-2.5 h-2.5 rounded-full border border-black/10 shrink-0"
+                              style={{ backgroundColor: color.hex_code }}
+                            />
+                            <span>{color.name}</span>
+                          </label>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
 
@@ -1946,27 +2055,6 @@ export default function AdminDashboard() {
                       })
                     }
                   />
-
-                  {/* Optional Direct URL Fallback */}
-                  <div className="mt-3 pt-3 border-t border-[#EAE4DC]/60">
-                    <label className="block text-[#736B63] text-[11px] mb-1">
-                      Or add/edit primary image URL directly:
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="https://images.unsplash.com/..."
-                      value={editingProduct.images[0] || ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const rest = (editingProduct.images || []).slice(1);
-                        setEditingProduct({
-                          ...editingProduct,
-                          images: val ? [val, ...rest] : rest,
-                        });
-                      }}
-                      className="w-full p-2 text-xs rounded-lg border border-[#D8CEBF] font-mono bg-white"
-                    />
-                  </div>
                 </div>
 
                 <div className="flex items-center gap-6 pt-2">
@@ -2206,7 +2294,13 @@ export default function AdminDashboard() {
                   label="Cover Image"
                   value={editingEvent.coverImage}
                   folder="tocco/events"
-                  onChange={(coverImage) => setEditingEvent({ ...editingEvent, coverImage })}
+                  onChange={(coverImage) =>
+                    setEditingEvent({
+                      ...editingEvent,
+                      coverImage,
+                      publicId: coverImage ? editingEvent.publicId : '',
+                    })
+                  }
                   onUploadResult={(result) =>
                     setEditingEvent({
                       ...editingEvent,
@@ -2342,7 +2436,7 @@ export default function AdminDashboard() {
                   <h3 className="text-lg font-medium text-[#1C1A19]">
                     {editingOffer.id ? 'Edit Offer' : 'Create Offer'}
                   </h3>
-                  <p className="text-xs text-[#736B63] mt-1">Offers are saved directly to the production backend.</p>
+                  <p className="text-xs text-[#736B63] mt-1">Create a customer-ready offer for the catalogue.</p>
                 </div>
                 <button
                   onClick={() => setEditingOffer(null)}
@@ -2417,7 +2511,7 @@ export default function AdminDashboard() {
                       onChange={(e) => setEditingOffer({ ...editingOffer, is_active: e.target.checked })}
                       className="rounded border-[#D8CEBF]"
                     />
-                    <span className="font-medium text-[#1C1A19]">Active on backend</span>
+                    <span className="font-medium text-[#1C1A19]">Active</span>
                   </label>
                 </div>
 
@@ -2447,7 +2541,7 @@ export default function AdminDashboard() {
                         }}
                         className="w-full p-2.5 rounded-lg border border-[#D8CEBF] bg-white min-w-0"
                       >
-                        <option value="">Select backend product</option>
+                        <option value="">Select product</option>
                         {products
                           .filter((product) => Number.isInteger(Number(product.id)))
                           .map((product) => (
@@ -2532,7 +2626,7 @@ export default function AdminDashboard() {
               <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#EAE4DC]">
                 <div>
                   <h3 className="text-base font-medium text-[#1C1A19]">Collaboration Details</h3>
-                  <p className="text-xs text-[#736B63] mt-1">Use the uploaded Cloudinary image returned by the backend flow.</p>
+                  <p className="text-xs text-[#736B63] mt-1">Upload a collaboration image and preview it before saving.</p>
                 </div>
                 <button
                   onClick={() => setEditingCollaboration(null)}
@@ -2564,7 +2658,13 @@ export default function AdminDashboard() {
                   required
                   value={editingCollaboration.image}
                   folder="tocco/collaborations"
-                  onChange={(image) => setEditingCollaboration({ ...editingCollaboration, image })}
+                  onChange={(image) =>
+                    setEditingCollaboration({
+                      ...editingCollaboration,
+                      image,
+                      public_id: image ? editingCollaboration.public_id : '',
+                    })
+                  }
                   onUploadResult={(result) =>
                     setEditingCollaboration({
                       ...editingCollaboration,
@@ -2591,6 +2691,83 @@ export default function AdminDashboard() {
                 >
                   {isCollaborationSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>Save Collaboration</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* ----------------- MODAL: EDIT COLOR ----------------- */}
+        {editingColor && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 my-8 border border-[#EAE4DC] shadow-xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#EAE4DC]">
+                <div>
+                  <h3 className="text-base font-medium text-[#1C1A19]">
+                    {editingColor.id ? 'Edit Color' : 'Add Color'}
+                  </h3>
+                  <p className="text-xs text-[#736B63] mt-1">Colors become selectable on every product form.</p>
+                </div>
+                <button
+                  onClick={() => setEditingColor(null)}
+                  className="p-1 text-[#736B63] hover:text-[#1C1A19]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {colorsError && (
+                <div className="flex items-start gap-2 rounded-xl border border-[#E2B6A2] bg-[#FFF5F0] px-3 py-2 text-xs text-[#8A3D25]">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{colorsError}</span>
+                </div>
+              )}
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-[#1C1A19] font-medium mb-1">Name *</label>
+                  <input
+                    type="text"
+                    value={editingColor.name}
+                    onChange={(e) => setEditingColor({ ...editingColor, name: e.target.value })}
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#1C1A19] font-medium mb-1">Hex Code *</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={editingColor.hex_code}
+                      onChange={(e) => setEditingColor({ ...editingColor, hex_code: e.target.value.toUpperCase() })}
+                      className="w-10 h-10 rounded-lg border border-[#D8CEBF] p-0.5 shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={editingColor.hex_code}
+                      onChange={(e) => setEditingColor({ ...editingColor, hex_code: e.target.value.toUpperCase() })}
+                      placeholder="#EBE3D5"
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingColor(null)}
+                  className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveColor}
+                  disabled={isColorSaving}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider disabled:opacity-70"
+                >
+                  {isColorSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Save Color</span>
                 </button>
               </div>
             </div>

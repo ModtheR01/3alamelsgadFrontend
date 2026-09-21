@@ -191,7 +191,7 @@ Could you please provide pricing and production details?`;
                 </div>
                 <p className="text-xs text-[#524B45] leading-relaxed font-mono">
                   {product.dimensions}
-                  {product.weight && <span className="block mt-0.5">Approx. {product.weight}</span>}
+                  {product.height && <span className="block mt-0.5">Height: {product.height} cm</span>}
                 </p>
               </div>
             </div>

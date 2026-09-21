@@ -592,7 +592,7 @@ export default function CategoriesManagement() {
       {loading && (
         <div className="py-16 text-center text-[#736B63] space-y-2">
           <RefreshCw className="w-6 h-6 animate-spin mx-auto text-[#B85D38]" />
-          <p className="text-xs uppercase tracking-wider">Synchronizing with atelier backend...</p>
+          <p className="text-xs uppercase tracking-wider">Loading catalogue...</p>
         </div>
       )}
 
@@ -644,14 +644,6 @@ export default function CategoriesManagement() {
                           <div className="absolute inset-0 flex flex-col items-center justify-center text-[#8F8880] space-y-1">
                             <ImageIcon className="w-6 h-6 stroke-[1.5]" />
                             <span className="text-[10px] uppercase tracking-wider">No Image Set</span>
-                          </div>
-                        )}
-                        <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-white text-[10px] font-mono">
-                          ID: {cat.id}
-                        </div>
-                        {cat.public_id && (
-                          <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded bg-[#1C1A19]/80 backdrop-blur-sm text-white text-[9px] font-mono truncate max-w-[120px]">
-                            {cat.public_id}
                           </div>
                         )}
                       </div>
@@ -797,14 +789,6 @@ export default function CategoriesManagement() {
                           <div className="absolute inset-0 flex flex-col items-center justify-center text-[#8F8880] space-y-1">
                             <ImageIcon className="w-6 h-6 stroke-[1.5]" />
                             <span className="text-[10px] uppercase tracking-wider">No Image Set</span>
-                          </div>
-                        )}
-                        <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-white text-[10px] font-mono">
-                          ID: {sub.id}
-                        </div>
-                        {sub.public_id && (
-                          <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded bg-[#1C1A19]/80 backdrop-blur-sm text-white text-[9px] font-mono truncate max-w-[120px]">
-                            {sub.public_id}
                           </div>
                         )}
                       </div>
@@ -1116,7 +1100,13 @@ export default function CategoriesManagement() {
                   label="Cover Image"
                   value={categoryFormData.image || ''}
                   folder="tocco/categories"
-                  onChange={(image) => setCategoryFormData({ ...categoryFormData, image })}
+                  onChange={(image) =>
+                    setCategoryFormData({
+                      ...categoryFormData,
+                      image,
+                      public_id: image ? categoryFormData.public_id : '',
+                    })
+                  }
                   onUploadResult={(result) =>
                     setCategoryFormData({
                       ...categoryFormData,
@@ -1124,33 +1114,6 @@ export default function CategoriesManagement() {
                       public_id: result.public_id,
                     })
                   }
-                />
-                {categoryFormData.image && (
-                  <div className="mt-2 relative aspect-[16/9] rounded-lg overflow-hidden border border-[#EAE4DC] bg-[#FAF8F5]">
-                    <Image
-                      src={categoryFormData.image}
-                      alt="Category Preview"
-                      fill
-                      className="object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Cloudinary public_id */}
-              <div>
-                <label className="block text-[#1C1A19] font-medium mb-1">
-                  Cloudinary Public ID <span className="text-[#8F8880] font-normal">(Optional)</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="tocco/categories/my_category_key"
-                  value={categoryFormData.public_id || ''}
-                  onChange={(e) =>
-                    setCategoryFormData({ ...categoryFormData, public_id: e.target.value })
-                  }
-                  className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono text-[11px] text-[#1C1A19] focus:outline-none focus:border-[#1C1A19]"
                 />
               </div>
 
@@ -1258,7 +1221,13 @@ export default function CategoriesManagement() {
                   label="Image"
                   value={subcategoryFormData.image || ''}
                   folder="tocco/subcategories"
-                  onChange={(image) => setSubcategoryFormData({ ...subcategoryFormData, image })}
+                  onChange={(image) =>
+                    setSubcategoryFormData({
+                      ...subcategoryFormData,
+                      image,
+                      public_id: image ? subcategoryFormData.public_id : '',
+                    })
+                  }
                   onUploadResult={(result) =>
                     setSubcategoryFormData({
                       ...subcategoryFormData,
@@ -1266,33 +1235,6 @@ export default function CategoriesManagement() {
                       public_id: result.public_id,
                     })
                   }
-                />
-                {subcategoryFormData.image && (
-                  <div className="mt-2 relative aspect-[16/9] rounded-lg overflow-hidden border border-[#EAE4DC] bg-[#FAF8F5]">
-                    <Image
-                      src={subcategoryFormData.image}
-                      alt="Subcategory Preview"
-                      fill
-                      className="object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Cloudinary public_id */}
-              <div>
-                <label className="block text-[#1C1A19] font-medium mb-1">
-                  Cloudinary Public ID <span className="text-[#8F8880] font-normal">(Optional)</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="tocco/subcategories/my_sub_key"
-                  value={subcategoryFormData.public_id || ''}
-                  onChange={(e) =>
-                    setSubcategoryFormData({ ...subcategoryFormData, public_id: e.target.value })
-                  }
-                  className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono text-[11px] text-[#1C1A19] focus:outline-none focus:border-[#1C1A19]"
                 />
               </div>
 
@@ -1368,10 +1310,8 @@ export default function CategoriesManagement() {
                     <div className="pt-1.5 border-t border-rose-200 text-rose-950 flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-rose-700 shrink-0 mt-0.5" />
                       <span>
-                        Backend Constraint (<code className="font-mono text-[10px]">models.PROTECT</code>):
                         This category is currently referenced by {itemToDelete.subcategoriesCount || 'existing'}{' '}
-                        subcategories. The Django backend will reject permanent deletion until all child
-                        subcategories are removed or reassigned.
+                        subcategories. Remove or reassign those subcategories before permanent deletion.
                       </span>
                     </div>
                   )}

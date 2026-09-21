@@ -40,22 +40,15 @@ export function HomeHero() {
           </p>
         </div>
 
-        {/* Primary and Secondary CTA */}
-        <div className="pt-2 sm:pt-4 w-full sm:w-auto flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
-          <button
-            id="hero-explore-collection-btn"
-            onClick={() => navigateTo('shop')}
-            className="w-full sm:w-auto px-7 py-3.5 sm:px-8 sm:py-4 rounded-full bg-[#FAF8F5] text-[#1C1A19] text-xs uppercase tracking-[0.22em] font-medium hover:bg-white hover:shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
-          >
-            <span>{settings.homepage.heroCtaText}</span>
-            <ArrowRight className="w-4 h-4 text-[#643D26]" />
-          </button>
+        {/* Primary CTA */}
+        <div className="pt-2 sm:pt-4 w-full sm:w-auto flex items-center justify-center">
           <button
             id="hero-discover-story-btn"
             onClick={() => navigateTo('our-story')}
-            className="w-full sm:w-auto px-7 py-3.5 sm:px-8 sm:py-4 rounded-full bg-white/15 backdrop-blur-md text-white border border-white/30 text-xs uppercase tracking-[0.22em] font-medium hover:bg-white/25 active:scale-95 transition-all"
+            className="w-full sm:w-auto px-7 py-3.5 sm:px-9 sm:py-4 rounded-full bg-[#FAF8F5] text-[#1C1A19] text-xs uppercase tracking-[0.22em] font-medium hover:bg-white hover:shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
           >
-            Discover Tocco House
+            <span>{settings.homepage.heroCtaText || 'Discover Tocco House'}</span>
+            <ArrowRight className="w-4 h-4 text-[#643D26]" />
           </button>
         </div>
 
@@ -385,6 +378,45 @@ export function CategoriesShowcase() {
                   <ArrowRight className="w-3.5 h-3.5" />
                 </div>
               </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function CollaborationsSection() {
+  const { collaborations } = useToccoStore();
+
+  if (!collaborations.length) return null;
+
+  return (
+    <section id="homepage-collaborations" className="py-12 sm:py-16 bg-white border-y border-[#EAE4DC]">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="text-center mb-8 sm:mb-10">
+          <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-[#B85D38] font-medium mb-2">
+            Trusted Collaborations
+          </p>
+          <h2 className="text-xl sm:text-2xl font-normal tracking-tight text-[#1C1A19]">
+            Brands & Partners Who Trust Tocco House
+          </h2>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-8 sm:gap-x-14">
+          {collaborations.map((collaboration) => (
+            <div
+              key={collaboration.id}
+              title={collaboration.title}
+              className="relative w-24 h-12 sm:w-32 sm:h-16 grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300"
+            >
+              <Image
+                src={collaboration.image}
+                alt={collaboration.title}
+                fill
+                className="object-contain"
+                referrerPolicy="no-referrer"
+              />
             </div>
           ))}
         </div>

@@ -41,7 +41,7 @@ export default function OrderConfirmationView() {
   const isBackend = 'order_number' in rawOrder;
   const orderNumber = isBackend ? rawOrder.order_number : rawOrder.orderNumber;
   const totalAmount = isBackend ? Number(rawOrder.total_price) : rawOrder.totalAmount;
-  const depositAmount = isBackend ? Math.round(totalAmount * 0.5) : rawOrder.depositAmount;
+  const depositAmount = isBackend ? Number(rawOrder.deposit_amount) : rawOrder.depositAmount;
   const paymentMethod = isBackend ? 'instapay' : rawOrder.paymentMethod;
   const paymentStatus = isBackend
     ? rawOrder.status === 'CONFIRMED'
@@ -63,7 +63,9 @@ export default function OrderConfirmationView() {
         productImage:
           'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=800&q=80',
         selectedFinish: 'Artisanal Gelcoat',
-        selectedColor: { id: it.color_name, name: it.color_name, hex: it.color_hex_code },
+        selectedColor: it.color_name
+          ? { id: it.color_name, name: it.color_name, hex: it.color_hex_code || '#EBE3D5' }
+          : undefined,
         quantity: it.quantity,
         unitPrice: Number(it.product_price),
         customNote: '',
@@ -86,7 +88,7 @@ export default function OrderConfirmationView() {
   // WhatsApp prefilled message
   const whatsappPrefill = `Hello Tocco House,
 I have placed Order #${orderNumber} for:
-${items.map((it) => `- ${it.productName} (${it.selectedFinish}, ${it.selectedColor.name})`).join('\n')}
+${items.map((it) => `- ${it.productName} (${it.selectedFinish}${it.selectedColor ? `, ${it.selectedColor.name}` : ''})`).join('\n')}
 
 I have transferred the 50% deposit of ${depositAmount.toLocaleString()} EGP via ${paymentMethod.replace('_', ' ').toUpperCase()}.
 ${proofNote ? `Reference: ${proofNote}` : 'Attaching payment screenshot below.'}
@@ -263,7 +265,7 @@ Delivery to: ${customerCity}, ${customerRegion}`;
                 <div className="flex-1 min-w-0">
                   <h4 className="text-xs sm:text-sm font-medium text-[#1C1A19]">{item.productName}</h4>
                   <p className="text-[11px] sm:text-xs text-[#736B63] mt-0.5">
-                    Finish: {item.selectedFinish} · Color: {item.selectedColor.name} · Qty: {item.quantity}
+                    Finish: {item.selectedFinish}{item.selectedColor ? ` · Color: ${item.selectedColor.name}` : ''} · Qty: {item.quantity}
                   </p>
                   {item.customNote && (
                     <p className="text-[10px] sm:text-[11px] text-[#643D26] italic mt-0.5">

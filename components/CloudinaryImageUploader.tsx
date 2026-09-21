@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  ExternalLink,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 import {
@@ -90,7 +89,7 @@ export default function CloudinaryImageUploader({
     setIsUploading(true);
     setUploadProgress(0);
     setStatusStep('uploading');
-    setStatusMessage('Uploading directly to Cloudinary...');
+    setStatusMessage('Uploading image...');
 
     try {
       const currentList = [...images];
@@ -99,8 +98,8 @@ export default function CloudinaryImageUploader({
         const file = fileArray[i];
         setStatusMessage(
           fileArray.length > 1
-            ? `Uploading directly to Cloudinary (${i + 1}/${fileArray.length})...`
-            : 'Uploading directly to Cloudinary...'
+            ? `Uploading image ${i + 1} of ${fileArray.length}...`
+            : 'Uploading image...'
         );
 
         // 1. DIRECT-TO-CLOUDINARY UPLOAD (Browser -> Cloudinary, no backend proxy)
@@ -118,7 +117,7 @@ export default function CloudinaryImageUploader({
         // Send resulting Cloudinary metadata to backend to create ProductImage record
         if (numericProductId) {
           setStatusStep('saving_metadata');
-          setStatusMessage('Recording image metadata in backend...');
+          setStatusMessage('Preparing image...');
           try {
             const createdBackendImg = await productImageService.createProductImage({
               product: numericProductId,
@@ -138,7 +137,7 @@ export default function CloudinaryImageUploader({
 
       onImagesChange(currentList);
       setStatusStep('success');
-      setStatusMessage('Signed Cloudinary upload & backend sync complete!');
+      setStatusMessage('Image uploaded.');
       setTimeout(() => {
         setStatusStep('idle');
         setStatusMessage('');
@@ -219,19 +218,16 @@ export default function CloudinaryImageUploader({
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Header & Signed Upload Indicator */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
             <label className="block text-sm font-medium text-[#1C1A19]">
-              Product Images & Signed Cloudinary Storage
+              Product Images
             </label>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Signed Cloudinary Upload
-            </span>
           </div>
           <p className="text-xs text-[#736B63] mt-0.5">
-            Images are uploaded through the server-side signed Cloudinary flow.
+            Upload images and choose the cover before saving.
           </p>
         </div>
       </div>
@@ -263,7 +259,7 @@ export default function CloudinaryImageUploader({
             <div className="w-full max-w-xs space-y-3 py-2">
               <div className="flex items-center justify-center gap-2 text-sm font-medium text-[#1C1A19]">
                 <Loader2 className="w-4 h-4 animate-spin text-[#1C1A19]" />
-                <span>{statusMessage || 'Uploading directly to Cloudinary...'}</span>
+                <span>{statusMessage || 'Uploading image...'}</span>
               </div>
               <div className="w-full bg-[#EAE4DC] h-2 rounded-full overflow-hidden">
                 <div
@@ -283,15 +279,13 @@ export default function CloudinaryImageUploader({
               </div>
               <div>
                 <p className="text-sm font-medium text-[#1C1A19]">
-                  Click to select images or drag and drop here
+                  Upload images
                 </p>
                 <p className="text-xs text-[#736B63] mt-1">
                   Supports WebP, PNG, JPEG, AVIF up to 10MB per file
                 </p>
               </div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#EAE4DC] text-[11px] text-[#736B63]">
-                <span>Direct-to-Cloudinary</span>
-                <span>•</span>
                 <span>{images.length} / {maxImages} images</span>
               </div>
             </>
@@ -331,15 +325,13 @@ export default function CloudinaryImageUploader({
       {images.length > 0 && (
         <div className="space-y-2 pt-2">
           <div className="flex items-center justify-between text-xs text-[#736B63]">
-            <span>Attached Pieces ({images.length})</span>
-            <span className="text-[11px]">First image serves as Primary / Cover</span>
+            <span>Uploaded Images ({images.length})</span>
+            <span className="text-[11px]">First image is the cover</span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {images.map((url, idx) => {
               const isPrimary = idx === 0;
-              const backendRecord = backendImages.find((b) => b.image === url);
-
               return (
                 <div
                   key={`${url}-${idx}`}
@@ -382,23 +374,7 @@ export default function CloudinaryImageUploader({
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 rounded-full bg-white/90 hover:bg-white text-[#1C1A19] shadow transition-transform hover:scale-105"
-                      title="View full image in new tab"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
                   </div>
-
-                  {/* Backend ID tag if registered */}
-                  {backendRecord && (
-                    <div className="absolute bottom-1 right-1 z-10 px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px] font-mono">
-                      #{backendRecord.id}
-                    </div>
-                  )}
                 </div>
               );
             })}

@@ -12,9 +12,8 @@ export const productImageService = {
    * GET /api/products/images/
    */
   async getProductImages(productId?: number): Promise<BackendProductImage[]> {
-    return apiClient.get<BackendProductImage[]>('/products/images/', {
-      params: productId ? { product: productId } : undefined,
-    });
+    const images = await apiClient.get<BackendProductImage[]>('/products/images/');
+    return productId ? images.filter((image) => image.product === productId) : images;
   },
 
   /**
@@ -52,8 +51,8 @@ export const productImageService = {
    * Delete product image record from backend
    * DELETE /api/products/images/<id>/
    */
-  async deleteProductImage(id: number): Promise<void | { detail: string }> {
-    return apiClient.delete<void | { detail: string }>(`/products/images/${id}/`);
+  async deleteProductImage(id: number): Promise<void> {
+    return apiClient.delete<void>(`/products/images/${id}/`);
   },
 
   /**

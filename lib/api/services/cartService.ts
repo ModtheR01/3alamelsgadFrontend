@@ -17,10 +17,10 @@ export const cartService = {
 
   /**
    * Clear all items from the current user's cart
-   * DELETE /api/cart/ (Returns 204 No Content)
+   * DELETE /api/cart/clear/
    */
-  async clearCart(): Promise<void> {
-    return apiClient.delete<void>('/cart/');
+  async clearCart(): Promise<{ detail: string; deleted_items: number }> {
+    return apiClient.delete<{ detail: string; deleted_items: number }>('/cart/clear/');
   },
 
   /**
