@@ -215,13 +215,6 @@ export default function AccountView() {
     }
   };
 
-  // Quick Demo account filler
-  const handleQuickDemoLogin = (email: string) => {
-    setAuthMode('login');
-    setLoginEmail(email);
-    setLoginPassword('password123');
-  };
-
   // Address Modal opener
   const openCreateAddressModal = () => {
     setEditingAddress(null);
@@ -590,35 +583,6 @@ export default function AccountView() {
                     )}
                   </button>
 
-                  {/* Demo Quick Fill buttons for rapid testing */}
-                  <div className="pt-3 border-t border-[#EAE4DC] space-y-2">
-                    <span className="text-[10px] uppercase tracking-wider text-[#736B63] block text-center">
-                      Quick Demo Accounts (Password: password123)
-                    </span>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleQuickDemoLogin('anas@example.com')}
-                        className="p-2 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5] text-[10px] font-medium text-[#524B45] hover:bg-[#F2EDE4] hover:text-[#1C1A19] transition-colors text-center"
-                      >
-                        Customer (Anas)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickDemoLogin('karim.mansour@example.com')}
-                        className="p-2 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5] text-[10px] font-medium text-[#524B45] hover:bg-[#F2EDE4] hover:text-[#1C1A19] transition-colors text-center"
-                      >
-                        Admin (Karim)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickDemoLogin('leila.sabah@example.com')}
-                        className="p-2 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5] text-[10px] font-medium text-[#524B45] hover:bg-[#F2EDE4] hover:text-[#1C1A19] transition-colors text-center"
-                      >
-                        Moderator (Leila)
-                      </button>
-                    </div>
-                  </div>
                 </form>
               )}
 
@@ -689,6 +653,8 @@ export default function AccountView() {
                     </label>
                     <input
                       type="tel"
+                        inputMode="numeric"
+                        maxLength={11}
                       required
                       value={regPhone}
                       onChange={(e) => setRegPhone(e.target.value)}
