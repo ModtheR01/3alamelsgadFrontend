@@ -88,8 +88,8 @@ function ToccoApp() {
             <SignaturePiecesSection />
             <StoryTeaserSection />
             <CategoriesShowcase />
-            <CollaborationsSection />
             <CustomDesignTeaser />
+            <CollaborationsSection />
             <ProjectsAndInstagramSection />
           </div>
         )}

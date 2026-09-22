@@ -230,6 +230,9 @@ interface StoreContextType {
   banners: BannerItem[];
   collaborations: BackendCollaboration[];
   settings: StoreSettings;
+  isCatalogLoading: boolean;
+  isEventsLoading: boolean;
+  isProjectsLoading: boolean;
   cart: CartItem[];
   user: CustomerUser | null;
   lastCreatedOrder: BackendOrder | Order | null;
@@ -314,6 +317,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   });
   const [user, setUser] = useState<CustomerUser | null>(null);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<BackendOrder | Order | null>(null);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(true);
+  const [isEventsLoading, setIsEventsLoading] = useState(true);
+  const [isProjectsLoading, setIsProjectsLoading] = useState(true);
 
   // Load catalog data from the production backend.
   useEffect(() => {
@@ -356,12 +362,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setCart([]);
       })
       .finally(() => {
+        if (active) setIsCatalogLoading(false);
       });
 
     eventService.getEvents().then((items) => {
       if (active) setEvents(items.map(mapBackendEvent));
     }).catch(() => {
       if (active) setEvents([]);
+    }).finally(() => {
+      if (active) setIsEventsLoading(false);
     });
 
     collaborationService.getCollaborations().then((items) => {
@@ -374,6 +383,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (active) setProjects(items.map(mapBackendSpaceProject));
     }).catch(() => {
       if (active) setProjects([]);
+    }).finally(() => {
+      if (active) setIsProjectsLoading(false);
     });
 
     dashboardService.getSettings().then((data) => {
@@ -850,6 +861,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         banners,
         collaborations,
         settings,
+        isCatalogLoading,
+        isEventsLoading,
+        isProjectsLoading,
         cart,
         user,
         lastCreatedOrder,

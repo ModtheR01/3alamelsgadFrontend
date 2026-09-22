@@ -15,6 +15,7 @@ import { normalizeApiError, NormalizedError } from '@/lib/api/errors';
 import { useToccoStore } from '@/lib/store';
 import CloudinaryImageField from '@/components/CloudinaryImageField';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { SkeletonCardGrid } from '@/components/DashboardSkeleton';
 import {
   Folder,
   FolderPlus,
@@ -609,10 +610,7 @@ export default function CategoriesManagement() {
 
       {/* Loading state indicator */}
       {loading && (
-        <div className="py-16 text-center text-[#736B63] space-y-2">
-          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-[#B85D38]" />
-          <p className="text-xs uppercase tracking-wider">Loading catalogue...</p>
-        </div>
+        <SkeletonCardGrid count={6} imageAspectClassName="aspect-[16/9]" />
       )}
 
       {/* ----------------- TAB 1: ACTIVE CATEGORIES ----------------- */}

@@ -59,6 +59,7 @@ import { BackendCollaboration, CollaborationCreateRequest } from '@/types/collab
 import { BackendColor, ColorCreateRequest } from '@/types/product';
 import { normalizeApiError } from '@/lib/api/errors';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { SkeletonTableRows, SkeletonCardGrid, SkeletonListRows } from '@/components/DashboardSkeleton';
 
 type OfferDraft = {
   id?: number;
@@ -116,6 +117,9 @@ export default function AdminDashboard() {
     projects,
     banners,
     settings,
+    isCatalogLoading,
+    isEventsLoading,
+    isProjectsLoading,
     saveProduct,
     deleteProduct,
     toggleProductFeatured,
@@ -762,6 +766,9 @@ export default function AdminDashboard() {
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
+                  {isCatalogLoading ? (
+                    <SkeletonTableRows rows={5} columns={6} />
+                  ) : (
                   <tbody className="divide-y divide-[#EAE4DC]">
                     {products.map((p) => {
                       const cat = categories.find((c) => c.id === p.categoryId);
@@ -842,6 +849,7 @@ export default function AdminDashboard() {
                       );
                     })}
                   </tbody>
+                  )}
                 </table>
               </div>
             </div>
@@ -1044,12 +1052,7 @@ export default function AdminDashboard() {
             )}
 
             {isOrdersLoading ? (
-              <div className="p-12 text-center bg-white rounded-2xl border border-[#EAE4DC] space-y-3">
-                <RefreshCw className="w-6 h-6 animate-spin text-[#643D26] mx-auto" />
-                <p className="text-xs uppercase tracking-wider text-[#736B63]">
-                  Fetching Orders from Atelier Registry...
-                </p>
-              </div>
+              <SkeletonListRows count={4} />
             ) : backendOrders.length === 0 ? (
               <div className="p-12 text-center bg-white rounded-2xl border border-[#EAE4DC] text-xs text-[#736B63]">
                 No customer orders placed yet.
@@ -1247,6 +1250,9 @@ export default function AdminDashboard() {
               </button>
             </div>
 
+            {isEventsLoading ? (
+              <SkeletonCardGrid count={3} imageAspectClassName="aspect-[16/9]" />
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {events.map((ev) => (
                 <div
@@ -1299,6 +1305,7 @@ export default function AdminDashboard() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         )}
 
@@ -1323,6 +1330,9 @@ export default function AdminDashboard() {
               </button>
             </div>
 
+            {isProjectsLoading ? (
+              <SkeletonCardGrid count={3} imageAspectClassName="aspect-[16/9]" />
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {projects.map((proj) => (
                 <div
@@ -1371,6 +1381,7 @@ export default function AdminDashboard() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         )}
 
@@ -1403,10 +1414,7 @@ export default function AdminDashboard() {
             )}
 
             {isOffersLoading ? (
-              <div className="rounded-2xl border border-[#EAE4DC] bg-white p-8 text-sm text-[#736B63] flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Loading offers...
-              </div>
+              <SkeletonCardGrid count={4} columnsClassName="grid-cols-1 lg:grid-cols-2" showImage={false} />
             ) : offers.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-[#D8CEBF] bg-white p-8 text-center">
                 <p className="text-sm text-[#1C1A19]">No offers are configured yet.</p>
@@ -1511,10 +1519,7 @@ export default function AdminDashboard() {
             )}
 
             {isCollaborationsLoading ? (
-              <div className="rounded-2xl border border-[#EAE4DC] bg-white p-8 text-sm text-[#736B63] flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Loading collaborations...
-              </div>
+              <SkeletonCardGrid count={6} imageAspectClassName="aspect-[4/3]" />
             ) : collaborations.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-[#D8CEBF] bg-white p-8 text-center">
                 <p className="text-sm text-[#1C1A19]">No collaborations have been published yet.</p>
@@ -1589,10 +1594,7 @@ export default function AdminDashboard() {
             )}
 
             {isColorsLoading ? (
-              <div className="rounded-2xl border border-[#EAE4DC] bg-white p-8 text-sm text-[#736B63] flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Loading colors...
-              </div>
+              <SkeletonCardGrid count={6} columnsClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" showImage={false} />
             ) : colors.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-[#D8CEBF] bg-white p-8 text-center">
                 <p className="text-sm text-[#1C1A19]">No colors have been created yet.</p>
