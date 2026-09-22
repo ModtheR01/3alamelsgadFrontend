@@ -441,7 +441,7 @@ export default function CategoriesManagement() {
   };
 
   return (
-    <div id="categories-management-container" className="space-y-6">
+    <div id="categories-management-container" className="space-y-6 overflow-x-hidden">
       {/* Header with Title & Action Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#EAE4DC]">
         <div>
@@ -449,9 +449,6 @@ export default function CategoriesManagement() {
             <h2 className="text-xl font-normal tracking-tight text-[#1C1A19]">
               Categories & Subcategories
             </h2>
-            <span className="px-2 py-0.5 rounded-full bg-[#EFEBE3] text-[#736B63] text-[10px] font-mono font-medium">
-              DRF ViewSets
-            </span>
           </div>
           <p className="text-xs text-[#736B63] mt-0.5">
             Manage architectural product taxonomy, assign subcategories, and handle soft/hard deletions.
@@ -880,7 +877,7 @@ export default function CategoriesManagement() {
       {!loading && activeTab === 'deleted' && (
         <div className="space-y-6">
           {/* Sub-selector for Archives */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => setDeletedViewMode('categories')}
               className={`px-3.5 py-1.5 rounded-full text-xs font-medium uppercase tracking-wider transition-all ${
