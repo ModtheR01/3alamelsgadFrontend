@@ -509,7 +509,7 @@ export default function CategoriesManagement() {
       {/* Navigation Subtabs & Search Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Tab Buttons */}
-        <div className="flex items-center gap-2 border-b md:border-b-0 border-[#EAE4DC] pb-2 md:pb-0">
+        <div className="flex flex-wrap items-center gap-2 border-b md:border-b-0 border-[#EAE4DC] pb-2 md:pb-0">
           <button
             onClick={() => setActiveTab('categories')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs uppercase tracking-wider font-medium transition-all ${
