@@ -248,25 +248,9 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div
           id="mobile-navigation-menu"
-          className="md:hidden fixed inset-x-0 top-16 bottom-0 bg-[#FAF8F5] z-50 flex flex-col justify-between p-6 shadow-2xl overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200"
+          className="md:hidden fixed inset-x-0 top-16 sm:top-20 h-[calc(100dvh-4rem)] sm:h-[calc(100dvh-5rem)] bg-[#FAF8F5] z-50 flex flex-col justify-between p-6 shadow-2xl overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200"
         >
           <div className="space-y-6">
-            {/* Quick Search on Mobile */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search collection..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  navigateTo('shop');
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full bg-white border border-[#D8CEBF] rounded-full px-4 py-2.5 pl-10 text-xs text-[#1C1A19] placeholder-[#8F8880] focus:outline-none focus:border-[#643D26]"
-              />
-              <Search className="w-4 h-4 text-[#736B63] absolute left-3.5 top-3" />
-            </div>
-
             {/* Navigation links */}
             <nav className="flex flex-col space-y-1 text-sm tracking-[0.2em] uppercase font-medium text-[#4A4540]">
               {navLinks.map((link) => {

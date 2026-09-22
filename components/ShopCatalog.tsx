@@ -86,6 +86,28 @@ export default function ShopCatalog() {
           </p>
         </div>
 
+        {/* Search Bar */}
+        <div className="pt-4 sm:pt-6">
+          <div className="relative max-w-md">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search pieces, categories, mineral finishes..."
+              className="w-full bg-white border border-[#D8CEBF] rounded-full px-4 py-2.5 pl-10 text-xs sm:text-sm text-[#1C1A19] placeholder-[#8F8880] focus:outline-none focus:border-[#643D26]"
+            />
+            <Search className="w-4 h-4 text-[#736B63] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] uppercase tracking-wider text-[#736B63] hover:text-[#1C1A19]"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Filter Controls Bar */}
         <div className="py-4 sm:py-6 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 border-b border-[#EAE4DC]">
           {/* Category Chips - smooth touch scrolling */}

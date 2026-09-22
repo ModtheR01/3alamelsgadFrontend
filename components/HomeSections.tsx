@@ -330,7 +330,7 @@ export function CollaborationsSection() {
             <div
               key={collaboration.id}
               title={collaboration.title}
-              className="relative w-24 h-12 sm:w-32 sm:h-16 grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300"
+              className="relative w-24 h-12 sm:w-32 sm:h-16"
             >
               <Image
                 src={collaboration.image}
