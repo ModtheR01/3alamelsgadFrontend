@@ -558,6 +558,8 @@ export default function AdminDashboard() {
   // Event Modal states
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [isEventSaving, setIsEventSaving] = useState(false);
+  const [eventSaveError, setEventSaveError] = useState<string | null>(null);
 
   // Project Modal states
   const [editingProject, setEditingProject] = useState<ProjectItem | null>(null);
@@ -618,10 +620,11 @@ export default function AdminDashboard() {
       city: 'Cairo',
       date: '2026-05-01',
       description: '',
-      coverImage: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1200&q=85',
+      coverImage: '',
       publicId: '',
       status: 'upcoming',
     });
+    setEventSaveError(null);
     setIsEventModalOpen(true);
   };
 
@@ -1275,6 +1278,7 @@ export default function AdminDashboard() {
                     <button
                       onClick={() => {
                         setEditingEvent(ev);
+                        setEventSaveError(null);
                         setIsEventModalOpen(true);
                       }}
                       className="p-1.5 text-[#524B45] hover:text-[#1C1A19]"
@@ -2084,42 +2088,94 @@ export default function AdminDashboard() {
         {/* ----------------- MODAL: EDIT EVENT ----------------- */}
         {isEventModalOpen && editingEvent && (
           <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#EAE4DC] shadow-xl">
-              <h3 className="text-base font-medium text-[#1C1A19]">Event Details</h3>
-              <div className="space-y-3 text-xs">
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setEventSaveError(null);
+                if (!editingEvent.title.trim()) {
+                  setEventSaveError('Please add an event title.');
+                  return;
+                }
+                if (!editingEvent.date) {
+                  setEventSaveError('Please choose the event date.');
+                  return;
+                }
+                if (!editingEvent.coverImage || !editingEvent.publicId) {
+                  setEventSaveError('Please upload a cover image before saving.');
+                  return;
+                }
+
+                setIsEventSaving(true);
+                try {
+                  await saveEvent(editingEvent);
+                  setIsEventModalOpen(false);
+                } catch (err) {
+                  setEventSaveError(normalizeApiError(err).message);
+                } finally {
+                  setIsEventSaving(false);
+                }
+              }}
+              className="bg-white rounded-2xl max-w-md w-full p-6 space-y-5 border border-[#EAE4DC] shadow-xl"
+            >
+              <div className="space-y-1">
+                <h3 className="text-lg font-medium text-[#1C1A19]">
+                  {Number.isInteger(Number(editingEvent.id)) ? 'Edit Event' : 'Add New Event'}
+                </h3>
+                <p className="text-xs leading-relaxed text-[#736B63]">
+                  Fields marked with <span className="text-rose-600">*</span> are required. Upload the cover image before saving.
+                </p>
+              </div>
+
+              {eventSaveError && (
+                <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-800">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{eventSaveError}</span>
+                </div>
+              )}
+
+              <div className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-[#1C1A19] mb-1">Exhibition Title</label>
+                  <label className="mb-1 block font-medium text-[#1C1A19]">
+                    Event title <span className="text-rose-600">*</span>
+                  </label>
                   <input
                     type="text"
+                    required
                     value={editingEvent.title}
                     onChange={(e) => setEditingEvent({ ...editingEvent, title: e.target.value })}
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    placeholder="e.g. Tocco House Spring Exhibition"
+                    className="w-full rounded-lg border border-[#D8CEBF] p-2.5 text-[#1C1A19] outline-none focus:border-[#1C1A19]"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[#1C1A19] mb-1">Location</label>
+                    <label className="mb-1 block font-medium text-[#1C1A19]">Location <span className="font-normal text-[#8F8880]">(optional)</span></label>
                     <input
                       type="text"
                       value={editingEvent.location}
                       onChange={(e) =>
                         setEditingEvent({ ...editingEvent, location: e.target.value })
                       }
-                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                      placeholder="e.g. Cairo Atelier"
+                      className="w-full rounded-lg border border-[#D8CEBF] p-2.5 text-[#1C1A19] outline-none focus:border-[#1C1A19]"
                     />
                   </div>
                   <div>
-                    <label className="block text-[#1C1A19] mb-1">Event Date</label>
+                    <label className="mb-1 block font-medium text-[#1C1A19]">
+                      Event date <span className="text-rose-600">*</span>
+                    </label>
                     <input
                       type="date"
+                      required
                       value={editingEvent.date}
                       onChange={(e) => setEditingEvent({ ...editingEvent, date: e.target.value })}
-                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                      className="w-full rounded-lg border border-[#D8CEBF] p-2.5 text-[#1C1A19] outline-none focus:border-[#1C1A19]"
                     />
                   </div>
                 </div>
                 <CloudinaryImageField
-                  label="Cover Image"
+                  label="Cover image"
+                  required
                   value={editingEvent.coverImage}
                   folder="tocco/events"
                   onChange={(coverImage) =>
@@ -2138,39 +2194,42 @@ export default function AdminDashboard() {
                   }
                 />
                 <div>
-                  <label className="block text-[#1C1A19] mb-1">Description</label>
+                  <label className="mb-1 block font-medium text-[#1C1A19]">
+                    Description <span className="font-normal text-[#8F8880]">(optional)</span>
+                  </label>
                   <textarea
                     rows={3}
                     value={editingEvent.description}
                     onChange={(e) =>
                       setEditingEvent({ ...editingEvent, description: e.target.value })
                     }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    placeholder="Add a short description for the event card."
+                    className="w-full rounded-lg border border-[#D8CEBF] p-2.5 text-[#1C1A19] outline-none focus:border-[#1C1A19]"
                   />
                 </div>
               </div>
               <div className="pt-2 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsEventModalOpen(false)}
-                  className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63]"
+                  onClick={() => {
+                    setEventSaveError(null);
+                    setIsEventModalOpen(false);
+                  }}
+                  disabled={isEventSaving}
+                  className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63] disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
-                  type="button"
-                  onClick={() => {
-                    if (editingEvent.title.trim()) {
-                      saveEvent(editingEvent);
-                      setIsEventModalOpen(false);
-                    }
-                  }}
-                  className="px-5 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider"
+                  type="submit"
+                  disabled={isEventSaving}
+                  className="inline-flex min-w-32 items-center justify-center gap-2 rounded-full bg-[#1C1A19] px-5 py-2 text-xs uppercase tracking-wider text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Save Event
+                  {isEventSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {isEventSaving ? 'Saving...' : 'Save Event'}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         )}
 
