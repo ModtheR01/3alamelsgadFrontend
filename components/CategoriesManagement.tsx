@@ -1075,8 +1075,8 @@ export default function CategoriesManagement() {
       {/* MODAL 1: CREATE / EDIT CATEGORY */}
       {/* ========================================== */}
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#EAE4DC] shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 my-8 border border-[#EAE4DC] shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-[#EAE4DC]">
               <h3 className="text-base font-medium text-[#1C1A19]">
                 {categoryFormMode === 'create' ? 'Add New Category' : 'Edit Category'}
@@ -1161,8 +1161,8 @@ export default function CategoriesManagement() {
       {/* MODAL 2: CREATE / EDIT SUBCATEGORY */}
       {/* ========================================== */}
       {isSubcategoryModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#EAE4DC] shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 my-8 border border-[#EAE4DC] shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-[#EAE4DC]">
               <h3 className="text-base font-medium text-[#1C1A19]">
                 {subcategoryFormMode === 'create' ? 'Add New Subcategory' : 'Edit Subcategory'}

@@ -2089,7 +2089,7 @@ export default function AdminDashboard() {
 
         {/* ----------------- MODAL: EDIT EVENT ----------------- */}
         {isEventModalOpen && editingEvent && (
-          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
@@ -2117,15 +2117,27 @@ export default function AdminDashboard() {
                   setIsEventSaving(false);
                 }
               }}
-              className="bg-white rounded-2xl max-w-md w-full p-6 space-y-5 border border-[#EAE4DC] shadow-xl"
+              className="bg-white rounded-2xl max-w-md w-full p-6 space-y-5 my-8 border border-[#EAE4DC] shadow-xl max-h-[90vh] overflow-y-auto"
             >
-              <div className="space-y-1">
-                <h3 className="text-lg font-medium text-[#1C1A19]">
-                  {Number.isInteger(Number(editingEvent.id)) ? 'Edit Event' : 'Add New Event'}
-                </h3>
-                <p className="text-xs leading-relaxed text-[#736B63]">
-                  Fields marked with <span className="text-rose-600">*</span> are required. Upload the cover image before saving.
-                </p>
+              <div className="flex items-start justify-between gap-4 space-y-1">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-medium text-[#1C1A19]">
+                    {Number.isInteger(Number(editingEvent.id)) ? 'Edit Event' : 'Add New Event'}
+                  </h3>
+                  <p className="text-xs leading-relaxed text-[#736B63]">
+                    Fields marked with <span className="text-rose-600">*</span> are required. Upload the cover image before saving.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEventSaveError(null);
+                    setIsEventModalOpen(false);
+                  }}
+                  className="p-1 text-[#736B63] hover:text-[#1C1A19] shrink-0"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
               {eventSaveError && (
@@ -2237,9 +2249,18 @@ export default function AdminDashboard() {
 
         {/* ----------------- MODAL: EDIT PROJECT ----------------- */}
         {isProjectModalOpen && editingProject && (
-          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#EAE4DC] shadow-xl">
-              <h3 className="text-base font-medium text-[#1C1A19]">In Their Space Image</h3>
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 my-8 border border-[#EAE4DC] shadow-xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-medium text-[#1C1A19]">In Their Space Image</h3>
+                <button
+                  type="button"
+                  onClick={() => setIsProjectModalOpen(false)}
+                  className="p-1 text-[#736B63] hover:text-[#1C1A19]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
               <div className="space-y-3 text-xs">
                 <div>
                   <label className="block text-[#1C1A19] mb-1">Customer Name</label>

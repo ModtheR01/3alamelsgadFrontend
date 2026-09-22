@@ -32,6 +32,7 @@ import {
   ArrowRight,
   RefreshCw,
   MessageCircle,
+  X,
 } from 'lucide-react';
 
 export default function AccountView() {
@@ -1026,8 +1027,8 @@ export default function AccountView() {
 
                 {/* Add / Edit Address Modal */}
                 {showAddressModal && (
-                  <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-3.5 sm:p-4">
-                    <div className="bg-white rounded-xl sm:rounded-2xl max-w-md w-full p-5 sm:p-6 space-y-4 border border-[#EAE4DC] shadow-xl animate-in zoom-in-95">
+                  <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-3.5 sm:p-4 overflow-y-auto">
+                    <div className="bg-white rounded-xl sm:rounded-2xl max-w-md w-full p-5 sm:p-6 space-y-4 my-8 border border-[#EAE4DC] shadow-xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
                       <div className="flex justify-between items-center border-b border-[#EAE4DC] pb-3">
                         <h3 className="text-base font-medium text-[#1C1A19]">
                           {editingAddress ? 'Edit Delivery Residence' : 'Add Delivery Residence'}
@@ -1037,7 +1038,7 @@ export default function AccountView() {
                           onClick={() => setShowAddressModal(false)}
                           className="text-[#8F8880] hover:text-[#1C1A19]"
                         >
-                          ✕
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
 
