@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useToccoStore, AppView } from '@/lib/store';
+import { toWhatsAppNumber } from '@/lib/utils';
 import { Home, Compass, Sparkles, ShoppingBag, MessageCircle } from 'lucide-react';
 
 export default function MobileBottomNav() {
@@ -18,7 +19,7 @@ export default function MobileBottomNav() {
     return null;
   }
 
-  const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
     'Hello Tocco House Atelier Concierge, I would like to inquire about your pieces.'
   )}`;
 

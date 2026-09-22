@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useToccoStore } from '@/lib/store';
+import { toWhatsAppNumber } from '@/lib/utils';
 import CategoriesManagement from '@/components/CategoriesManagement';
 import CloudinaryImageUploader from '@/components/CloudinaryImageUploader';
 import CloudinaryImageField from '@/components/CloudinaryImageField';
@@ -98,14 +99,6 @@ const formatCurrency = (value: string | number | null | undefined) => {
 const toDateTimeInputValue = (value: string | null) => (value ? value.slice(0, 16) : '');
 
 const toBackendDateTime = (value: string) => (value ? new Date(value).toISOString() : null);
-
-const toWhatsAppNumber = (phone: string | null | undefined) => {
-  const digits = (phone || '').replace(/\D/g, '');
-  if (!digits) return '';
-  if (digits.startsWith('00')) return digits.slice(2);
-  if (digits.startsWith('0')) return `20${digits.slice(1)}`;
-  return digits;
-};
 
 export default function AdminDashboard() {
   const {

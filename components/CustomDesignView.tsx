@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useToccoStore } from '@/lib/store';
+import { toWhatsAppNumber } from '@/lib/utils';
 import {
   MessageCircle,
   Hammer,
@@ -11,7 +12,7 @@ import {
 export default function CustomDesignView() {
   const { settings } = useToccoStore();
 
-  const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
     'Hello Tocco House, I am planning a custom fiberglass piece and would like to consult with your atelier.'
   )}`;
 

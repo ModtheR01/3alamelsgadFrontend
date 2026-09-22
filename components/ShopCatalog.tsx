@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useToccoStore } from '@/lib/store';
+import { toWhatsAppNumber } from '@/lib/utils';
 import { Product } from '@/types';
 import Image from '@/components/SafeImage';
 import { Search, Filter, SlidersHorizontal, ArrowRight, MessageCircle } from 'lucide-react';
@@ -204,7 +205,7 @@ export default function ShopCatalog() {
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 lg:gap-8 pt-6 sm:pt-10">
             {filteredProducts.map((product) => {
-              const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+              const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
                 `Hello Tocco House, I am interested in inquiring about the "${product.name}".`
               )}`;
 

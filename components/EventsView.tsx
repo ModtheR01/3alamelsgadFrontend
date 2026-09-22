@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useToccoStore } from '@/lib/store';
+import { toWhatsAppNumber } from '@/lib/utils';
 import Image from '@/components/SafeImage';
 import { Calendar, MapPin, ArrowRight, Sparkles, MessageCircle } from 'lucide-react';
 
@@ -15,7 +16,7 @@ export default function EventsView() {
     return true;
   });
 
-  const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
     'Hello Tocco House, I would like to inquire about attending your upcoming exhibition or atelier viewing.'
   )}`;
 

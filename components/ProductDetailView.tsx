@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useToccoStore } from '@/lib/store';
+import { toWhatsAppNumber } from '@/lib/utils';
 import { ProductFinish, ProductColor, ProductSize } from '@/types';
 import Image from '@/components/SafeImage';
 import {
@@ -75,7 +76,7 @@ Color: ${selectedColor.name}
 ${selectedSize ? `Size: ${selectedSize.name} (${selectedSize.dimensions})` : ''}
 Could you please provide pricing and production details?`;
 
-  const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
     whatsappPrefill
   )}`;
 

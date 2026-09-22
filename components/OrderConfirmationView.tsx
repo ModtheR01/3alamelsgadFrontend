@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useToccoStore } from '@/lib/store';
+import { toWhatsAppNumber } from '@/lib/utils';
 import {
   CheckCircle2,
   Clock,
@@ -83,7 +84,7 @@ export default function OrderConfirmationView() {
   };
 
   // WhatsApp prefilled proof-submission message
-  const proofWhatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+  const proofWhatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
     `Hello Tocco House,\nI have completed my ${depositPercentage}% deposit payment for Order #${orderNumber}. Attaching my payment screenshot/receipt below for verification.`
   )}`;
 

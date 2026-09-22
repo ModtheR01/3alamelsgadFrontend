@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useToccoStore } from '@/lib/store';
+import { toWhatsAppNumber } from '@/lib/utils';
 import {
   Truck,
   ShieldCheck,
@@ -205,7 +206,7 @@ export function ContactView() {
     setSent(true);
   };
 
-  const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
     'Hello Tocco House, I would like to arrange an atelier appointment or inquire about your pieces.'
   )}`;
 

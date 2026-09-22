@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useToccoStore } from '@/lib/store';
+import { toWhatsAppNumber } from '@/lib/utils';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Order, OrderStatus, PaymentStatus } from '@/types';
 import { Address, UserRole, UserManagementUser } from '@/types/auth';
@@ -802,7 +803,7 @@ export default function AccountView() {
                 ) : (
                   <div className="space-y-4 sm:space-y-6">
                     {backendOrders.map((ord) => {
-                      const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                      const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
                         `Hello Tocco House, I am inquiring about my Commission #${ord.order_number}.`
                       )}`;
                       const depositPercentage = Number(ord.deposit_percentage);

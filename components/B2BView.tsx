@@ -2,12 +2,13 @@
 
 import React from 'react';
 import { useToccoStore } from '@/lib/store';
+import { toWhatsAppNumber } from '@/lib/utils';
 import { MessageCircle, Building2, Ruler, Truck, ShieldCheck } from 'lucide-react';
 
 export default function B2BView() {
   const { settings } = useToccoStore();
 
-  const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
     'Hello Tocco House, I represent a company and would like to discuss a B2B furniture or fiberglass project.'
   )}`;
 

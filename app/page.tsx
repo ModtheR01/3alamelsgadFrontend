@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { StoreProvider, useToccoStore } from '@/lib/store';
+import { toWhatsAppNumber } from '@/lib/utils';
 import { AuthProvider } from '@/lib/context/AuthContext';
 import { useAuth } from '@/lib/context/AuthContext';
 import Navbar from '@/components/Navbar';
@@ -70,7 +71,7 @@ function ToccoApp() {
     }
   }, [navigateTo]);
 
-  const whatsappConciergeUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+  const whatsappConciergeUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
     'Hello Tocco House, I am inquiring about your handcrafted fiberglass design pieces.'
   )}`;
 

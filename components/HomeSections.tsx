@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useToccoStore } from '@/lib/store';
+import { toWhatsAppNumber } from '@/lib/utils';
 import { Product, Category } from '@/types';
 import { ToccoMark } from './ToccoLogo';
 import { ArrowRight, Sparkles, MessageCircle, ArrowUpRight, Compass, ShieldCheck, SunMedium } from 'lucide-react';
@@ -350,7 +351,7 @@ export function CollaborationsSection() {
 export function CustomDesignTeaser() {
   const { settings } = useToccoStore();
 
-  const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
     "Hello Tocco House, I have a custom design piece in mind and would like to consult with your design studio."
   )}`;
 
