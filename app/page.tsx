@@ -10,7 +10,6 @@ import CartDrawer from '@/components/CartDrawer';
 import BannersSection from '@/components/BannersSection';
 import {
   HomeHero,
-  FeaturedCollectionSection,
   SignaturePiecesSection,
   StoryTeaserSection,
   CategoriesShowcase,
@@ -20,8 +19,8 @@ import {
 } from '@/components/HomeSections';
 import ShopCatalog from '@/components/ShopCatalog';
 import ProductDetailView from '@/components/ProductDetailView';
-import CollectionsView from '@/components/CollectionsView';
 import CustomDesignView from '@/components/CustomDesignView';
+import B2BView from '@/components/B2BView';
 import OurStoryView from '@/components/OurStoryView';
 import EventsView from '@/components/EventsView';
 import ProjectsView from '@/components/ProjectsView';
@@ -53,7 +52,7 @@ function ToccoApp() {
 
   // Scroll to top on route change
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }, [activeView]);
 
   // Read URL query parameters on initial mount if any
@@ -86,7 +85,6 @@ function ToccoApp() {
           <div>
             <HomeHero />
             <BannersSection />
-            <FeaturedCollectionSection />
             <SignaturePiecesSection />
             <StoryTeaserSection />
             <CategoriesShowcase />
@@ -100,9 +98,9 @@ function ToccoApp() {
 
         {activeView === 'product' && <ProductDetailView />}
 
-        {activeView === 'collections' && <CollectionsView />}
-
         {activeView === 'custom-design' && <CustomDesignView />}
+
+        {activeView === 'b2b' && <B2BView />}
 
         {activeView === 'our-story' && <OurStoryView />}
 
@@ -148,16 +146,11 @@ function ToccoApp() {
             href={whatsappConciergeUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center gap-2.5 px-4 py-3 rounded-full bg-[#1C1A19] text-white shadow-xl hover:bg-[#332F2D] active:scale-95 transition-all border border-white/10"
+            aria-label="Chat with Tocco House Atelier Concierge on WhatsApp"
+            className="group flex items-center justify-center p-3 rounded-full bg-[#1C1A19] text-white shadow-xl hover:bg-[#332F2D] active:scale-95 transition-all border border-white/10"
             title="Chat with Tocco House Atelier Concierge"
           >
-            <div className="relative">
-              <MessageCircle className="w-4 h-4 text-[#25D366]" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#25D366] animate-pulse" />
-            </div>
-            <span className="text-xs uppercase tracking-wider font-medium hidden sm:inline-block">
-              Atelier Concierge
-            </span>
+            <MessageCircle className="w-5 h-5 text-[#25D366]" aria-hidden="true" />
           </a>
         </aside>
       )}

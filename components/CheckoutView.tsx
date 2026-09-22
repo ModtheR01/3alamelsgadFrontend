@@ -16,7 +16,6 @@ import {
   ArrowRight,
   ArrowLeft,
   Smartphone,
-  Building2,
   CreditCard,
   MessageCircle,
   Loader2,
@@ -24,20 +23,6 @@ import {
   MapPin,
   Plus,
 } from 'lucide-react';
-
-const EGYPTIAN_GOVERNORATES = [
-  'Cairo (القاهرة)',
-  'Giza (الجيزة)',
-  'Matrouh / North Coast / Sahel (الساحل الشمالي)',
-  'Alexandria (الإسكندرية)',
-  'Red Sea / El Gouna / Hurghada (البحر الأحمر / الجونة)',
-  'South Sinai / Sharm El Sheikh (جنوب سيناء)',
-  'Dakahlia / Mansoura (الدقهلية)',
-  'Gharbia / Tanta (الغربية)',
-  'Sharqia (الشرقية)',
-  'Qalyubia (القليوبية)',
-  'Other Governorate',
-];
 
 export default function CheckoutView() {
   const {
@@ -54,6 +39,9 @@ export default function CheckoutView() {
 
   const { user: authUser, addresses: authAddresses, createAddress } = useAuth();
 
+  const mobileWalletNumber =
+    settings.paymentMethods.mobileWallet.number || settings.paymentMethods.vodafoneCash.number;
+
   const defaultAddr = authAddresses.find((a) => a.is_default) || authAddresses[0];
 
   const [userSelectedAddressId, setUserSelectedAddressId] = useState<number | 'new' | null>(null);
@@ -66,18 +54,8 @@ export default function CheckoutView() {
 
   const setSelectedAddressId = (id: number | 'new') => setUserSelectedAddressId(id);
 
-  // Pre-fill from user account if available
-  const [fullName, setFullName] = useState(() =>
-    authUser ? `${authUser.first_name} ${authUser.last_name}`.trim() : legacyUser?.fullName || ''
-  );
-  const [phone, setPhone] = useState(() => authUser?.phone || legacyUser?.phone || '');
-  const [email, setEmail] = useState(() => authUser?.email || legacyUser?.email || '');
-
-  // Address fields for new address or fallback
+  // Address fields for new address or fallback (mirrors the backend Address model exactly)
   const [addressTitle, setAddressTitle] = useState('Delivery Residence');
-  const [governorate, setGovernorate] = useState(
-    legacyUser?.savedAddresses?.[0]?.governorate || 'Cairo (القاهرة)'
-  );
   const [city, setCity] = useState(
     () => defaultAddr?.city || legacyUser?.savedAddresses?.[0]?.city || ''
   );
@@ -89,11 +67,6 @@ export default function CheckoutView() {
   );
   const [apartmentNumber, setApartmentNumber] = useState(
     () => defaultAddr?.apartment_number || '1'
-  );
-  const [buildingDetails, setBuildingDetails] = useState(() =>
-    defaultAddr
-      ? `Bldg ${defaultAddr.building_number}, Apt ${defaultAddr.apartment_number}`
-      : legacyUser?.savedAddresses?.[0]?.building || ''
   );
   const [orderNote, setOrderNote] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('instapay');
@@ -184,6 +157,7 @@ export default function CheckoutView() {
       // Create backend order (API expects { address_id })
       const createdOrder = await orderService.createOrder({
         address_id: targetAddressId,
+        customer_notes: orderNote.trim(),
       });
 
       setLastCreatedOrder(createdOrder);
@@ -217,7 +191,7 @@ export default function CheckoutView() {
             Artisanal Commission
           </span>
           <h1 className="text-2xl sm:text-4xl font-normal tracking-tight text-[#1C1A19]">
-            Order Checkout & 50% Deposit
+            Order Checkout & {settings.depositPercentage}% Deposit
           </h1>
           <p className="text-xs sm:text-sm text-[#736B63] font-light leading-relaxed">
             Review your delivery destination and transfer details to initiate casting in our atelier.
@@ -233,33 +207,24 @@ export default function CheckoutView() {
                 1. Customer Details
               </h3>
 
+              {/* Read-only: the order API takes contact details from the signed-in account, not this form */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-1.5">
                   <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
-                    Full Name *
+                    Full Name
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Karim Mansour"
-                    className="w-full text-xs px-3.5 py-3 rounded-lg bg-white border border-[#D8CEBF] text-[#1C1A19] focus:outline-none focus:border-[#643D26]"
-                  />
+                  <div className="w-full text-xs px-3.5 py-3 rounded-lg bg-[#F5F2EB] border border-[#E8E1D5] text-[#1C1A19]">
+                    {authUser ? `${authUser.first_name} ${authUser.last_name}`.trim() : '—'}
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
-                    Mobile Phone (WhatsApp Active) *
+                    Mobile Phone (WhatsApp Active)
                   </label>
-                  <input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+20 100 000 0000"
-                    className="w-full text-xs px-3.5 py-3 rounded-lg bg-white border border-[#D8CEBF] text-[#1C1A19] focus:outline-none focus:border-[#643D26]"
-                  />
+                  <div className="w-full text-xs px-3.5 py-3 rounded-lg bg-[#F5F2EB] border border-[#E8E1D5] text-[#1C1A19]">
+                    {authUser?.phone || '—'}
+                  </div>
                 </div>
               </div>
 
@@ -267,14 +232,24 @@ export default function CheckoutView() {
                 <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
                   Email Address (For Order Receipts & Updates)
                 </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="karim@example.com"
-                  className="w-full text-xs px-3.5 py-3 rounded-lg bg-white border border-[#D8CEBF] text-[#1C1A19] focus:outline-none focus:border-[#643D26]"
-                />
+                <div className="w-full text-xs px-3.5 py-3 rounded-lg bg-[#F5F2EB] border border-[#E8E1D5] text-[#1C1A19]">
+                  {authUser?.email || '—'}
+                </div>
               </div>
+
+              {authUser && (
+                <p className="text-[11px] text-[#736B63]">
+                  Registered on your account. To update these details, visit{' '}
+                  <button
+                    type="button"
+                    onClick={() => navigateTo('account')}
+                    className="underline underline-offset-2 hover:text-[#1C1A19]"
+                  >
+                    Account Settings
+                  </button>
+                  .
+                </p>
+              )}
             </div>
 
             {/* Delivery Destination */}
@@ -365,23 +340,6 @@ export default function CheckoutView() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div className="space-y-1.5">
                           <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
-                            Governorate / Region *
-                          </label>
-                          <select
-                            value={governorate}
-                            onChange={(e) => setGovernorate(e.target.value)}
-                            className="w-full text-xs px-3.5 py-3 rounded-lg bg-white border border-[#D8CEBF] text-[#1C1A19] focus:outline-none cursor-pointer"
-                          >
-                            {EGYPTIAN_GOVERNORATES.map((gov) => (
-                              <option key={gov} value={gov}>
-                                {gov}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
                             City / Compound / Area *
                           </label>
                           <input
@@ -442,7 +400,7 @@ export default function CheckoutView() {
 
                   <div className="space-y-1.5">
                     <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
-                      Special Delivery Instructions / Gate Access Details (Optional)
+                      Order Notes / Special Delivery Instructions (Optional)
                     </label>
                     <textarea
                       rows={2}
@@ -459,7 +417,7 @@ export default function CheckoutView() {
             {/* Payment Method Selector */}
             <div className="space-y-3 sm:space-y-4">
               <h3 className="text-xs sm:text-sm uppercase tracking-[0.2em] font-semibold text-[#1C1A19]">
-                3. Choose 50% Deposit Payment Channel
+                3. Choose {settings.depositPercentage}% Deposit Payment Channel
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
@@ -507,48 +465,20 @@ export default function CheckoutView() {
                       <span className="block text-xs font-semibold uppercase text-[#1C1A19]">
                         Mobile Wallet
                       </span>
-                      <span className="text-[10px] text-[#736B63]">Vodafone Cash / Orange</span>
+                      <span className="text-[10px] text-[#736B63]">Vodafone / E&amp; / We / Orange</span>
                     </div>
                   </div>
                   <div className="hidden sm:block mt-3">
                     <span className="block text-xs font-semibold uppercase text-[#1C1A19]">
                       Mobile Wallet
                     </span>
-                    <span className="text-[10px] text-[#736B63]">Vodafone Cash / Orange</span>
+                    <span className="text-[10px] text-[#736B63]">Vodafone / E&amp; / We / Orange</span>
                   </div>
                   {paymentMethod === 'vodafone_cash' && (
                     <Check className="w-4 h-4 text-[#643D26] shrink-0" />
                   )}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('bank_transfer')}
-                  className={`p-3.5 sm:p-4 rounded-xl border text-left flex flex-row sm:flex-col items-center sm:items-start justify-between transition-all ${
-                    paymentMethod === 'bank_transfer'
-                      ? 'border-[#643D26] bg-[#F5EFEB] shadow-xs'
-                      : 'border-[#D8CEBF] bg-white hover:border-[#1C1A19]'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 sm:justify-between sm:w-full">
-                    <Building2 className="w-5 h-5 text-[#643D26]" />
-                    <div className="sm:hidden">
-                      <span className="block text-xs font-semibold uppercase text-[#1C1A19]">
-                        Bank Wire
-                      </span>
-                      <span className="text-[10px] text-[#736B63]">CIB Wire Transfer</span>
-                    </div>
-                  </div>
-                  <div className="hidden sm:block mt-3">
-                    <span className="block text-xs font-semibold uppercase text-[#1C1A19]">
-                      Bank Wire
-                    </span>
-                    <span className="text-[10px] text-[#736B63]">CIB Wire Transfer</span>
-                  </div>
-                  {paymentMethod === 'bank_transfer' && (
-                    <Check className="w-4 h-4 text-[#643D26] shrink-0" />
-                  )}
-                </button>
               </div>
 
               {/* Dynamic Account Details Box */}
@@ -557,9 +487,8 @@ export default function CheckoutView() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
-                        InstaPay Payment Details:
+                        InstaPay
                       </span>
-                      <span className="text-[10px] text-[#643D26] font-medium">Instant Verification</span>
                     </div>
 
                     <div className="p-3 bg-white rounded-lg border border-[#D8CEBF] flex items-center justify-between">
@@ -592,92 +521,47 @@ export default function CheckoutView() {
                       </button>
                     </div>
 
-                    <p className="text-[11px] text-[#736B63] leading-relaxed">
-                      {settings.paymentMethods.instapay.instructions}
-                    </p>
                   </div>
                 )}
 
                 {paymentMethod === 'vodafone_cash' && (
                   <div className="space-y-2">
                     <span className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19] block">
-                      Mobile Wallet Transfer:
+                      Mobile Wallet
                     </span>
 
                     <div className="p-3 bg-white rounded-lg border border-[#D8CEBF] flex items-center justify-between">
                       <div>
                         <span className="text-[10px] uppercase tracking-wider text-[#736B63] block">
-                          Wallet Number:
+                          Number:
                         </span>
                         <span className="text-xs font-mono font-bold text-[#1C1A19]">
-                          {settings.paymentMethods.vodafoneCash.number}
+                          {mobileWalletNumber}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          copyToClipboard(settings.paymentMethods.vodafoneCash.number, 'wallet')
-                        }
-                        className="px-3 py-1.5 rounded-md bg-[#FAF8F5] border border-[#D8CEBF] text-[11px] uppercase tracking-wider font-medium text-[#1C1A19] hover:bg-[#EFEBE3] flex items-center gap-1.5"
-                      >
-                        {copiedField === 'wallet' ? (
-                          <>
-                            <Check className="w-3 h-3 text-[#25D366]" />
-                            <span>Copied</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3 h-3" />
-                            <span>Copy</span>
-                          </>
-                        )}
-                      </button>
+                      {mobileWalletNumber && (
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(mobileWalletNumber, 'wallet')}
+                          className="px-3 py-1.5 rounded-md bg-[#FAF8F5] border border-[#D8CEBF] text-[11px] uppercase tracking-wider font-medium text-[#1C1A19] hover:bg-[#EFEBE3] flex items-center gap-1.5"
+                        >
+                          {copiedField === 'wallet' ? (
+                            <>
+                              <Check className="w-3 h-3 text-[#25D366]" />
+                              <span>Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
-
-                    <p className="text-[11px] text-[#736B63] leading-relaxed">
-                      {settings.paymentMethods.vodafoneCash.instructions}
-                    </p>
                   </div>
                 )}
 
-                {paymentMethod === 'bank_transfer' && (
-                  <div className="space-y-2">
-                    <span className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19] block">
-                      CIB Bank Wire Transfer Details:
-                    </span>
-
-                    <div className="p-3 bg-white rounded-lg border border-[#D8CEBF] space-y-1.5 font-mono text-[11px] sm:text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-[#736B63]">Bank:</span>
-                        <span className="font-semibold text-[#1C1A19]">
-                          {settings.paymentMethods.bankTransfer.bankName}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-[#736B63]">Account:</span>
-                        <span className="font-semibold text-[#1C1A19]">
-                          {settings.paymentMethods.bankTransfer.accountName}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-[#736B63]">Acc No:</span>
-                        <span className="font-semibold text-[#1C1A19]">
-                          {settings.paymentMethods.bankTransfer.accountNumber}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-[#736B63]">IBAN:</span>
-                        <span className="font-semibold text-[#1C1A19] break-all">
-                          {settings.paymentMethods.bankTransfer.iban}
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="text-[11px] text-[#736B63] leading-relaxed">
-                      {settings.paymentMethods.bankTransfer.instructions}
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -707,11 +591,6 @@ export default function CheckoutView() {
                       <p className="text-[10px] sm:text-[11px] text-[#736B63]">
                         {item.selectedFinish} · {item.selectedColor.name} · Qty: {item.quantity}
                       </p>
-                      {item.customNote && (
-                        <p className="text-[9px] sm:text-[10px] text-[#643D26] italic mt-0.5">
-                          Note: {item.customNote}
-                        </p>
-                      )}
                     </div>
                     <div className="font-semibold text-xs text-[#1C1A19]">
                       {(item.unitPrice * item.quantity).toLocaleString()} EGP
@@ -731,7 +610,7 @@ export default function CheckoutView() {
                   <span>{cartDepositAmount.toLocaleString()} EGP</span>
                 </div>
                 <div className="flex justify-between text-[10px] sm:text-[11px] text-[#736B63]">
-                  <span>Remaining 50% upon delivery</span>
+                  <span>Remaining {100 - settings.depositPercentage}% upon delivery</span>
                   <span>{cartRemainingAmount.toLocaleString()} EGP</span>
                 </div>
               </div>

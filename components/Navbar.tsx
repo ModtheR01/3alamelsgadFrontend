@@ -32,9 +32,9 @@ export default function Navbar() {
 
   const navLinks: { label: string; view: AppView }[] = [
     { label: 'Shop', view: 'shop' },
-    { label: 'Collections', view: 'collections' },
     { label: 'Our Story', view: 'our-story' },
     { label: 'Custom Design', view: 'custom-design' },
+    { label: 'For Business', view: 'b2b' },
     { label: 'Events', view: 'events' },
     { label: 'Projects', view: 'projects' },
   ];

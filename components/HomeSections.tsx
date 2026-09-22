@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useToccoStore } from '@/lib/store';
-import { Product, Category, Collection } from '@/types';
+import { Product, Category } from '@/types';
 import { ToccoMark } from './ToccoLogo';
 import { ArrowRight, Sparkles, MessageCircle, ArrowUpRight, Compass, ShieldCheck, SunMedium } from 'lucide-react';
 import Image from '@/components/SafeImage';
@@ -59,72 +59,6 @@ export function HomeHero() {
           <span>Indoor & Outdoor</span>
           <span>·</span>
           <span>Egyptian Craftsmanship</span>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-export function FeaturedCollectionSection() {
-  const { collections, navigateTo } = useToccoStore();
-  const featured = collections.find((c) => c.isFeatured) || collections[0];
-
-  if (!featured) return null;
-
-  return (
-    <section id="featured-collection-section" className="py-14 sm:py-24 bg-[#FAF8F5] border-b border-[#EAE4DC]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 items-center">
-          {/* Editorial Image Showcase (7 cols) */}
-          <div className="lg:col-span-7 relative h-72 sm:h-[450px] lg:h-[580px] rounded-2xl overflow-hidden shadow-[0_12px_36px_rgba(40,25,15,0.06)] group">
-            <Image
-              src={featured.coverImage}
-              alt={featured.name}
-              fill
-              className="object-cover transition-transform duration-700 group-hover:scale-105"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-            
-            {/* Tag on image */}
-            <div className="absolute top-4 left-4 sm:top-6 sm:left-6 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#FAF8F5]/90 backdrop-blur-sm text-[10px] sm:text-[11px] uppercase tracking-[0.2em] font-medium text-[#1C1A19]">
-              Curated Edition
-            </div>
-          </div>
-
-          {/* Editorial Content (5 cols) */}
-          <div className="lg:col-span-5 space-y-4 sm:space-y-6">
-            <div className="space-y-1.5 sm:space-y-2">
-              <span className="text-[11px] sm:text-xs uppercase tracking-[0.25em] font-medium text-[#B85D38]">
-                Featured Collection
-              </span>
-              <h2 className="text-2xl sm:text-4xl font-normal tracking-tight text-[#1C1A19]">
-                {featured.name}
-              </h2>
-            </div>
-
-            <p className="text-[#524B45] text-sm sm:text-base leading-relaxed font-light">
-              {featured.description}
-            </p>
-
-            <div className="pt-2 border-t border-[#EAE4DC] flex items-center justify-between text-[11px] sm:text-xs text-[#736B63] uppercase tracking-wider">
-              <span>Weatherproof Resin</span>
-              <span>•</span>
-              <span>UV-Stable Glaze</span>
-              <span>•</span>
-              <span>Made in Cairo</span>
-            </div>
-
-            <div className="pt-2 sm:pt-4">
-              <button
-                onClick={() => navigateTo('collections', { collectionId: featured.id })}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-3.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-[0.25em] font-medium hover:bg-[#332F2D] transition-all group"
-              >
-                <span>Explore Collection</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </section>
@@ -216,7 +150,7 @@ export function SignaturePiecesSection() {
                           {product.price?.toLocaleString()} EGP
                         </span>
                         <span className="text-[9px] sm:text-[10px] text-[#8F8880]">
-                          Deposit: {((product.price || 0) * 0.5).toLocaleString()} EGP
+                          Deposit: {Math.round((product.price || 0) * settings.depositPercentage / 100).toLocaleString()} EGP
                         </span>
                       </div>
                     </div>
@@ -239,7 +173,7 @@ export function SignaturePiecesSection() {
 }
 
 export function StoryTeaserSection() {
-  const { navigateTo } = useToccoStore();
+  const { navigateTo, settings } = useToccoStore();
 
   return (
     <section id="story-teaser-section" className="py-14 sm:py-24 bg-[#FAF8F5] border-b border-[#EAE4DC]">
@@ -277,7 +211,7 @@ export function StoryTeaserSection() {
                 </span>
               </div>
               <div>
-                <span className="block text-lg sm:text-2xl font-light text-[#1C1A19]">50%</span>
+                <span className="block text-lg sm:text-2xl font-light text-[#1C1A19]">{settings.depositPercentage}%</span>
                 <span className="text-[9px] sm:text-[11px] uppercase tracking-wider text-[#736B63] leading-tight block">
                   Artisan Deposit
                 </span>
@@ -414,7 +348,7 @@ export function CollaborationsSection() {
 }
 
 export function CustomDesignTeaser() {
-  const { navigateTo, settings } = useToccoStore();
+  const { settings } = useToccoStore();
 
   const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
     "Hello Tocco House, I have a custom design piece in mind and would like to consult with your design studio."
@@ -426,7 +360,7 @@ export function CustomDesignTeaser() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 items-center">
           <div className="lg:col-span-7 space-y-4 sm:space-y-6">
             <span className="text-[11px] sm:text-xs uppercase tracking-[0.25em] font-medium text-[#B85D38]">
-              Atelier Concierge
+              Custom Design
             </span>
             <h2 className="text-2xl sm:text-4xl lg:text-5xl font-normal tracking-tight text-white leading-tight">
               Have something in mind? <br />
@@ -439,18 +373,11 @@ export function CustomDesignTeaser() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 pt-2 sm:pt-4">
-              <button
-                onClick={() => navigateTo('custom-design')}
-                className="w-full sm:w-auto px-8 py-3.5 sm:py-4 rounded-full bg-[#FAF8F5] text-[#1C1A19] text-xs uppercase tracking-[0.25em] font-medium hover:bg-white transition-all shadow-md text-center"
-              >
-                Create a Custom Design
-              </button>
-
               <a
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto px-8 py-3.5 sm:py-4 rounded-full bg-[#2A2624] text-white border border-[#443E3A] text-xs uppercase tracking-[0.2em] font-medium hover:bg-[#383330] transition-all flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-8 py-3.5 sm:py-4 rounded-full bg-[#FAF8F5] text-[#1C1A19] text-xs uppercase tracking-[0.2em] font-semibold hover:bg-white transition-all shadow-md flex items-center justify-center gap-2"
               >
                 <MessageCircle className="w-4 h-4 text-[#25D366]" />
                 <span>Discuss on WhatsApp</span>
@@ -467,10 +394,6 @@ export function CustomDesignTeaser() {
               referrerPolicy="no-referrer"
             />
             <div className="absolute inset-0 bg-black/30" />
-            <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 p-3 sm:p-4 rounded-lg bg-black/60 backdrop-blur-md text-xs text-[#EBE3D5] flex items-center justify-between">
-              <span>Bespoke Dimensions & RAL Colors</span>
-              <span className="font-mono text-[#B85D38]">Atelier Direct</span>
-            </div>
           </div>
         </div>
       </div>
@@ -554,15 +477,20 @@ export function ProjectsAndInstagramSection() {
             </h4>
           </div>
 
-          <a
-            href={`https://instagram.com/${settings.contact.instagramHandle.replace('@', '')}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-[#D8CEBF] text-xs uppercase tracking-[0.2em] font-medium text-[#1C1A19] hover:bg-[#1C1A19] hover:text-white hover:border-[#1C1A19] transition-all"
-          >
-            <span>{settings.contact.instagramHandle}</span>
-            <ArrowUpRight className="w-3.5 h-3.5" />
-          </a>
+          <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+            {settings.contact.instagramHandles.map((handle) => (
+              <a
+                key={handle}
+                href={`https://instagram.com/${handle.replace('@', '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-[#D8CEBF] text-xs uppercase tracking-[0.2em] font-medium text-[#1C1A19] hover:bg-[#1C1A19] hover:text-white hover:border-[#1C1A19] transition-all"
+              >
+                <span>{handle}</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </section>

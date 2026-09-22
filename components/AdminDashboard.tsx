@@ -8,9 +8,7 @@ import CloudinaryImageField from '@/components/CloudinaryImageField';
 import {
   Product,
   Category,
-  Collection,
   Order,
-  CustomDesignInquiry,
   EventItem,
   ProjectItem,
   OrderStatus,
@@ -23,7 +21,6 @@ import {
   Layers,
   Package,
   FolderTree,
-  Sparkles,
   Calendar,
   Image as ImageIcon,
   Settings,
@@ -49,6 +46,7 @@ import {
   AlertCircle,
   Loader2,
   Palette,
+  Search,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 import { orderService } from '@/lib/api/services/orderService';
@@ -60,6 +58,7 @@ import { BackendOffer, OfferCreateRequest, OfferProductRequest, OfferType } from
 import { BackendCollaboration, CollaborationCreateRequest } from '@/types/collaboration';
 import { BackendColor, ColorCreateRequest } from '@/types/product';
 import { normalizeApiError } from '@/lib/api/errors';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 type OfferDraft = {
   id?: number;
@@ -99,14 +98,20 @@ const toDateTimeInputValue = (value: string | null) => (value ? value.slice(0, 1
 
 const toBackendDateTime = (value: string) => (value ? new Date(value).toISOString() : null);
 
+const toWhatsAppNumber = (phone: string | null | undefined) => {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('00')) return digits.slice(2);
+  if (digits.startsWith('0')) return `20${digits.slice(1)}`;
+  return digits;
+};
+
 export default function AdminDashboard() {
   const {
     products,
     categories,
     subcategories,
-    collections,
     orders,
-    customInquiries,
     events,
     projects,
     banners,
@@ -116,8 +121,6 @@ export default function AdminDashboard() {
     toggleProductFeatured,
     saveCategory,
     deleteCategory,
-    saveCollection,
-    deleteCollection,
     saveEvent,
     deleteEvent,
     saveProject,
@@ -128,17 +131,40 @@ export default function AdminDashboard() {
     updateSettings,
     updateOrderStatus,
     updatePaymentStatus,
-    updateCustomInquiryStatus,
     navigateTo,
   } = useToccoStore();
+
+  const [depositPercentageDraft, setDepositPercentageDraft] = useState({
+    source: settings.depositPercentage,
+    value: String(settings.depositPercentage),
+  });
+  const [instapayAddressDraft, setInstapayAddressDraft] = useState({
+    source: settings.paymentMethods.instapay.address,
+    value: settings.paymentMethods.instapay.address,
+  });
+  const [mobileWalletDraft, setMobileWalletDraft] = useState({
+    source: settings.paymentMethods.mobileWallet.number,
+    value: settings.paymentMethods.mobileWallet.number,
+  });
+
+  const depositPercentageValue =
+    depositPercentageDraft.source === settings.depositPercentage
+      ? depositPercentageDraft.value
+      : String(settings.depositPercentage);
+  const instapayAddressValue =
+    instapayAddressDraft.source === settings.paymentMethods.instapay.address
+      ? instapayAddressDraft.value
+      : settings.paymentMethods.instapay.address;
+  const mobileWalletValue =
+    mobileWalletDraft.source === settings.paymentMethods.mobileWallet.number
+      ? mobileWalletDraft.value
+      : settings.paymentMethods.mobileWallet.number;
 
   const [activeTab, setActiveTab] = useState<
     | 'products'
     | 'banners'
     | 'categories'
-    | 'collections'
     | 'orders'
-    | 'inquiries'
     | 'events'
     | 'offers'
     | 'collaborations'
@@ -178,6 +204,13 @@ export default function AdminDashboard() {
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState<string | null>(null);
+  const [orderSearchQuery, setOrderSearchQuery] = useState('');
+
+  const filteredBackendOrders = React.useMemo(() => {
+    const q = orderSearchQuery.trim().toLowerCase();
+    if (!q) return backendOrders;
+    return backendOrders.filter((ord) => ord.order_number.toLowerCase().includes(q));
+  }, [backendOrders, orderSearchQuery]);
 
   const [offers, setOffers] = useState<BackendOffer[]>([]);
   const [collaborations, setCollaborations] = useState<BackendCollaboration[]>([]);
@@ -197,6 +230,54 @@ export default function AdminDashboard() {
   const [deletingOfferId, setDeletingOfferId] = useState<number | null>(null);
   const [deletingCollaborationId, setDeletingCollaborationId] = useState<number | null>(null);
   const [deletingColorId, setDeletingColorId] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{
+    title: string;
+    description: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+  const [isDeleteProcessing, setIsDeleteProcessing] = useState(false);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+
+  const requestDeleteConfirmation = (
+    title: string,
+    description: string,
+    onConfirm: () => void | Promise<void>
+  ) => {
+    setPendingDelete({ title, description, onConfirm });
+  };
+
+  const handlePendingDelete = async () => {
+    if (!pendingDelete || isDeleteProcessing) return;
+    setIsDeleteProcessing(true);
+    try {
+      await pendingDelete.onConfirm();
+      setPendingDelete(null);
+    } catch (err) {
+      setDashboardError(normalizeApiError(err).message);
+    } finally {
+      setIsDeleteProcessing(false);
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    setDashboardError(null);
+    try {
+      await deleteProduct(productId);
+    } catch (err) {
+      setDashboardError(normalizeApiError(err).message);
+    }
+  };
+
+  const handleSaveProduct = async () => {
+    if (!editingProduct || !editingProduct.name.trim()) return;
+    setDashboardError(null);
+    try {
+      await saveProduct(editingProduct);
+      setIsProductModalOpen(false);
+    } catch (err) {
+      setDashboardError(normalizeApiError(err).message);
+    }
+  };
 
   React.useEffect(() => {
     let active = true;
@@ -363,7 +444,6 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteOffer = async (offer: BackendOffer) => {
-    if (!confirm(`Delete offer "${offer.name}"?`)) return;
     setDeletingOfferId(offer.id);
     setOffersError(null);
     try {
@@ -401,7 +481,6 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteCollaboration = async (collaboration: BackendCollaboration) => {
-    if (!confirm(`Delete collaboration "${collaboration.title}"?`)) return;
     setDeletingCollaborationId(collaboration.id);
     setCollaborationsError(null);
     try {
@@ -446,7 +525,6 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteColor = async (color: BackendColor) => {
-    if (!confirm(`Delete color "${color.name}"?`)) return;
     setDeletingColorId(color.id);
     setColorsError(null);
     try {
@@ -477,10 +555,6 @@ export default function AdminDashboard() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
-  // Collection Modal states
-  const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
-  const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
-
   // Event Modal states
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -497,10 +571,8 @@ export default function AdminDashboard() {
       slug: `product-${Date.now()}`,
       categoryId: categories[0]?.id || 'cat-tables',
       subcategoryIds: [],
-      collectionIds: [],
       description: '',
       price: 25000,
-      depositPercentage: 50,
       images: [
         'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&w=1200&q=85',
       ],
@@ -537,24 +609,6 @@ export default function AdminDashboard() {
     setIsCategoryModalOpen(true);
   };
 
-  // Helper to open new collection
-  const handleNewCollection = () => {
-    setEditingCollection({
-      id: `col-${Date.now()}`,
-      name: '',
-      slug: `collection-${Date.now()}`,
-      subtitle: '',
-      description: '',
-      coverImage: 'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&w=1200&q=85',
-      gallery: [],
-      isFeatured: false,
-      isPublished: true,
-      displayOrder: collections.length + 1,
-      productIds: [],
-    });
-    setIsCollectionModalOpen(true);
-  };
-
   // Helper to open new event
   const handleNewEvent = () => {
     setEditingEvent({
@@ -576,20 +630,47 @@ export default function AdminDashboard() {
     setEditingProject({
       id: `proj-${Date.now()}`,
       title: '',
-      subtitle: '',
-      location: 'Marassi, North Coast',
-      year: '2026',
+      subtitle: 'Tocco House Installation',
+      location: '',
+      year: String(new Date().getFullYear()),
       description: '',
-      coverImage: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=85',
+      coverImage: '',
       gallery: [],
-      productsUsed: ['Peach Blush Cocktail Table'],
+      productsUsed: [],
+      customerName: '',
+      publicId: '',
+      productId: undefined,
     });
     setIsProjectModalOpen(true);
+  };
+
+  const handleSaveProject = async () => {
+    if (!editingProject || !editingProject.title.trim()) return;
+    setDashboardError(null);
+    try {
+      await saveProject(editingProject);
+      setIsProjectModalOpen(false);
+    } catch (err) {
+      setDashboardError(normalizeApiError(err).message);
+    }
   };
 
   return (
     <div id="admin-studio-dashboard" className="pt-24 pb-24 bg-[#FAF8F5] min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        {dashboardError && (
+          <div className="flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+            <span>{dashboardError}</span>
+            <button
+              type="button"
+              onClick={() => setDashboardError(null)}
+              className="text-rose-700 hover:text-rose-950"
+              aria-label="Dismiss error"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         {/* Top Bar with Live Return link and reset */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#EAE4DC]">
           <div>
@@ -616,11 +697,8 @@ export default function AdminDashboard() {
         <div className="flex border-b border-[#EAE4DC] gap-1 overflow-x-auto pb-1 text-xs uppercase tracking-wider font-medium scrollbar-none">
           {[
             { key: 'products', label: `Products (${products.length})`, icon: Package },
-            { key: 'banners', label: `Banners & Highlights (${banners.length})`, icon: Flame },
             { key: 'orders', label: `Orders (${backendOrders.length})`, icon: DollarSign },
-            { key: 'inquiries', label: `Bespoke Inquiries (${customInquiries.length})`, icon: MessageCircle },
             { key: 'categories', label: 'Categories & Subcategories', icon: FolderTree },
-            { key: 'collections', label: `Collections (${collections.length})`, icon: Sparkles },
             { key: 'events', label: `Events (${events.length})`, icon: Calendar },
             { key: 'offers', label: `Offers (${offers.length})`, icon: Tag },
             { key: 'collaborations', label: `Collaborations (${collaborations.length})`, icon: Compass },
@@ -675,7 +753,7 @@ export default function AdminDashboard() {
                     <tr>
                       <th className="py-3 px-4">Piece</th>
                       <th className="py-3 px-4">Category</th>
-                      <th className="py-3 px-4">Price / 50% Deposit</th>
+                      <th className="py-3 px-4">Price / {settings.depositPercentage}% Deposit</th>
                       <th className="py-3 px-4">Finishes</th>
                       <th className="py-3 px-4">Featured</th>
                       <th className="py-3 px-4 text-right">Actions</th>
@@ -713,7 +791,7 @@ export default function AdminDashboard() {
                                 {p.price?.toLocaleString()} EGP
                               </span>
                               <span className="text-[10px] text-[#736B63] block">
-                                Deposit: {((p.price || 0) * 0.5).toLocaleString()} EGP
+                                Deposit: {Math.round((p.price || 0) * settings.depositPercentage / 100).toLocaleString()} EGP
                               </span>
                             </div>
                           </td>
@@ -746,11 +824,11 @@ export default function AdminDashboard() {
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => {
-                                if (confirm(`Delete piece "${p.name}"?`)) {
-                                  deleteProduct(p.id);
-                                }
-                              }}
+                              onClick={() => requestDeleteConfirmation(
+                                `Delete Piece: "${p.name}"`,
+                                'This action permanently removes the piece from the catalogue and cannot be undone.',
+                                () => { void handleDeleteProduct(p.id); }
+                              )}
                               className="p-1.5 text-[#B85D38] hover:text-red-700"
                               title="Delete Piece"
                             >
@@ -877,11 +955,11 @@ export default function AdminDashboard() {
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => {
-                                if (confirm(`Delete banner "${b.title}"?`)) {
-                                  deleteBanner(b.id);
-                                }
-                              }}
+                              onClick={() => requestDeleteConfirmation(
+                                `Delete Banner: "${b.title}"`,
+                                'This action permanently removes the banner and cannot be undone.',
+                                () => deleteBanner(b.id)
+                              )}
                               className="p-1.5 text-[#B85D38] hover:text-red-700"
                               title="Delete Banner"
                             >
@@ -921,6 +999,25 @@ export default function AdminDashboard() {
               </button>
             </div>
 
+            <div className="relative w-full sm:w-80">
+              <Search className="w-3.5 h-3.5 text-[#8F8880] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search by order reference (e.g. 37994724-6d53-4469-80fa-709caba5a727)"
+                value={orderSearchQuery}
+                onChange={(e) => setOrderSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-8 py-2 rounded-lg border border-[#D8CEBF] bg-white text-xs font-mono text-[#1C1A19] placeholder:font-sans placeholder:text-[#8F8880] focus:outline-none focus:border-[#1C1A19]"
+              />
+              {orderSearchQuery && (
+                <button
+                  onClick={() => setOrderSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8F8880] hover:text-[#1C1A19]"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
             {statusUpdateSuccess && (
               <div className="p-4 rounded-xl bg-[#EBF5EE] border border-[#C5E5D0] text-[#1E6B3A] text-xs flex items-center gap-2">
                 <Check className="w-4 h-4 text-[#1E6B3A] shrink-0" />
@@ -954,12 +1051,23 @@ export default function AdminDashboard() {
               <div className="p-12 text-center bg-white rounded-2xl border border-[#EAE4DC] text-xs text-[#736B63]">
                 No customer orders placed yet.
               </div>
+            ) : filteredBackendOrders.length === 0 ? (
+              <div className="p-12 text-center bg-white rounded-2xl border border-[#EAE4DC] text-xs text-[#736B63] space-y-2">
+                <p>No orders match reference &ldquo;{orderSearchQuery}&rdquo;.</p>
+                <button
+                  onClick={() => setOrderSearchQuery('')}
+                  className="text-[#643D26] underline underline-offset-2"
+                >
+                  Clear search
+                </button>
+              </div>
             ) : (
               <div className="space-y-4">
-                {backendOrders.map((ord) => {
+                {filteredBackendOrders.map((ord) => {
                   const deposit = Number(ord.deposit_amount);
                   const isUpdating = updatingOrderId === ord.id;
-                  const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                  const clientWhatsAppNumber = toWhatsAppNumber(ord.user?.phone);
+                  const whatsappUrl = `https://wa.me/${clientWhatsAppNumber}?text=${encodeURIComponent(
                     `Hello, this is Tocco House Atelier regarding Order #${ord.order_number}.`
                   )}`;
 
@@ -1085,15 +1193,21 @@ export default function AdminDashboard() {
                             </button>
                           )}
 
-                          <a
-                            href={whatsappUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 rounded-lg bg-[#2A2624] text-white text-xs font-medium flex items-center gap-1.5 hover:bg-[#3E3835] transition-colors"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
-                            <span>WhatsApp Client</span>
-                          </a>
+                          {clientWhatsAppNumber ? (
+                            <a
+                              href={whatsappUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 rounded-lg bg-[#2A2624] text-white text-xs font-medium flex items-center gap-1.5 hover:bg-[#3E3835] transition-colors"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
+                              <span>WhatsApp Client</span>
+                            </a>
+                          ) : (
+                            <span className="px-3 py-1.5 rounded-lg bg-[#EFEBE3] text-[#8F8880] text-xs font-medium">
+                              No Client Phone
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1104,196 +1218,9 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ----------------- TAB 3: CUSTOM INQUIRIES ----------------- */}
-        {activeTab === 'inquiries' && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
-                Bespoke Design & Fabrication Requests
-              </h3>
-              <p className="text-xs text-[#736B63]">
-                Custom commission submissions from private villa owners, interior designers, and hospitality projects.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              {customInquiries.length === 0 ? (
-                <div className="p-8 text-center bg-white rounded-2xl border border-[#EAE4DC] text-xs text-[#736B63]">
-                  No custom commission requests yet.
-                </div>
-              ) : (
-                customInquiries.map((inq) => {
-                  const whatsappUrl = `https://wa.me/${inq.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                    `Hello ${inq.fullName}, this is Tocco House regarding your bespoke ${inq.pieceCategory} commission inquiry.`
-                  )}`;
-
-                  return (
-                    <div
-                      key={inq.id}
-                      className="p-6 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="text-xs font-semibold text-[#1C1A19] block">
-                            {inq.fullName} · {inq.projectType}
-                          </span>
-                          <span className="text-[11px] text-[#736B63] font-mono">
-                            {inq.phone} · {inq.email || 'No email provided'}
-                          </span>
-                        </div>
-
-                        <select
-                          value={inq.status}
-                          onChange={(e) => updateCustomInquiryStatus(inq.id, e.target.value as any)}
-                          className="text-xs font-semibold py-1 px-3 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5]"
-                        >
-                          <option value="new">New</option>
-                          <option value="contacted">Contacted</option>
-                          <option value="proposal_sent">Proposal Sent</option>
-                          <option value="in_production">In Production</option>
-                          <option value="completed">Completed</option>
-                        </select>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-[#FAF8F5] p-4 rounded-xl">
-                        <div>
-                          <span className="text-[#736B63] block">Piece Type:</span>
-                          <span className="font-semibold text-[#1C1A19]">{inq.pieceCategory}</span>
-                        </div>
-                        <div>
-                          <span className="text-[#736B63] block">Target Dimensions:</span>
-                          <span className="font-mono text-[#1C1A19]">{inq.dimensions || 'Flexible'}</span>
-                        </div>
-                        <div>
-                          <span className="text-[#736B63] block">Finish & Color:</span>
-                          <span className="text-[#1C1A19] font-medium">
-                            {inq.finishPreference} · {inq.colorPreference || 'Atelier Advice'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {inq.description && (
-                        <p className="text-xs text-[#524B45] italic">&ldquo;{inq.description}&rdquo;</p>
-                      )}
-
-                      <div className="flex justify-between items-center pt-2">
-                        {inq.referenceImages && inq.referenceImages[0] ? (
-                          <a
-                            href={inq.referenceImages[0]}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-[#B85D38] hover:underline flex items-center gap-1"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            <span>View Reference Media</span>
-                          </a>
-                        ) : (
-                          <span className="text-xs text-[#8F8880]">No reference link attached</span>
-                        )}
-
-                        <a
-                          href={whatsappUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-4 py-2 rounded-full bg-[#2A2624] text-white text-xs font-medium flex items-center gap-1.5"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
-                          <span>Respond on WhatsApp</span>
-                        </a>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
-
         {/* ----------------- TAB 4: CATEGORIES & SUBCATEGORIES ----------------- */}
         {activeTab === 'categories' && (
           <CategoriesManagement />
-        )}
-
-        {/* ----------------- TAB 5: COLLECTIONS ----------------- */}
-        {activeTab === 'collections' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
-                  Editorial Curated Collections
-                </h3>
-                <p className="text-xs text-[#736B63]">
-                  Themed design narratives showcasing coordinated sculptural pieces.
-                </p>
-              </div>
-              <button
-                onClick={handleNewCollection}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Collection</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {collections.map((col) => (
-                <div
-                  key={col.id}
-                  className="p-5 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4"
-                >
-                  <div className="relative aspect-[16/9] rounded-xl overflow-hidden bg-[#EFEBE3]">
-                    <Image
-                      src={col.coverImage}
-                      alt={col.name}
-                      fill
-                      className="object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                    {col.isFeatured && (
-                      <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-[#1C1A19] text-white text-[10px] uppercase tracking-wider font-medium">
-                        Featured on Home
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[10px] uppercase tracking-widest text-[#B85D38] font-semibold">
-                      {col.subtitle}
-                    </span>
-                    <h4 className="text-base font-semibold text-[#1C1A19]">{col.name}</h4>
-                    <p className="text-xs text-[#736B63] line-clamp-2">{col.description}</p>
-                  </div>
-
-                  <div className="pt-2 border-t border-[#EAE4DC] flex justify-between items-center">
-                    <span className="text-xs text-[#8F8880]">
-                      {products.filter((p) => p.collectionId === col.id).length} pieces assigned
-                    </span>
-                    <div className="space-x-1">
-                      <button
-                        onClick={() => {
-                          setEditingCollection(col);
-                          setIsCollectionModalOpen(true);
-                        }}
-                        className="p-1.5 text-[#524B45] hover:text-[#1C1A19]"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(`Delete collection "${col.name}"?`)) {
-                            deleteCollection(col.id);
-                          }
-                        }}
-                        className="p-1.5 text-[#B85D38] hover:text-red-700"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         )}
 
         {/* ----------------- TAB 6: EVENTS ----------------- */}
@@ -1355,11 +1282,11 @@ export default function AdminDashboard() {
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => {
-                        if (confirm(`Delete event "${ev.title}"?`)) {
-                          deleteEvent(ev.id);
-                        }
-                      }}
+                      onClick={() => requestDeleteConfirmation(
+                        `Delete Event: "${ev.title}"`,
+                        'This action permanently removes the event and cannot be undone.',
+                        () => deleteEvent(ev.id)
+                      )}
                       className="p-1.5 text-[#B85D38] hover:text-red-700"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1427,11 +1354,11 @@ export default function AdminDashboard() {
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => {
-                        if (confirm(`Delete project "${proj.title}"?`)) {
-                          deleteProject(proj.id);
-                        }
-                      }}
+                      onClick={() => requestDeleteConfirmation(
+                        `Delete Project: "${proj.title}"`,
+                        'This action permanently removes the project and cannot be undone.',
+                        () => deleteProject(proj.id)
+                      )}
                       className="p-1.5 text-[#B85D38] hover:text-red-700"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1508,7 +1435,11 @@ export default function AdminDashboard() {
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteOffer(offer)}
+                          onClick={() => requestDeleteConfirmation(
+                            `Delete Offer: "${offer.name}"`,
+                            'This action permanently removes the offer and cannot be undone.',
+                            () => { void handleDeleteOffer(offer); }
+                          )}
                           disabled={deletingOfferId === offer.id}
                           className="p-2 rounded-full text-[#B85D38] hover:bg-[#FFF5F0] disabled:opacity-60"
                         >
@@ -1605,7 +1536,11 @@ export default function AdminDashboard() {
                       </div>
                       <div className="pt-2 border-t border-[#EAE4DC] flex justify-end">
                         <button
-                          onClick={() => handleDeleteCollaboration(collaboration)}
+                          onClick={() => requestDeleteConfirmation(
+                            `Delete Collaboration: "${collaboration.title}"`,
+                            'This action permanently removes the collaboration and cannot be undone.',
+                            () => { void handleDeleteCollaboration(collaboration); }
+                          )}
                           disabled={deletingCollaborationId === collaboration.id}
                           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs uppercase tracking-wider text-[#B85D38] hover:bg-[#FFF5F0] disabled:opacity-60"
                         >
@@ -1682,7 +1617,11 @@ export default function AdminDashboard() {
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleDeleteColor(color)}
+                        onClick={() => requestDeleteConfirmation(
+                          `Delete Color: "${color.name}"`,
+                          'This action permanently removes the color and cannot be undone.',
+                          () => { void handleDeleteColor(color); }
+                        )}
                         disabled={deletingColorId === color.id}
                         className="p-1.5 text-[#B85D38] hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors disabled:opacity-60"
                         title="Delete Color"
@@ -1719,8 +1658,23 @@ export default function AdminDashboard() {
                   <label className="block text-[#736B63] mb-1">Handcrafted Deposit Percentage (%)</label>
                   <input
                     type="number"
-                    value={settings.depositPercentage}
-                    onChange={(e) => updateSettings({ depositPercentage: Number(e.target.value) })}
+                    min="0"
+                    max="100"
+                    value={depositPercentageValue}
+                    onChange={(e) =>
+                      setDepositPercentageDraft({ source: settings.depositPercentage, value: e.target.value })
+                    }
+                    onBlur={() => {
+                      const value = Number(depositPercentageValue);
+                      if (depositPercentageValue !== '' && Number.isFinite(value) && value >= 0 && value <= 100) {
+                        updateSettings({ depositPercentage: value });
+                      } else {
+                        setDepositPercentageDraft({
+                          source: settings.depositPercentage,
+                          value: String(settings.depositPercentage),
+                        });
+                      }
+                    }}
                     className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
                   />
                 </div>
@@ -1738,12 +1692,18 @@ export default function AdminDashboard() {
                 <label className="block font-medium text-[#1C1A19]">InstaPay IPA / Address</label>
                 <input
                   type="text"
-                  value={settings.paymentMethods.instapay.address}
+                  value={instapayAddressValue}
                   onChange={(e) =>
+                    setInstapayAddressDraft({
+                      source: settings.paymentMethods.instapay.address,
+                      value: e.target.value,
+                    })
+                  }
+                  onBlur={() =>
                     updateSettings({
                       paymentMethods: {
                         ...settings.paymentMethods,
-                        instapay: { ...settings.paymentMethods.instapay, address: e.target.value },
+                        instapay: { ...settings.paymentMethods.instapay, address: instapayAddressValue },
                       },
                     })
                   }
@@ -1753,17 +1713,23 @@ export default function AdminDashboard() {
 
               {/* Mobile Wallet */}
               <div className="space-y-2 text-xs">
-                <label className="block font-medium text-[#1C1A19]">Vodafone Cash / Mobile Wallet</label>
+                <label className="block font-medium text-[#1C1A19]">Mobile Wallet (Vodafone / Orange / Etisalat / WE Pay)</label>
                 <input
                   type="text"
-                  value={settings.paymentMethods.mobileWallet.number}
+                  value={mobileWalletValue}
                   onChange={(e) =>
+                    setMobileWalletDraft({
+                      source: settings.paymentMethods.mobileWallet.number,
+                      value: e.target.value,
+                    })
+                  }
+                  onBlur={() =>
                     updateSettings({
                       paymentMethods: {
                         ...settings.paymentMethods,
                         mobileWallet: {
                           ...settings.paymentMethods.mobileWallet,
-                          number: e.target.value,
+                          number: mobileWalletValue,
                         },
                       },
                     })
@@ -2045,12 +2011,7 @@ export default function AdminDashboard() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (editingProduct.name.trim()) {
-                      saveProduct(editingProduct);
-                      setIsProductModalOpen(false);
-                    }
-                  }}
+                  onClick={() => { void handleSaveProduct(); }}
                   className="px-6 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium"
                 >
                   Save Piece
@@ -2114,90 +2075,6 @@ export default function AdminDashboard() {
                   className="px-5 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider"
                 >
                   Save Category
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ----------------- MODAL: EDIT COLLECTION ----------------- */}
-        {isCollectionModalOpen && editingCollection && (
-          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#EAE4DC] shadow-xl">
-              <h3 className="text-base font-medium text-[#1C1A19]">Collection Narrative</h3>
-              <div className="space-y-3 text-xs">
-                <div>
-                  <label className="block text-[#1C1A19] mb-1">Collection Name</label>
-                  <input
-                    type="text"
-                    value={editingCollection.name}
-                    onChange={(e) =>
-                      setEditingCollection({ ...editingCollection, name: e.target.value })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#1C1A19] mb-1">Subtitle / Edition</label>
-                  <input
-                    type="text"
-                    value={editingCollection.subtitle}
-                    onChange={(e) =>
-                      setEditingCollection({ ...editingCollection, subtitle: e.target.value })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#1C1A19] mb-1">Theme Description</label>
-                  <textarea
-                    rows={3}
-                    value={editingCollection.description}
-                    onChange={(e) =>
-                      setEditingCollection({ ...editingCollection, description: e.target.value })
-                    }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
-                  />
-                </div>
-                <CloudinaryImageField
-                  label="Cover Image"
-                  value={editingCollection.coverImage}
-                  folder="tocco/collections"
-                  onChange={(coverImage) => setEditingCollection({ ...editingCollection, coverImage })}
-                />
-                <div className="pt-1">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editingCollection.isFeatured}
-                      onChange={(e) =>
-                        setEditingCollection({ ...editingCollection, isFeatured: e.target.checked })
-                      }
-                      className="rounded border-[#D8CEBF]"
-                    />
-                    <span>Feature as Primary Showcase on Homepage</span>
-                  </label>
-                </div>
-              </div>
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCollectionModalOpen(false)}
-                  className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (editingCollection.name.trim()) {
-                      saveCollection(editingCollection);
-                      setIsCollectionModalOpen(false);
-                    }
-                  }}
-                  className="px-5 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider"
-                >
-                  Save Collection
                 </button>
               </div>
             </div>
@@ -2301,57 +2178,44 @@ export default function AdminDashboard() {
         {isProjectModalOpen && editingProject && (
           <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#EAE4DC] shadow-xl">
-              <h3 className="text-base font-medium text-[#1C1A19]">Project Architecture</h3>
+              <h3 className="text-base font-medium text-[#1C1A19]">In Their Space Image</h3>
               <div className="space-y-3 text-xs">
                 <div>
-                  <label className="block text-[#1C1A19] mb-1">Project Name</label>
+                  <label className="block text-[#1C1A19] mb-1">Customer Name</label>
                   <input
                     type="text"
-                    value={editingProject.title}
-                    onChange={(e) => setEditingProject({ ...editingProject, title: e.target.value })}
+                    value={editingProject.customerName || editingProject.title}
+                    onChange={(e) => setEditingProject({ ...editingProject, customerName: e.target.value, title: e.target.value })}
                     className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[#1C1A19] mb-1">Subtitle</label>
-                    <input
-                      type="text"
-                      value={editingProject.subtitle}
-                      onChange={(e) =>
-                        setEditingProject({ ...editingProject, subtitle: e.target.value })
-                      }
-                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[#1C1A19] mb-1">Location</label>
-                    <input
-                      type="text"
-                      value={editingProject.location}
-                      onChange={(e) =>
-                        setEditingProject({ ...editingProject, location: e.target.value })
-                      }
-                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
-                    />
-                  </div>
-                </div>
-                <CloudinaryImageField
-                  label="Cover Image"
-                  value={editingProject.coverImage}
-                  folder="tocco/projects"
-                  onChange={(coverImage) => setEditingProject({ ...editingProject, coverImage })}
-                />
                 <div>
-                  <label className="block text-[#1C1A19] mb-1">Description</label>
+                  <label className="block text-[#1C1A19] mb-1">Featured Caption</label>
                   <textarea
                     rows={3}
                     value={editingProject.description}
-                    onChange={(e) =>
-                      setEditingProject({ ...editingProject, description: e.target.value })
-                    }
+                    onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
                     className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
                   />
+                </div>
+                <CloudinaryImageField
+                  label="Project Image"
+                  required
+                  value={editingProject.coverImage}
+                  folder="space_projects"
+                  onChange={(coverImage) => setEditingProject({ ...editingProject, coverImage })}
+                  onUploadResult={(result) => setEditingProject({ ...editingProject, publicId: result.public_id, coverImage: result.secure_url || result.url })}
+                />
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Featured Product (Optional)</label>
+                  <select
+                    value={editingProject.productId || ''}
+                    onChange={(e) => setEditingProject({ ...editingProject, productId: e.target.value || undefined })}
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] bg-white"
+                  >
+                    <option value="">No linked product</option>
+                    {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                  </select>
                 </div>
               </div>
               <div className="pt-2 flex justify-end gap-2">
@@ -2365,10 +2229,7 @@ export default function AdminDashboard() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (editingProject.title.trim()) {
-                      saveProject(editingProject);
-                      setIsProjectModalOpen(false);
-                    }
+                    void handleSaveProject();
                   }}
                   className="px-5 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider"
                 >
@@ -2867,7 +2728,6 @@ export default function AdminDashboard() {
                       className="w-full p-2.5 rounded-lg border border-[#D8CEBF] bg-white"
                     >
                       <option value="shop">Catalogue (Shop)</option>
-                      <option value="collections">Collections</option>
                       <option value="events">Events & Exhibitions</option>
                       <option value="custom-design">Custom Design (Bespoke)</option>
                       <option value="our-story">Our Story</option>
@@ -2922,6 +2782,15 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+        <ConfirmDialog
+          isOpen={Boolean(pendingDelete)}
+          title={pendingDelete?.title || 'Confirm Delete'}
+          description={pendingDelete?.description || ''}
+          confirmLabel="Delete"
+          isLoading={isDeleteProcessing}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={handlePendingDelete}
+        />
       </div>
     </div>
   );

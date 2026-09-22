@@ -9,31 +9,31 @@ import {
 export const addressService = {
   /**
    * Get all delivery addresses for the authenticated user
-   * GET /users/addresses/
+   * GET /user/addresses/
    */
   async getAddresses(): Promise<Address[]> {
-    return apiClient.get<Address[]>('/users/addresses/');
+    return apiClient.get<Address[]>('/user/addresses/');
   },
 
   /**
    * Create a new delivery address
-   * POST /users/addresses/
+   * POST /user/addresses/
    */
   async createAddress(data: AddressCreateRequest): Promise<Address> {
-    return apiClient.post<Address>('/users/addresses/', data);
+    return apiClient.post<Address>('/user/addresses/', data);
   },
 
   /**
    * Get a single address by ID
-   * GET /users/addresses/<id>/
+   * GET /user/addresses/<id>/
    */
   async getAddress(id: number): Promise<Address> {
-    return apiClient.get<Address>(`/users/addresses/${id}/`);
+    return apiClient.get<Address>(`/user/addresses/${id}/`);
   },
 
   /**
    * Update an existing address
-   * PUT /users/addresses/<id>/ or PATCH /users/addresses/<id>/
+   * PUT /user/addresses/<id>/ or PATCH /user/addresses/<id>/
    */
   async updateAddress(
     id: number,
@@ -41,24 +41,24 @@ export const addressService = {
     method: 'PUT' | 'PATCH' = 'PUT'
   ): Promise<Address> {
     if (method === 'PATCH') {
-      return apiClient.patch<Address>(`/users/addresses/${id}/`, data);
+      return apiClient.patch<Address>(`/user/addresses/${id}/`, data);
     }
-    return apiClient.put<Address>(`/users/addresses/${id}/`, data);
+    return apiClient.put<Address>(`/user/addresses/${id}/`, data);
   },
 
   /**
    * Delete an address
-   * DELETE /users/addresses/<id>/
+   * DELETE /user/addresses/<id>/
    */
   async deleteAddress(id: number): Promise<{ message: string }> {
-    return apiClient.delete<{ message: string }>(`/users/addresses/${id}/`);
+    return apiClient.delete<{ message: string }>(`/user/addresses/${id}/`);
   },
 
   /**
    * Set an address as the default delivery residence
-   * PUT /users/addresses/<id>/set-default/
+   * PUT /user/addresses/<id>/set-default/
    */
   async setDefaultAddress(id: number): Promise<SetDefaultAddressResponse> {
-    return apiClient.put<SetDefaultAddressResponse>(`/users/addresses/${id}/set-default/`, {});
+    return apiClient.put<SetDefaultAddressResponse>(`/user/addresses/${id}/set-default/`, {});
   },
 };

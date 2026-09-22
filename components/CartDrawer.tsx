@@ -12,7 +12,6 @@ export default function CartDrawer() {
     cart,
     removeFromCart,
     updateCartQuantity,
-    updateCartItemNote,
     cartSubtotal,
     cartDepositAmount,
     cartRemainingAmount,
@@ -176,23 +175,13 @@ export default function CartDrawer() {
                       </span>
                     )}
 
-                    {/* Order Note per item */}
-                    <div className="pt-0.5">
-                      <input
-                        type="text"
-                        value={item.customNote || ''}
-                        onChange={(e) => updateCartItemNote(item.id, e.target.value)}
-                        placeholder="Add note (e.g. dimensions, color tint)..."
-                        className="w-full text-[11px] sm:text-xs px-2.5 py-1.5 bg-[#F2EDE4] rounded-md border border-[#E0D8CB] placeholder-[#948D85] text-[#1C1A19] focus:outline-none focus:border-[#643D26]"
-                      />
-                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Footer: 50% Deposit Breakdown & Checkout CTA */}
+          {/* Footer: Deposit Breakdown & Checkout CTA */}
           {cart.length > 0 && (
             <div className="px-4 py-4 sm:px-6 sm:py-5 border-t border-[#EAE4DC] bg-[#FAF8F5] space-y-3 sm:space-y-4">
               {/* Deposit notice callout */}
@@ -202,7 +191,7 @@ export default function CartDrawer() {
                   <span className="font-semibold text-[#1C1A19]">
                     {settings.depositPercentage}% Handcrafted Deposit:
                   </span>{' '}
-                  Initiates workshop casting. Remaining 50% paid upon delivery inspection.
+                  Initiates workshop casting. Remaining {100 - settings.depositPercentage}% paid upon delivery inspection.
                 </div>
               </div>
 
@@ -229,7 +218,7 @@ export default function CartDrawer() {
                   <span>{cartDepositAmount.toLocaleString()} EGP</span>
                 </div>
                 <div className="flex justify-between text-[10px] sm:text-[11px] text-[#736B63]">
-                  <span>Remaining 50% upon delivery</span>
+                  <span>Remaining {100 - settings.depositPercentage}% upon delivery</span>
                   <span>{cartRemainingAmount.toLocaleString()} EGP</span>
                 </div>
               </div>

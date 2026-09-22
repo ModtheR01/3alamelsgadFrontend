@@ -351,7 +351,7 @@ export default function AccountView() {
       return (
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFF3CD] text-[#856404] text-[11px] font-semibold uppercase tracking-wider">
           <AlertCircle className="w-3 h-3" />
-          Awaiting 50% Deposit
+          Awaiting {settings.depositPercentage}% Deposit
         </span>
       );
     }
@@ -838,7 +838,8 @@ export default function AccountView() {
                       const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
                         `Hello Tocco House, I am inquiring about my Commission #${ord.order_number}.`
                       )}`;
-                      const deposit = Math.round(Number(ord.total_price) * 0.5);
+                      const depositPercentage = Number(ord.deposit_percentage);
+                      const deposit = Math.round(Number(ord.total_price) * depositPercentage / 100);
 
                       return (
                         <div
@@ -894,7 +895,7 @@ export default function AccountView() {
 
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-[#EAE4DC] text-xs">
                             <div>
-                              <span className="text-[#736B63]">50% Handcrafted Deposit: </span>
+                              <span className="text-[#736B63]">{depositPercentage}% Handcrafted Deposit: </span>
                               <span className="font-semibold text-[#643D26] font-mono">{deposit.toLocaleString()} EGP</span>
                               <span className="text-[#8F8880] text-[11px] ml-2 font-mono">Total: {Number(ord.total_price).toLocaleString()} EGP</span>
                               {ord.shipping_address && (
@@ -1224,7 +1225,7 @@ export default function AccountView() {
                       Registered Users & Access Roles
                     </h3>
                     <p className="text-xs text-[#736B63]">
-                      Connected to <code className="font-mono text-[#1C1A19]">GET /users/</code> (ordered by -created_at).
+                      Connected to <code className="font-mono text-[#1C1A19]">GET /user/users/</code> (ordered by -created_at).
                     </p>
                   </div>
 

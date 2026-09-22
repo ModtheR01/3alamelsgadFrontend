@@ -17,7 +17,6 @@ import Image from '@/components/SafeImage';
 export default function OrderConfirmationView() {
   const { lastCreatedOrder, submitPaymentProof, navigateTo, settings } = useToccoStore();
 
-  const [proofNote, setProofNote] = useState('');
   const [proofSubmitted, setProofSubmitted] = useState(false);
   const [copiedOrder, setCopiedOrder] = useState(false);
 
@@ -42,6 +41,7 @@ export default function OrderConfirmationView() {
   const orderNumber = isBackend ? rawOrder.order_number : rawOrder.orderNumber;
   const totalAmount = isBackend ? Number(rawOrder.total_price) : rawOrder.totalAmount;
   const depositAmount = isBackend ? Number(rawOrder.deposit_amount) : rawOrder.depositAmount;
+  const depositPercentage = isBackend ? Number(rawOrder.deposit_percentage) : rawOrder.depositPercentage;
   const paymentMethod = isBackend ? 'instapay' : rawOrder.paymentMethod;
   const paymentStatus = isBackend
     ? rawOrder.status === 'CONFIRMED'
@@ -68,14 +68,11 @@ export default function OrderConfirmationView() {
           : undefined,
         quantity: it.quantity,
         unitPrice: Number(it.product_price),
-        customNote: '',
       }))
     : rawOrder.items;
 
-  const handleProofSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!proofNote.trim()) return;
-    submitPaymentProof(String(rawOrder.id), proofNote);
+  const handleProofSubmit = () => {
+    submitPaymentProof(String(rawOrder.id), '');
     setProofSubmitted(true);
   };
 
@@ -85,20 +82,11 @@ export default function OrderConfirmationView() {
     setTimeout(() => setCopiedOrder(false), 2000);
   };
 
-  // WhatsApp prefilled message
-  const whatsappPrefill = `Hello Tocco House,
-I have placed Order #${orderNumber} for:
-${items.map((it) => `- ${it.productName} (${it.selectedFinish}${it.selectedColor ? `, ${it.selectedColor.name}` : ''})`).join('\n')}
-
-I have transferred the 50% deposit of ${depositAmount.toLocaleString()} EGP via ${paymentMethod.replace('_', ' ').toUpperCase()}.
-${proofNote ? `Reference: ${proofNote}` : 'Attaching payment screenshot below.'}
-
-Customer: ${customerName}
-Delivery to: ${customerCity}, ${customerRegion}`;
-
-  const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-    whatsappPrefill
+  // WhatsApp prefilled proof-submission message
+  const proofWhatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+    `Hello Tocco House,\nI have completed my ${depositPercentage}% deposit payment for Order #${orderNumber}. Attaching my payment screenshot/receipt below for verification.`
   )}`;
+
 
   return (
     <div id="order-confirmation-page" className="pt-20 sm:pt-28 pb-20 sm:pb-24 bg-[#FAF8F5] min-h-screen">
@@ -118,7 +106,7 @@ Delivery to: ${customerCity}, ${customerRegion}`;
           </h1>
 
           <p className="text-xs sm:text-base text-[#736B63] max-w-lg mx-auto font-light leading-relaxed">
-            Your order has been recorded in our atelier schedule. Transfer the 50% handcrafted deposit
+            Your order has been recorded in our atelier schedule. Transfer the {depositPercentage}% handcrafted deposit
             below to activate mould preparation and fiberglass casting.
           </p>
 
@@ -135,12 +123,12 @@ Delivery to: ${customerCity}, ${customerRegion}`;
           </div>
         </div>
 
-        {/* 50% Deposit Action Card */}
+        {/* Deposit Action Card */}
         <div className="p-4 sm:p-8 rounded-xl sm:rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4 sm:space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 sm:pb-6 border-b border-[#EAE4DC] gap-3 sm:gap-4">
             <div>
               <span className="text-[11px] sm:text-xs uppercase tracking-wider font-semibold text-[#643D26] block">
-                Required 50% Handcrafted Deposit:
+                Required {depositPercentage}% Handcrafted Deposit:
               </span>
               <span className="text-2xl sm:text-3xl font-normal text-[#1C1A19]">
                 {depositAmount.toLocaleString()} EGP
@@ -152,7 +140,7 @@ Delivery to: ${customerCity}, ${customerRegion}`;
                 ? 'Deposit Verified'
                 : paymentStatus === 'proof_submitted'
                 ? 'Proof Received · Verifying'
-                : 'Awaiting 50% Deposit'}
+                : `Awaiting ${depositPercentage}% Deposit`}
             </div>
           </div>
 
@@ -179,7 +167,7 @@ Delivery to: ${customerCity}, ${customerRegion}`;
                 <div>
                   <p className="text-[#736B63] text-[11px]">Mobile Wallet Number:</p>
                   <p className="font-mono text-xs sm:text-sm font-bold text-[#1C1A19]">
-                    {settings.paymentMethods.mobileWallet?.number || '01000000000'}
+                    {settings.paymentMethods.mobileWallet?.number || settings.contact.phone}
                   </p>
                 </div>
               </div>
@@ -207,41 +195,19 @@ Delivery to: ${customerCity}, ${customerRegion}`;
               </div>
             </div>
           ) : (
-            <form onSubmit={handleProofSubmit} className="space-y-2.5 sm:space-y-3 pt-1">
-              <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
-                Submit Deposit Transaction Reference / Note:
-              </label>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="text"
-                  required
-                  value={proofNote}
-                  onChange={(e) => setProofNote(e.target.value)}
-                  placeholder="e.g. InstaPay reference #123456 or sender phone number..."
-                  className="flex-1 text-xs px-3.5 py-3 rounded-lg bg-[#FAF8F5] border border-[#D8CEBF] text-[#1C1A19] focus:outline-none focus:border-[#643D26]"
-                />
-                <button
-                  type="submit"
-                  className="px-5 py-3 rounded-lg bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D]"
-                >
-                  Submit Proof
-                </button>
-              </div>
-            </form>
+            <div className="pt-1">
+              <a
+                href={proofWhatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleProofSubmit}
+                className="w-full py-3.5 sm:py-4 rounded-lg bg-[#1C1A19] text-white text-[11px] sm:text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D] flex items-center justify-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                <span>Submit Proof on WhatsApp</span>
+              </a>
+            </div>
           )}
-
-          {/* Instant WhatsApp Verification CTA */}
-          <div className="pt-2">
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-3.5 sm:py-4 rounded-full bg-[#2A2624] hover:bg-[#383330] text-white text-[11px] sm:text-xs uppercase tracking-[0.18em] sm:tracking-[0.2em] font-medium transition-all flex items-center justify-center gap-2 sm:gap-2.5 shadow-sm"
-            >
-              <MessageCircle className="w-4 h-4 text-[#25D366]" />
-              <span>Confirm & Send Receipt on WhatsApp</span>
-            </a>
-          </div>
         </div>
 
         {/* Order Details & Summary Card */}
@@ -267,11 +233,6 @@ Delivery to: ${customerCity}, ${customerRegion}`;
                   <p className="text-[11px] sm:text-xs text-[#736B63] mt-0.5">
                     Finish: {item.selectedFinish}{item.selectedColor ? ` · Color: ${item.selectedColor.name}` : ''} · Qty: {item.quantity}
                   </p>
-                  {item.customNote && (
-                    <p className="text-[10px] sm:text-[11px] text-[#643D26] italic mt-0.5">
-                      Custom Note: {item.customNote}
-                    </p>
-                  )}
                 </div>
                 <div className="text-sm font-semibold text-[#1C1A19]">
                   {(item.unitPrice * item.quantity).toLocaleString()} EGP

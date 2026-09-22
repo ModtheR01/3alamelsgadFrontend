@@ -69,14 +69,6 @@ export default function Footer() {
               </li>
               <li>
                 <button
-                  onClick={() => handleLink('collections')}
-                  className="hover:text-white transition-colors"
-                >
-                  Curated Collections
-                </button>
-              </li>
-              <li>
-                <button
                   onClick={() => handleLink('our-story')}
                   className="hover:text-white transition-colors"
                 >
@@ -89,6 +81,14 @@ export default function Footer() {
                   className="hover:text-white transition-colors"
                 >
                   Custom Design
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => handleLink('b2b')}
+                  className="hover:text-white transition-colors"
+                >
+                  For Business
                 </button>
               </li>
               <li>
@@ -140,22 +140,6 @@ export default function Footer() {
                   Frequently Asked Questions
                 </button>
               </li>
-              <li>
-                <button
-                  onClick={() => handleLink('account')}
-                  className="hover:text-white transition-colors"
-                >
-                  Order Status & Tracking
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => handleLink('contact')}
-                  className="hover:text-white transition-colors"
-                >
-                  Atelier Concierge
-                </button>
-              </li>
             </ul>
           </div>
 
@@ -167,16 +151,27 @@ export default function Footer() {
             <div className="space-y-2.5 sm:space-y-3 text-xs sm:text-sm text-[#D1CBC3]">
               <div className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-[#B85D38] shrink-0 mt-0.5" />
-                <span className="text-xs leading-relaxed">{settings.contact.atelierAddress}</span>
+                <a
+                  href={settings.contact.mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs leading-relaxed hover:text-white"
+                >
+                  {settings.contact.atelierAddress}
+                </a>
               </div>
               <div className="flex items-center gap-2.5">
                 <Phone className="w-4 h-4 text-[#B85D38] shrink-0" />
-                <span className="text-xs font-mono">{settings.contact.phone}</span>
+                <a href={`tel:${settings.contact.phone}`} className="text-xs font-mono hover:text-white">
+                  {settings.contact.phone}
+                </a>
               </div>
-              <div className="flex items-center gap-2.5">
-                <Mail className="w-4 h-4 text-[#B85D38] shrink-0" />
-                <span className="text-xs font-mono">{settings.contact.email}</span>
-              </div>
+              {settings.contact.email && (
+                <div className="flex items-center gap-2.5">
+                  <Mail className="w-4 h-4 text-[#B85D38] shrink-0" />
+                  <span className="text-xs font-mono">{settings.contact.email}</span>
+                </div>
+              )}
 
               {/* Direct WhatsApp Concierge CTA */}
               <div className="pt-2">
@@ -214,15 +209,18 @@ export default function Footer() {
               Terms & Conditions
             </button>
             <span>·</span>
-            <a
-              href="https://instagram.com/tocco_house"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-[#D1CBC3] transition-colors"
-            >
-              <Instagram className="w-3.5 h-3.5" />
-              <span>@tocco_house</span>
-            </a>
+            {settings.contact.instagramHandles.map((handle) => (
+              <a
+                key={handle}
+                href={`https://instagram.com/${handle.replace('@', '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 hover:text-[#D1CBC3] transition-colors"
+              >
+                <Instagram className="w-3.5 h-3.5" />
+                <span>{handle}</span>
+              </a>
+            ))}
           </div>
         </div>
       </div>

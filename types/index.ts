@@ -26,11 +26,8 @@ export interface Product {
   name: string;
   categoryId: string;
   subcategoryIds: string[];
-  collectionIds: string[];
-  collectionId?: string;
   description: string;
   price: number; // in EGP
-  depositPercentage?: number; // defaults to 50
   images: string[];
   imageRecords?: ProductImageDraft[];
   dimensions: string;
@@ -64,20 +61,6 @@ export interface Category {
   isVisible: boolean;
 }
 
-export interface Collection {
-  id: string;
-  name: string;
-  slug: string;
-  subtitle: string;
-  description: string;
-  coverImage: string;
-  gallery: string[];
-  isFeatured: boolean;
-  isPublished: boolean;
-  displayOrder: number;
-  productIds: string[];
-}
-
 export interface CartItem {
   id: string; // cart item unique id
   productId: string;
@@ -88,7 +71,6 @@ export interface CartItem {
   selectedColor: ProductColor;
   selectedSize?: ProductSize;
   quantity: number;
-  customNote?: string;
   // Backend-computed pricing (from active offers), when available
   subtotal?: number;
   originalSubtotal?: number;
@@ -150,30 +132,6 @@ export interface Order {
   paymentProofDate?: string;
 }
 
-export interface CustomDesignInquiry {
-  id: string;
-  createdAt: string;
-  fullName: string;
-  phone: string;
-  email: string;
-  pieceType?: string;
-  pieceCategory?: string;
-  projectType?: string;
-  approxDimensions?: string;
-  dimensions?: string;
-  preferredFinishes?: string;
-  preferredColors?: string;
-  finishes?: string;
-  colors?: string;
-  finishPreference?: string;
-  colorPreference?: string;
-  environment?: 'Indoor' | 'Outdoor' | 'Both' | string;
-  description: string;
-  referenceImageUrl?: string;
-  referenceImages?: string[];
-  status: 'new' | 'contacted' | 'quoted' | 'proposal_sent' | 'in_production' | 'completed';
-}
-
 export interface EventItem {
   id: string;
   title: string;
@@ -202,6 +160,9 @@ export interface ProjectItem {
   productsUsed: string[];
   featuredPieces?: string[];
   year: string;
+  customerName?: string;
+  publicId?: string;
+  productId?: string;
 }
 
 export interface StoreSettings {
@@ -216,7 +177,8 @@ export interface StoreSettings {
     whatsapp: string;
     email: string;
     atelierAddress: string;
-    instagramHandle: string;
+    mapUrl: string;
+    instagramHandles: string[];
     hours: string;
   };
   paymentMethods: {
@@ -253,7 +215,6 @@ export interface StoreSettings {
     heroSubheading: string;
     heroCtaText: string;
     heroImage: string;
-    featuredCollectionId: string;
     storyQuote: string;
     storySubtext: string;
   };

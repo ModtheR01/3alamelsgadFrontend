@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 
 export function ShippingView() {
+  const { settings } = useToccoStore();
+
   return (
     <div id="shipping-page" className="pt-28 pb-24 bg-[#FAF8F5] min-h-screen">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
@@ -38,7 +40,7 @@ export function ShippingView() {
           <section className="space-y-3">
             <h3 className="text-lg font-medium text-[#1C1A19]">1. Handcrafted Production Timelines</h3>
             <p>
-              Because we do not mass-produce, casting commences upon receipt of your 50% deposit.
+              Because we do not mass-produce, casting commences upon receipt of your {settings.depositPercentage}% deposit.
               Standard pieces require <strong className="text-[#1C1A19]">2 to 3 weeks</strong> of
               workshop moulding, lamination, and curing. Bespoke commissions or complex multi-piece
               sets require <strong className="text-[#1C1A19]">3 to 4 weeks</strong>.
@@ -57,20 +59,11 @@ export function ShippingView() {
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-lg font-medium text-[#1C1A19]">3. Inspection & Final 50% Settlement</h3>
+            <h3 className="text-lg font-medium text-[#1C1A19]">3. Inspection & Final {100 - settings.depositPercentage}% Settlement</h3>
             <p>
-              Upon delivery, our trained atelier crew will unpack, position, and present the piece in
-              your chosen setting. You will inspect the surface finish and structural integrity before
-              settling the remaining 50% balance with our delivery representative or via InstaPay.
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h3 className="text-lg font-medium text-[#1C1A19]">4. International Crating & Export</h3>
-            <p>
-              Tocco House pieces can be crated in custom reinforced timber packaging for international
-              freight to GCC countries and Europe. Please contact our concierge directly to receive an
-              air or ocean freight quote.
+              Upon delivery, please inspect the piece and confirm its surface finish and structural
+              integrity before accepting it and settling the remaining {100 - settings.depositPercentage}% balance via InstaPay or the
+              agreed payment method. Any concerns must be reported at the time of delivery.
             </p>
           </section>
         </div>
@@ -88,42 +81,32 @@ export function ReturnsView() {
             Customer Care
           </span>
           <h1 className="text-4xl sm:text-5xl font-normal tracking-tight text-[#1C1A19]">
-            Returns & Artisanal Guarantee
+            Returns & Replacement Policy
           </h1>
           <p className="text-base text-[#736B63] font-light">
-            Our commitment to timeless material resilience and transparent client relationships.
+            Returns and replacements are available only for pieces that arrive damaged.
           </p>
         </div>
 
         <div className="space-y-8 text-sm text-[#524B45] font-light leading-relaxed">
           <section className="space-y-3">
-            <h3 className="text-lg font-medium text-[#1C1A19]">1. Made-to-Order Policy</h3>
+            <h3 className="text-lg font-medium text-[#1C1A19]">1. Damaged Products Only</h3>
             <p>
-              Each Tocco House piece is individually cast and hand-glazed specifically for you. Once the
-              50% deposit is confirmed and raw fiberglass lamination begins in our atelier (after 48 hours),
-              orders cannot be cancelled or returned for buyer&apos;s remorse.
+              Returns or replacements are accepted only when a piece arrives damaged. The damage must be
+              reported to our team during delivery inspection, with clear photos or video showing the
+              condition of the product.
             </p>
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-lg font-medium text-[#1C1A19]">2. 1-Year Structural Atelier Warranty</h3>
+            <h3 className="text-lg font-medium text-[#1C1A19]">2. Available Resolution</h3>
             <p>
-              Every authentic Tocco House piece is protected by a 1-year structural guarantee against:
+              If the damage is confirmed, you may choose one of the following resolutions:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-xs">
-              <li>Resin delamination or core structural cracking under intended residential load</li>
-              <li>Premature ultraviolet discoloration under standard Mediterranean sunlight</li>
-              <li>Defective hardware or unlevel base casting</li>
+              <li>A newly manufactured replacement piece at no additional cost</li>
+              <li>A refund of the paid deposit</li>
             </ul>
-          </section>
-
-          <section className="space-y-3">
-            <h3 className="text-lg font-medium text-[#1C1A19]">3. Transit Damage Guarantee</h3>
-            <p>
-              In the unlikely event that a piece arrives with transit scratches or finish blemishes, our
-              white-glove team will note it immediately during delivery. We will either restore the finish
-              on-site or return the piece to our Cairo atelier for an expedited remake at zero cost to you.
-            </p>
           </section>
         </div>
       </div>
@@ -133,6 +116,7 @@ export function ReturnsView() {
 
 export function FaqView() {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
+  const { settings } = useToccoStore();
 
   const faqs = [
     {
@@ -140,16 +124,16 @@ export function FaqView() {
       a: 'Yes, completely. Tocco House utilizes marine-grade isophthalic resins and UV-stabilized gelcoats identical to those used in luxury yacht hulls. They withstand intense North Coast heat, pool chlorine, and saltwater sea spray without cracking or peeling.',
     },
     {
-      q: 'Why is a 50% handcrafted deposit required to place an order?',
-      a: 'Tocco House operates as an artisanal design house rather than a warehouse retailer. Every order initiates custom mould preparation, fiberglass lamination, and artisan hand-sanding in our Cairo workshop. The 50% deposit commissions these dedicated materials and hours of craftsmanship.',
+      q: `Why is a ${settings.depositPercentage}% handcrafted deposit required to place an order?`,
+      a: `Tocco House operates as an artisanal design house rather than a warehouse retailer. Every order initiates custom mould preparation, fiberglass lamination, and artisan hand-sanding in our Cairo workshop. The ${settings.depositPercentage}% deposit commissions these dedicated materials and hours of craftsmanship.`,
     },
     {
       q: 'Can I request custom dimensions, colors, or RAL paint codes?',
       a: 'Absolutely. We collaborate directly with private homeowners, interior architects, and hospitality groups. You can specify custom table lengths, bench radii, or exact RAL paint codes through our Custom Design page or directly on WhatsApp.',
     },
     {
-      q: 'What is the difference between Matte, Glossy, and Textured Mineral finishes?',
-      a: 'Matte offers a soft, non-reflective tactile elegance ideal for indoor living salons. High-Gloss Marine features an automotive liquid shine that reflects water and light dramatically on pool terraces. Textured Mineral incorporates fine crushed aggregate to evoke natural limestone or travertine.',
+      q: 'What is the difference between Matte and Glossy finishes?',
+      a: 'Matte offers a soft, non-reflective finish ideal for indoor living salons. Glossy features a smooth, reflective shine that brings out the color and character of each piece.',
     },
     {
       q: 'How do I clean and maintain my Tocco House pieces?',
@@ -172,7 +156,7 @@ export function FaqView() {
             Frequently Asked Questions
           </h1>
           <p className="text-base text-[#736B63] font-light">
-            Everything you need to know about our materials, 50% deposit process, and atelier care.
+            Everything you need to know about our materials, {settings.depositPercentage}% deposit process, and atelier care.
           </p>
         </div>
 
@@ -252,9 +236,14 @@ export function ContactView() {
                     <h4 className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
                       Cairo Atelier & Showroom
                     </h4>
-                    <p className="text-xs text-[#524B45] leading-relaxed mt-1">
+                    <a
+                      href={settings.contact.mapUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#524B45] leading-relaxed mt-1 underline decoration-[#D8CEBF] underline-offset-2 hover:text-[#643D26]"
+                    >
                       {settings.contact.atelierAddress}
-                    </p>
+                    </a>
                     <p className="text-[11px] text-[#8F8880] mt-1">
                       Viewings by private appointment: Sun – Thu, 10 AM – 6 PM
                     </p>
@@ -267,19 +256,26 @@ export function ContactView() {
                     <h4 className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
                       Direct Telephone
                     </h4>
-                    <p className="text-xs font-mono text-[#524B45] mt-0.5">{settings.contact.phone}</p>
+                    <a
+                      href={`tel:${settings.contact.phone}`}
+                      className="text-xs font-mono text-[#524B45] mt-0.5 hover:text-[#643D26]"
+                    >
+                      {settings.contact.phone}
+                    </a>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <Mail className="w-5 h-5 text-[#B85D38] shrink-0" />
-                  <div>
-                    <h4 className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
-                      Email Enquiries
-                    </h4>
-                    <p className="text-xs font-mono text-[#524B45] mt-0.5">{settings.contact.email}</p>
+                {settings.contact.email && (
+                  <div className="flex items-center gap-3">
+                    <Mail className="w-5 h-5 text-[#B85D38] shrink-0" />
+                    <div>
+                      <h4 className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
+                        Email Enquiries
+                      </h4>
+                      <p className="text-xs font-mono text-[#524B45] mt-0.5">{settings.contact.email}</p>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Direct WhatsApp CTA */}
@@ -396,6 +392,8 @@ export function PrivacyView() {
 }
 
 export function TermsView() {
+  const { settings } = useToccoStore();
+
   return (
     <div id="terms-page" className="pt-28 pb-24 bg-[#FAF8F5] min-h-screen">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 text-sm text-[#524B45] font-light leading-relaxed">
@@ -406,7 +404,7 @@ export function TermsView() {
         </div>
 
         <p>
-          <strong>1. Deposit & Commissioning:</strong> Orders are confirmed upon receipt of a 50%
+          <strong>1. Deposit & Commissioning:</strong> Orders are confirmed upon receipt of a {settings.depositPercentage}%
           deposit. Once raw materials are allocated and casting initiates, deposits are non-refundable.
         </p>
         <p>
@@ -415,7 +413,7 @@ export function TermsView() {
           considered defects.
         </p>
         <p>
-          <strong>3. Final Balance:</strong> The remaining 50% order balance is strictly due upon arrival
+          <strong>3. Final Balance:</strong> The remaining {100 - settings.depositPercentage}% order balance is strictly due upon arrival
           of our delivery team before handover.
         </p>
       </div>

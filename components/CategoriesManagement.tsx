@@ -14,6 +14,7 @@ import { categoryService, subcategoryService } from '@/lib/api/services/category
 import { normalizeApiError, NormalizedError } from '@/lib/api/errors';
 import { useToccoStore } from '@/lib/store';
 import CloudinaryImageField from '@/components/CloudinaryImageField';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import {
   Folder,
   FolderPlus,
@@ -26,7 +27,6 @@ import {
   Search,
   Filter,
   Image as ImageIcon,
-  ShieldAlert,
   X,
   Plus,
   RefreshCw,
@@ -170,6 +170,14 @@ export default function CategoriesManagement() {
     });
     return map;
   }, [activeSubcategories]);
+
+  const allSubcategoryCounts = useMemo(() => {
+    const map = new Map<number, number>();
+    [...activeSubcategories, ...deletedSubcategories].forEach((sub) => {
+      map.set(sub.category_id, (map.get(sub.category_id) || 0) + 1);
+    });
+    return map;
+  }, [activeSubcategories, deletedSubcategories]);
 
   // Filtered lists
   const filteredActiveCategories = useMemo(() => {
@@ -353,6 +361,18 @@ export default function CategoriesManagement() {
   // ==========================================
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
+
+    if (
+      itemToDelete.type === 'category' &&
+      itemToDelete.mode === 'hard' &&
+      itemToDelete.hasSubcategories
+    ) {
+      notifyError(
+        `Cannot permanently delete category "${itemToDelete.name}" because it still contains ${itemToDelete.subcategoriesCount || 'one or more'} subcategories. Delete or reassign the subcategories first.`
+      );
+      return;
+    }
+
     setActionLoading(true);
 
     try {
@@ -378,12 +398,11 @@ export default function CategoriesManagement() {
       await loadData();
     } catch (err: any) {
       const norm = normalizeApiError(err);
-      notifyError(norm.message);
-      // Keep modal open or clear depending on preference; if protected error, user can see why
-      if (norm.message.includes('referenced by existing subcategories')) {
-        // Leave itemToDelete open or clear with clear error
-      }
-      setItemToDelete(null);
+      const isCategoryHardDelete = itemToDelete.type === 'category' && itemToDelete.mode === 'hard';
+      const message = isCategoryHardDelete && norm.message === 'An unexpected error occurred. Please try again.'
+        ? `Cannot permanently delete category "${itemToDelete.name}". The backend rejected the deletion because this category still has related records, most commonly subcategories. Delete or reassign them first, then try again.`
+        : norm.message;
+      notifyError(message);
     } finally {
       setActionLoading(false);
     }
@@ -714,9 +733,9 @@ export default function CategoriesManagement() {
                             })
                           }
                           className="p-1.5 text-[#B85D38] hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors"
-                          title="Soft Delete (Archive)"
+                            title="Archive Category"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Archive className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() =>
@@ -725,14 +744,14 @@ export default function CategoriesManagement() {
                               mode: 'hard',
                               id: cat.id,
                               name: cat.name,
-                              hasSubcategories: subCount > 0,
-                              subcategoriesCount: subCount,
+                              hasSubcategories: (allSubcategoryCounts.get(cat.id) || 0) > 0,
+                              subcategoriesCount: allSubcategoryCounts.get(cat.id) || 0,
                             })
                           }
                           className="p-1.5 text-rose-600 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Permanently Delete (Hard Delete)"
+                          title="Permanently Delete"
                         >
-                          <ShieldAlert className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -831,9 +850,9 @@ export default function CategoriesManagement() {
                             })
                           }
                           className="p-1.5 text-[#B85D38] hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors"
-                          title="Soft Delete (Archive)"
+                          title="Archive Subcategory"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Archive className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() =>
@@ -845,9 +864,9 @@ export default function CategoriesManagement() {
                             })
                           }
                           className="p-1.5 text-rose-600 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Permanently Delete (Hard Delete)"
+                          title="Permanently Delete"
                         >
-                          <ShieldAlert className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -955,13 +974,14 @@ export default function CategoriesManagement() {
                             mode: 'hard',
                             id: cat.id,
                             name: cat.name,
-                            hasSubcategories: (subcategoryCounts.get(cat.id) || 0) > 0,
+                            hasSubcategories: (allSubcategoryCounts.get(cat.id) || 0) > 0,
+                            subcategoriesCount: allSubcategoryCounts.get(cat.id) || 0,
                           })
                         }
                         className="p-1.5 text-rose-600 hover:text-rose-900 rounded-lg"
-                        title="Permanently Delete"
+                          title="Permanently Delete"
                       >
-                        <ShieldAlert className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -1042,7 +1062,7 @@ export default function CategoriesManagement() {
                         className="p-1.5 text-rose-600 hover:text-rose-900 rounded-lg"
                         title="Permanently Delete"
                       >
-                        <ShieldAlert className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -1263,90 +1283,29 @@ export default function CategoriesManagement() {
       {/* ========================================== */}
       {/* MODAL 3: DELETE CONFIRMATION */}
       {/* ========================================== */}
-      {itemToDelete && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#EAE4DC] shadow-2xl">
-            <div className="flex items-center gap-3">
-              <div
-                className={`p-3 rounded-xl ${
-                  itemToDelete.mode === 'hard' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'
-                }`}
-              >
-                {itemToDelete.mode === 'hard' ? (
-                  <ShieldAlert className="w-6 h-6" />
-                ) : (
-                  <AlertTriangle className="w-6 h-6" />
-                )}
-              </div>
-              <div>
-                <h3 className="text-base font-semibold text-[#1C1A19]">
-                  {itemToDelete.mode === 'hard'
-                    ? `Permanent Hard Delete: "${itemToDelete.name}"`
-                    : `Soft Delete: "${itemToDelete.name}"`}
-                </h3>
-                <span className="text-[11px] uppercase tracking-wider text-[#736B63] font-mono">
-                  Target: {itemToDelete.type} #{itemToDelete.id}
-                </span>
-              </div>
-            </div>
-
-            <div className="text-xs text-[#524B45] space-y-2 leading-relaxed">
-              {itemToDelete.mode === 'soft' ? (
-                <p>
-                  Are you sure you want to soft-delete{' '}
-                  <strong className="text-[#1C1A19]">{itemToDelete.name}</strong>? It will be archived and
-                  hidden from the live shop catalog, but you can restore it at any time from the{' '}
-                  <strong>Deleted Archives</strong> tab.
-                </p>
-              ) : (
-                <div className="space-y-2 text-rose-900 bg-rose-50 p-3.5 rounded-xl border border-rose-200">
-                  <p className="font-semibold text-rose-950">
-                    Warning: This action is permanent and cannot be undone!
-                  </p>
-                  <p>
-                    Permanently deleting will erase this {itemToDelete.type} from the database.
-                  </p>
-                  {itemToDelete.type === 'category' && itemToDelete.hasSubcategories && (
-                    <div className="pt-1.5 border-t border-rose-200 text-rose-950 flex items-start gap-2">
-                      <AlertTriangle className="w-4 h-4 text-rose-700 shrink-0 mt-0.5" />
-                      <span>
-                        This category is currently referenced by {itemToDelete.subcategoriesCount || 'existing'}{' '}
-                        subcategories. Remove or reassign those subcategories before permanent deletion.
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="pt-3 border-t border-[#EAE4DC] flex justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setItemToDelete(null)}
-                className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63] hover:text-[#1C1A19]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmDelete}
-                disabled={actionLoading}
-                className={`px-5 py-2 rounded-full text-white text-xs uppercase tracking-wider font-medium transition-colors ${
-                  itemToDelete.mode === 'hard'
-                    ? 'bg-rose-700 hover:bg-rose-800'
-                    : 'bg-amber-700 hover:bg-amber-800'
-                }`}
-              >
-                {actionLoading
-                  ? 'Processing...'
-                  : itemToDelete.mode === 'hard'
-                  ? 'Permanently Delete'
-                  : 'Soft Delete'}
-              </button>
-            </div>
+      <ConfirmDialog
+        isOpen={Boolean(itemToDelete)}
+        title={itemToDelete?.mode === 'hard' ? `Delete Permanently: "${itemToDelete.name}"` : `Archive: "${itemToDelete?.name || ''}"`}
+        description={itemToDelete?.mode === 'hard'
+          ? `This will permanently delete the ${itemToDelete?.type || 'item'} and cannot be undone.`
+          : `This will hide the ${itemToDelete?.type || 'item'} from the live catalogue. You can restore it later from Deleted Archives.`}
+        confirmLabel={itemToDelete?.mode === 'hard' ? 'Delete Permanently' : 'Archive'}
+        variant={itemToDelete?.mode === 'hard' ? 'danger' : 'warning'}
+        icon={itemToDelete?.mode === 'hard' ? 'delete' : 'archive'}
+        confirmDisabled={Boolean(itemToDelete?.type === 'category' && itemToDelete.mode === 'hard' && itemToDelete.hasSubcategories)}
+        isLoading={actionLoading}
+        onCancel={() => setItemToDelete(null)}
+        onConfirm={handleConfirmDelete}
+      >
+        {itemToDelete?.mode === 'hard' && itemToDelete.type === 'category' && itemToDelete.hasSubcategories && (
+          <div className="space-y-2 text-rose-900 bg-rose-50 p-3.5 rounded-xl border border-rose-200">
+            <p className="font-semibold text-rose-950">Cannot delete this category yet.</p>
+            <p>
+              It still contains {itemToDelete.subcategoriesCount || 'one or more'} subcategories. Delete or reassign them first.
+            </p>
           </div>
-        </div>
-      )}
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

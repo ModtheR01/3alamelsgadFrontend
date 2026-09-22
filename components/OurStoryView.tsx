@@ -7,7 +7,7 @@ import Image from '@/components/SafeImage';
 import { Sparkles, ArrowRight, ShieldCheck, Sun, Compass } from 'lucide-react';
 
 export default function OurStoryView() {
-  const { navigateTo } = useToccoStore();
+  const { navigateTo, settings } = useToccoStore();
 
   return (
     <div id="our-story-page" className="pt-20 sm:pt-28 pb-20 sm:pb-24 bg-[#FAF8F5] min-h-screen">
@@ -111,11 +111,11 @@ export default function OurStoryView() {
 
             <div className="p-4 sm:p-5 rounded-xl bg-[#FAF8F5] border border-[#D8CEBF] space-y-1.5 sm:space-y-2">
               <span className="text-[11px] sm:text-xs uppercase tracking-wider font-semibold text-[#643D26] block">
-                The 50% Handcrafted Deposit
+                The {settings.depositPercentage}% Handcrafted Deposit
               </span>
               <p className="text-[11px] sm:text-xs text-[#524B45] leading-relaxed font-light">
                 Because we refuse to warehouse generic inventory, every order triggers a dedicated 
-                casting run. The 50% deposit directly commissions the materials and artisanal labor 
+                casting run. The {settings.depositPercentage}% deposit directly commissions the materials and artisanal labor 
                 for your specific piece.
               </p>
             </div>

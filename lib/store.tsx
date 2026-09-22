@@ -4,9 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import {
   Product,
   Category,
-  Collection,
   Order,
-  CustomDesignInquiry,
   EventItem,
   ProjectItem,
   StoreSettings,
@@ -30,6 +28,8 @@ import { dashboardService } from '@/lib/api/services/dashboardService';
 import { collaborationService } from '@/lib/api/services/collaborationService';
 import { BackendEvent } from '@/types/event';
 import { BackendCollaboration } from '@/types/collaboration';
+import { spaceProjectService } from '@/lib/api/services/spaceProjectService';
+import { BackendSpaceProject, SpaceProjectRequest } from '@/types/spaceProject';
 
 const EMPTY_SETTINGS: StoreSettings = {
   brandName: 'Tocco House',
@@ -39,11 +39,12 @@ const EMPTY_SETTINGS: StoreSettings = {
   defaultLeadTime: 'Made to order',
   defaultShippingTime: 'Shipping details confirmed after order review',
   contact: {
-    phone: 'Phone number coming soon',
-    whatsapp: '',
-    email: 'Email coming soon',
-    atelierAddress: 'Cairo atelier details coming soon',
-    instagramHandle: '@tocco_house',
+    phone: '01080182663',
+    whatsapp: '01080182663',
+    email: '',
+    atelierAddress: 'Villa 291, yasmin 1, first settlement, new cairo',
+    mapUrl: 'https://www.google.com/maps/place/30%C2%B003%2700.6%22N+31%C2%B027%2720.0%22E/@30.0501537,31.4529839,17z/data=!3m1!4b1!4m4!3m3!8m2!3d30.0501537!4d31.4555588?hl=en&entry=ttu&g_ep=EgoyMDI2MDkxNi4wIKXMDSoASAFQAw%3D%3D',
+    instagramHandles: ['@tocco_house', '@toccoplus'],
     hours: 'By appointment',
   },
   paymentMethods: {
@@ -65,7 +66,6 @@ const EMPTY_SETTINGS: StoreSettings = {
     heroSubheading: 'Contemporary Egyptian design house specializing in distinctive fiberglass furniture, sculptural pieces, and architectural design objects.',
     heroCtaText: 'Discover Tocco House',
     heroImage: '/images/hero_villa_clean.jpg',
-    featuredCollectionId: '',
     storyQuote: '',
     storySubtext: '',
   },
@@ -91,10 +91,8 @@ function mapBackendProduct(product: BackendProduct, subcategories: BackendSubcat
     name: product.name,
     categoryId,
     subcategoryIds,
-    collectionIds: [],
     description: product.description,
     price: Number(product.price),
-    depositPercentage: 50,
     images: imageRecords.map((image) => image.image),
     imageRecords,
     dimensions: product.dimensions,
@@ -148,6 +146,25 @@ function mapBackendEvent(event: BackendEvent): EventItem {
   };
 }
 
+function mapBackendSpaceProject(project: BackendSpaceProject): ProjectItem {
+  const createdYear = new Date(project.created_at).getFullYear();
+  return {
+    id: String(project.id),
+    title: project.customer_name || 'In Their Space',
+    subtitle: project.product_name || 'Tocco House Installation',
+    description: project.caption || '',
+    location: '',
+    coverImage: project.image,
+    gallery: [],
+    productsUsed: project.product_name ? [project.product_name] : [],
+    featuredPieces: project.product_name ? [project.product_name] : [],
+    year: Number.isNaN(createdYear) ? '' : String(createdYear),
+    customerName: project.customer_name,
+    publicId: project.public_id,
+    productId: project.product_id ? String(project.product_id) : undefined,
+  };
+}
+
 function mapBackendCartItem(item: BackendCartItem, products: Product[] = []): CartItem {
   const product = products.find((p) => p.id === String(item.product_id));
   return {
@@ -171,9 +188,9 @@ function mapBackendCartItem(item: BackendCartItem, products: Product[] = []): Ca
 export type AppView =
   | 'home'
   | 'shop'
-  | 'collections'
   | 'product'
   | 'custom-design'
+  | 'b2b'
   | 'our-story'
   | 'events'
   | 'projects'
@@ -193,14 +210,13 @@ interface StoreContextType {
   // Navigation & View
   activeView: AppView;
   selectedProductId: string | null;
-  selectedCollectionId: string | null;
   selectedCategoryId: string | null;
   searchQuery: string;
   isCartDrawerOpen: boolean;
   setIsCartDrawerOpen: (open: boolean) => void;
   navigateTo: (
     view: AppView,
-    options?: { productId?: string; collectionId?: string; categoryId?: string }
+    options?: { productId?: string; categoryId?: string }
   ) => void;
   setSearchQuery: (query: string) => void;
 
@@ -208,9 +224,7 @@ interface StoreContextType {
   products: Product[];
   categories: Category[];
   subcategories: BackendSubcategory[];
-  collections: Collection[];
   orders: Order[];
-  customInquiries: CustomDesignInquiry[];
   events: EventItem[];
   projects: ProjectItem[];
   banners: BannerItem[];
@@ -225,7 +239,6 @@ interface StoreContextType {
   addToCart: (item: Omit<CartItem, 'id'>) => void;
   removeFromCart: (cartItemId: string) => void;
   updateCartQuantity: (cartItemId: string, quantity: number) => void;
-  updateCartItemNote: (cartItemId: string, note: string) => void;
   clearCart: () => void;
   cartSubtotal: number;
   cartDepositAmount: number;
@@ -241,10 +254,6 @@ interface StoreContextType {
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   updatePaymentStatus: (orderId: string, status: PaymentStatus) => void;
 
-  // Custom Inquiries
-  submitCustomInquiry: (data: Omit<CustomDesignInquiry, 'id' | 'createdAt' | 'status'>) => CustomDesignInquiry;
-  updateCustomInquiryStatus: (inquiryId: string, status: CustomDesignInquiry['status']) => void;
-
   // Admin CRUD operations
   saveProduct: (product: Product) => void;
   deleteProduct: (productId: string) => void;
@@ -252,14 +261,11 @@ interface StoreContextType {
   saveCategory: (category: Category) => void;
   deleteCategory: (categoryId: string) => void;
 
-  saveCollection: (collection: Collection) => void;
-  deleteCollection: (collectionId: string) => void;
-
   saveEvent: (event: EventItem) => void;
   deleteEvent: (eventId: string) => void;
 
-  saveProject: (project: ProjectItem) => void;
-  deleteProject: (projectId: string) => void;
+  saveProject: (project: ProjectItem) => Promise<void>;
+  deleteProject: (projectId: string) => Promise<void>;
 
   saveBanner: (banner: BannerItem) => void;
   deleteBanner: (bannerId: string) => void;
@@ -277,7 +283,6 @@ interface StoreContextType {
   getProductById: (id: string) => Product | undefined;
   getProductBySlug: (slug: string) => Product | undefined;
   getCategoryById: (id: string) => Category | undefined;
-  getCollectionById: (id: string) => Collection | undefined;
 }
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -286,7 +291,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Navigation
   const [activeView, setActiveView] = useState<AppView>('home');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState<boolean>(false);
@@ -295,9 +299,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<BackendSubcategory[]>([]);
-  const [collections, setCollections] = useState<Collection[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [customInquiries, setCustomInquiries] = useState<CustomDesignInquiry[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [banners, setBanners] = useState<BannerItem[]>([]);
@@ -368,6 +370,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (active) setCollaborations([]);
     });
 
+    spaceProjectService.getProjects().then((items) => {
+      if (active) setProjects(items.map(mapBackendSpaceProject));
+    }).catch(() => {
+      if (active) setProjects([]);
+    });
+
     dashboardService.getSettings().then((data) => {
       if (!active) return;
       setSettings((current) => ({
@@ -400,11 +408,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const navigateTo = useCallback(
     (
       view: AppView,
-      options?: { productId?: string; collectionId?: string; categoryId?: string }
+      options?: { productId?: string; categoryId?: string }
     ) => {
       setActiveView(view);
       if (options?.productId !== undefined) setSelectedProductId(options.productId);
-      if (options?.collectionId !== undefined) setSelectedCollectionId(options.collectionId);
       if (options?.categoryId !== undefined) setSelectedCategoryId(options.categoryId);
 
       // Scroll to top on navigation
@@ -457,12 +464,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     await refreshCart();
   }, [refreshCart]);
 
-  const updateCartItemNote = useCallback((cartItemId: string, note: string) => {
-    setCart((prev) =>
-      prev.map((item) => (item.id === cartItemId ? { ...item, customNote: note } : item))
-    );
-  }, []);
-
   const clearCart = useCallback(async () => {
     await cartService.clearCart();
     setCart([]);
@@ -473,7 +474,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Prefer the backend's offer-aware total (accounts for active discounts); fall back
   // to a naive client-side sum only if the cart hasn't synced with the backend yet.
   const cartSubtotal = cart.length > 0 ? cartPricing.total : 0;
-  const depositRatio = (settings.depositPercentage || 50) / 100;
+  const depositRatio = settings.depositPercentage / 100;
   const cartDepositAmount = Math.round(cartSubtotal * depositRatio);
   const cartRemainingAmount = cartSubtotal - cartDepositAmount;
   const cartItemsCount = cart.reduce((acc, item) => acc + item.quantity, 0);
@@ -542,30 +543,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       })
     );
   }, []);
-
-  // Custom inquiries
-  const submitCustomInquiry = useCallback(
-    (data: Omit<CustomDesignInquiry, 'id' | 'createdAt' | 'status'>) => {
-      const newInquiry: CustomDesignInquiry = {
-        ...data,
-        id: `inq-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        status: 'new',
-      };
-      setCustomInquiries((prev) => [newInquiry, ...prev]);
-      return newInquiry;
-    },
-    []
-  );
-
-  const updateCustomInquiryStatus = useCallback(
-    (inquiryId: string, status: CustomDesignInquiry['status']) => {
-      setCustomInquiries((prev) =>
-        prev.map((inq) => (inq.id === inquiryId ? { ...inq, status } : inq))
-      );
-    },
-    []
-  );
 
   // Admin CRUD for Products
   const saveProduct = useCallback(async (productToSave: Product) => {
@@ -659,21 +636,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setCategories((prev) => prev.filter((c) => c.id !== categoryId));
   }, []);
 
-  // Admin CRUD for Collections
-  const saveCollection = useCallback((collectionToSave: Collection) => {
-    setCollections((prev) => {
-      const exists = prev.some((c) => c.id === collectionToSave.id);
-      if (exists) {
-        return prev.map((c) => (c.id === collectionToSave.id ? collectionToSave : c));
-      }
-      return [...prev, collectionToSave];
-    });
-  }, []);
-
-  const deleteCollection = useCallback((collectionId: string) => {
-    setCollections((prev) => prev.filter((c) => c.id !== collectionId));
-  }, []);
-
   // Admin CRUD for Events
   const saveEvent = useCallback(async (eventToSave: EventItem) => {
     const eventId = Number(eventToSave.id);
@@ -705,18 +667,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Admin CRUD for Projects
-  const saveProject = useCallback((projectToSave: ProjectItem) => {
+  const saveProject = useCallback(async (projectToSave: ProjectItem) => {
+    const numericId = Number(projectToSave.id);
+    const payload: SpaceProjectRequest = {
+      customer_name: projectToSave.customerName || projectToSave.title,
+      caption: projectToSave.description,
+      image: projectToSave.coverImage,
+      public_id: projectToSave.publicId || '',
+      product_id: projectToSave.productId ? Number(projectToSave.productId) : null,
+    };
+    const saved = Number.isInteger(numericId)
+      ? await spaceProjectService.updateProject(numericId, payload)
+      : await spaceProjectService.createProject(payload);
+    const mapped = mapBackendSpaceProject(saved);
     setProjects((prev) => {
-      const exists = prev.some((p) => p.id === projectToSave.id);
-      if (exists) {
-        return prev.map((p) => (p.id === projectToSave.id ? projectToSave : p));
-      }
-      return [projectToSave, ...prev];
+      const exists = prev.some((project) => project.id === mapped.id);
+      return exists ? prev.map((project) => (project.id === mapped.id ? mapped : project)) : [mapped, ...prev];
     });
   }, []);
 
-  const deleteProject = useCallback((projectId: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== projectId));
+  const deleteProject = useCallback(async (projectId: string) => {
+    const numericId = Number(projectId);
+    if (!Number.isInteger(numericId)) throw new Error('Project is not connected to a backend record.');
+    await spaceProjectService.deleteProject(numericId);
+    setProjects((prev) => prev.filter((project) => project.id !== projectId));
   }, []);
 
   // Banners CRUD
@@ -742,17 +716,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Settings
   const updateSettings = useCallback(async (newSettings: Partial<StoreSettings>) => {
-    const paymentWallets: Record<string, string> = {};
-    const mobileWallet = newSettings.paymentMethods?.mobileWallet?.number;
-    const vodafoneCash = newSettings.paymentMethods?.vodafoneCash?.number;
-    const instapay = newSettings.paymentMethods?.instapay?.address;
-    if (mobileWallet) paymentWallets.mobile_wallet = mobileWallet;
-    if (vodafoneCash) paymentWallets.vodafone_cash = vodafoneCash;
-    if (instapay) paymentWallets.instapay = instapay;
+    // The backend stores payment_wallets as a single JSON blob and replaces it wholesale on PATCH,
+    // so every save must resend all already-populated wallet keys or the omitted ones get wiped out.
+    // Blank values are rejected by the backend ("cannot be empty"), so unset keys are left out entirely.
+    let paymentWallets: Record<string, string> | undefined;
+    if (newSettings.paymentMethods) {
+      const merged: Record<string, string> = {
+        mobile_wallet:
+          newSettings.paymentMethods.mobileWallet?.number ??
+          settings.paymentMethods.mobileWallet.number,
+        vodafone_cash:
+          newSettings.paymentMethods.vodafoneCash?.number ??
+          settings.paymentMethods.vodafoneCash.number,
+        instapay:
+          newSettings.paymentMethods.instapay?.address ??
+          settings.paymentMethods.instapay.address,
+      };
+      const nonEmpty = Object.fromEntries(
+        Object.entries(merged).filter(([, value]) => value.trim() !== '')
+      );
+      paymentWallets = Object.keys(nonEmpty).length > 0 ? nonEmpty : undefined;
+    }
 
     const dashboardPatch = {
       deposit_percentage: newSettings.depositPercentage,
-      payment_wallets: Object.keys(paymentWallets).length > 0 ? paymentWallets : undefined,
+      payment_wallets: paymentWallets,
     };
     if (dashboardPatch.deposit_percentage === undefined && !dashboardPatch.payment_wallets) {
       return;
@@ -766,19 +754,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...prev.paymentMethods,
         mobileWallet: {
           ...prev.paymentMethods.mobileWallet,
-          number: saved.payment_wallets.mobile_wallet || prev.paymentMethods.mobileWallet.number,
+          number: saved.payment_wallets.mobile_wallet ?? prev.paymentMethods.mobileWallet.number,
         },
         vodafoneCash: {
           ...prev.paymentMethods.vodafoneCash,
-          number: saved.payment_wallets.vodafone_cash || prev.paymentMethods.vodafoneCash.number,
+          number: saved.payment_wallets.vodafone_cash ?? prev.paymentMethods.vodafoneCash.number,
         },
         instapay: {
           ...prev.paymentMethods.instapay,
-          address: saved.payment_wallets.instapay || prev.paymentMethods.instapay.address,
+          address: saved.payment_wallets.instapay ?? prev.paymentMethods.instapay.address,
         },
       },
     }));
-  }, []);
+  }, [settings]);
 
   // User auth & profile
   const loginUser = useCallback((email: string, fullName: string, phone: string) => {
@@ -842,17 +830,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [categories]
   );
 
-  const getCollectionById = useCallback(
-    (id: string) => collections.find((c) => c.id === id),
-    [collections]
-  );
-
   return (
     <StoreContext.Provider
       value={{
         activeView,
         selectedProductId,
-        selectedCollectionId,
         selectedCategoryId,
         searchQuery,
         isCartDrawerOpen,
@@ -862,9 +844,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         products,
         categories,
         subcategories,
-        collections,
         orders,
-        customInquiries,
         events,
         projects,
         banners,
@@ -877,7 +857,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addToCart,
         removeFromCart,
         updateCartQuantity,
-        updateCartItemNote,
         clearCart,
         cartSubtotal,
         cartDepositAmount,
@@ -890,15 +869,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         submitPaymentProof,
         updateOrderStatus,
         updatePaymentStatus,
-        submitCustomInquiry,
-        updateCustomInquiryStatus,
         saveProduct,
         deleteProduct,
         toggleProductFeatured,
         saveCategory,
         deleteCategory,
-        saveCollection,
-        deleteCollection,
         saveEvent,
         deleteEvent,
         saveProject,
@@ -914,7 +889,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         getProductById,
         getProductBySlug,
         getCategoryById,
-        getCollectionById,
       }}
     >
       {children}

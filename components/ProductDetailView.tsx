@@ -43,7 +43,6 @@ export default function ProductDetailView() {
     product?.sizes?.[0]
   );
   const [quantity, setQuantity] = useState(1);
-  const [customNote, setCustomNote] = useState('');
   const [addedAnimation, setAddedAnimation] = useState(false);
 
   // If no product selected, offer redirect to shop
@@ -65,7 +64,7 @@ export default function ProductDetailView() {
 
   // Base price + size price delta
   const unitPrice = (product.price || 0) + (selectedSize?.priceDelta || 0);
-  const depositRatio = (product.depositPercentage || 50) / 100;
+  const depositRatio = settings.depositPercentage / 100;
   const depositDue = Math.round(unitPrice * depositRatio);
   const remainingDue = unitPrice - depositDue;
 
@@ -74,7 +73,6 @@ export default function ProductDetailView() {
 Finish: ${selectedFinish}
 Color: ${selectedColor.name}
 ${selectedSize ? `Size: ${selectedSize.name} (${selectedSize.dimensions})` : ''}
-${customNote ? `Notes: ${customNote}` : ''}
 Could you please provide pricing and production details?`;
 
   const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
@@ -91,7 +89,6 @@ Could you please provide pricing and production details?`;
       selectedColor,
       selectedSize,
       quantity,
-      customNote: customNote.trim() ? customNote : undefined,
     });
 
     setAddedAnimation(true);
@@ -204,9 +201,6 @@ Could you please provide pricing and production details?`;
               <h1 className="text-2xl sm:text-4xl font-normal tracking-tight text-[#1C1A19]">
                 {product.name}
               </h1>
-              <p className="text-xs sm:text-sm text-[#736B63] font-light leading-relaxed pt-1">
-                {product.description}
-              </p>
             </div>
 
             {/* Pricing Presentation */}
@@ -221,10 +215,10 @@ Could you please provide pricing and production details?`;
                     </span>
                   </div>
 
-                  {/* 50% Deposit Callout */}
+                  {/* Deposit Callout */}
                   <div className="p-3 sm:p-3.5 rounded-xl bg-[#F5F0E8] border border-[#E6DDCE] space-y-1">
                     <div className="flex items-center justify-between text-xs font-semibold text-[#643D26]">
-                      <span>{product.depositPercentage || 50}% Handcrafted Deposit:</span>
+                      <span>{settings.depositPercentage}% Handcrafted Deposit:</span>
                       <span>{depositDue.toLocaleString()} EGP</span>
                     </div>
                     <p className="text-[11px] text-[#524B45] leading-normal">
@@ -325,22 +319,6 @@ Could you please provide pricing and production details?`;
               </div>
             )}
 
-            {/* Customization Note Field */}
-            {product.allowsCustomization && (
-              <div className="space-y-2">
-                <label className="block text-xs uppercase tracking-[0.2em] font-medium text-[#736B63]">
-                  Anything you&apos;d like us to know?
-                </label>
-                <textarea
-                  rows={2}
-                  value={customNote}
-                  onChange={(e) => setCustomNote(e.target.value)}
-                  placeholder="e.g. 'Specific terrace height or custom RAL color tint...'"
-                  className="w-full text-xs p-3 rounded-xl border border-[#D8CEBF] bg-[#FAF8F5] text-[#1C1A19] placeholder-[#948D85] focus:outline-none focus:border-[#643D26]"
-                />
-              </div>
-            )}
-
             {/* Production & Delivery Timeline */}
             <div className="pt-2 border-t border-[#EAE4DC] flex flex-col gap-2 text-xs text-[#524B45]">
               <div className="flex items-center gap-2">
@@ -386,7 +364,7 @@ Could you please provide pricing and production details?`;
                         <span>Added to Design Bag</span>
                       </>
                     ) : (
-                      <span>Add to Cart · 50% Deposit</span>
+                      <span>Add to Cart · {settings.depositPercentage}% Deposit</span>
                     )}
                   </button>
               </div>
@@ -418,33 +396,6 @@ Could you please provide pricing and production details?`;
         </div>
       </div>
 
-      {/* Mobile Sticky Quick Order Bar (appears at bottom of viewport above MobileBottomNav) */}
-      <div className="md:hidden fixed bottom-15 left-0 right-0 z-30 bg-[#FAF8F5]/95 backdrop-blur-md border-t border-[#EAE4DC] px-4 py-2.5 shadow-[0_-4px_16px_rgba(0,0,0,0.05)]">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold text-[#1C1A19]">
-              {(unitPrice * quantity).toLocaleString()} EGP
-            </span>
-            <span className="text-[9px] text-[#8F8880]">
-              50%: {(depositDue * quantity).toLocaleString()} EGP
-            </span>
-          </div>
-
-          <button
-            onClick={handleAddToCart}
-            className="flex-1 py-2.5 px-4 rounded-full bg-[#1C1A19] text-white text-[11px] uppercase tracking-wider font-medium text-center flex items-center justify-center gap-1.5"
-          >
-            {addedAnimation ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-[#25D366]" />
-                <span>Added</span>
-              </>
-            ) : (
-              <span>Add to Bag</span>
-            )}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

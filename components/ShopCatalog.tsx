@@ -82,7 +82,7 @@ export default function ShopCatalog() {
           </h1>
           <p className="text-xs sm:text-base text-[#736B63] font-light max-w-2xl leading-relaxed">
             Each fiberglass piece is hand-laminated and hand-glazed in our Cairo atelier. 
-            All objects require a 50% deposit to initiate artisanal casting.
+            All objects require a {settings.depositPercentage}% deposit to initiate artisanal casting.
           </p>
         </div>
 
@@ -132,7 +132,6 @@ export default function ShopCatalog() {
               <option value="all">All Finishes</option>
               <option value="Matte">Matte Glaze</option>
               <option value="Glossy">High-Gloss Marine</option>
-              <option value="Textured Mineral">Textured Mineral</option>
             </select>
 
             {/* Sort Order */}
@@ -257,7 +256,7 @@ export default function ShopCatalog() {
                             {product.price?.toLocaleString()} EGP
                           </span>
                           <span className="text-[8px] sm:text-[10px] text-[#8F8880]">
-                            Deposit: {((product.price || 0) * 0.5).toLocaleString()} EGP
+                            Deposit: {Math.round((product.price || 0) * settings.depositPercentage / 100).toLocaleString()} EGP
                           </span>
                         </div>
                       </div>
