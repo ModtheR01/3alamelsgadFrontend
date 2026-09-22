@@ -62,7 +62,6 @@ export default function ProductDetailView() {
   }
 
   const category = categories.find((c) => c.id === product.categoryId);
-  const isPriceOnDemand = product.pricingMode === 'on_demand';
 
   // Base price + size price delta
   const unitPrice = (product.price || 0) + (selectedSize?.priceDelta || 0);
@@ -83,8 +82,6 @@ Could you please provide pricing and production details?`;
   )}`;
 
   const handleAddToCart = () => {
-    if (isPriceOnDemand) return;
-
     addToCart({
       productId: product.id,
       productName: product.name,
@@ -208,24 +205,13 @@ Could you please provide pricing and production details?`;
                 {product.name}
               </h1>
               <p className="text-xs sm:text-sm text-[#736B63] font-light leading-relaxed pt-1">
-                {product.shortDescription}
+                {product.description}
               </p>
             </div>
 
             {/* Pricing Presentation */}
             <div className="space-y-2">
-              {isPriceOnDemand ? (
-                <div className="space-y-1">
-                  <div className="text-xl sm:text-2xl font-normal text-[#643D26] tracking-wide uppercase">
-                    Price on Demand
-                  </div>
-                  <p className="text-xs text-[#736B63] font-light">
-                    Due to custom sizing and bespoke mineral finishes, pricing for this piece is
-                    quoted individually via our Cairo concierge.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2 sm:space-y-2.5">
+              <div className="space-y-2 sm:space-y-2.5">
                   <div className="flex items-baseline gap-2 sm:gap-3">
                     <span className="text-2xl sm:text-3xl font-normal text-[#1C1A19]">
                       {unitPrice.toLocaleString()} EGP
@@ -245,8 +231,7 @@ Could you please provide pricing and production details?`;
                       Initiates raw casting in our Cairo atelier. The remaining balance ({remainingDue.toLocaleString()} EGP) is due upon delivery inspection.
                     </p>
                   </div>
-                </div>
-              )}
+              </div>
             </div>
 
             {/* Configurable Attribute: Finishes */}
@@ -369,23 +354,7 @@ Could you please provide pricing and production details?`;
 
             {/* Primary Action Button (Desktop & in-page) */}
             <div className="pt-2 sm:pt-4 space-y-3">
-              {isPriceOnDemand ? (
-                <div className="space-y-2">
-                  <a
-                    href={whatsappUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full py-3.5 sm:py-4 rounded-full bg-[#2A2624] hover:bg-[#383330] text-white text-xs uppercase tracking-[0.25em] font-medium transition-all flex items-center justify-center gap-2.5 shadow-md active:scale-95"
-                  >
-                    <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                    <span>Enquire on WhatsApp</span>
-                  </a>
-                  <p className="text-[11px] text-center text-[#736B63]">
-                    Opens WhatsApp with your selected finish and colors prefilled.
-                  </p>
-                </div>
-              ) : (
-                <div className="flex gap-2.5 sm:gap-3">
+              <div className="flex gap-2.5 sm:gap-3">
                   {/* Quantity */}
                   <div className="flex items-center border border-[#D8CEBF] rounded-full bg-white px-2.5 sm:px-3">
                     <button
@@ -420,23 +389,20 @@ Could you please provide pricing and production details?`;
                       <span>Add to Cart · 50% Deposit</span>
                     )}
                   </button>
-                </div>
-              )}
+              </div>
 
               {/* Direct Concierge Inquiry secondary link */}
-              {!isPriceOnDemand && (
-                <div className="text-center pt-1 sm:pt-2">
-                  <a
-                    href={whatsappUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] uppercase tracking-wider text-[#736B63] hover:text-[#643D26] inline-flex items-center gap-1.5 transition-colors"
-                  >
-                    <MessageCircle className="w-3 h-3 text-[#25D366]" />
-                    <span>Have questions? Inquire on WhatsApp</span>
-                  </a>
-                </div>
-              )}
+              <div className="text-center pt-1 sm:pt-2">
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] uppercase tracking-wider text-[#736B63] hover:text-[#643D26] inline-flex items-center gap-1.5 transition-colors"
+                >
+                  <MessageCircle className="w-3 h-3 text-[#25D366]" />
+                  <span>Have questions? Inquire on WhatsApp</span>
+                </a>
+              </div>
             </div>
 
             {/* Detailed Description */}
@@ -445,7 +411,7 @@ Could you please provide pricing and production details?`;
                 The Narrative
               </h3>
               <p className="text-xs sm:text-sm text-[#524B45] font-light leading-relaxed whitespace-pre-line">
-                {product.detailedDescription}
+                {product.description}
               </p>
             </div>
           </div>
@@ -456,45 +422,27 @@ Could you please provide pricing and production details?`;
       <div className="md:hidden fixed bottom-15 left-0 right-0 z-30 bg-[#FAF8F5]/95 backdrop-blur-md border-t border-[#EAE4DC] px-4 py-2.5 shadow-[0_-4px_16px_rgba(0,0,0,0.05)]">
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-col">
-            {isPriceOnDemand ? (
-              <span className="text-xs font-semibold text-[#643D26] uppercase">On Demand</span>
-            ) : (
-              <>
-                <span className="text-xs font-semibold text-[#1C1A19]">
-                  {(unitPrice * quantity).toLocaleString()} EGP
-                </span>
-                <span className="text-[9px] text-[#8F8880]">
-                  50%: {(depositDue * quantity).toLocaleString()} EGP
-                </span>
-              </>
-            )}
+            <span className="text-xs font-semibold text-[#1C1A19]">
+              {(unitPrice * quantity).toLocaleString()} EGP
+            </span>
+            <span className="text-[9px] text-[#8F8880]">
+              50%: {(depositDue * quantity).toLocaleString()} EGP
+            </span>
           </div>
 
-          {isPriceOnDemand ? (
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 py-2.5 px-4 rounded-full bg-[#2A2624] text-white text-[11px] uppercase tracking-wider font-medium text-center flex items-center justify-center gap-1.5"
-            >
-              <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
-              <span>Inquire</span>
-            </a>
-          ) : (
-            <button
-              onClick={handleAddToCart}
-              className="flex-1 py-2.5 px-4 rounded-full bg-[#1C1A19] text-white text-[11px] uppercase tracking-wider font-medium text-center flex items-center justify-center gap-1.5"
-            >
-              {addedAnimation ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-[#25D366]" />
-                  <span>Added</span>
-                </>
-              ) : (
-                <span>Add to Bag</span>
-              )}
-            </button>
-          )}
+          <button
+            onClick={handleAddToCart}
+            className="flex-1 py-2.5 px-4 rounded-full bg-[#1C1A19] text-white text-[11px] uppercase tracking-wider font-medium text-center flex items-center justify-center gap-1.5"
+          >
+            {addedAnimation ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-[#25D366]" />
+                <span>Added</span>
+              </>
+            ) : (
+              <span>Add to Bag</span>
+            )}
+          </button>
         </div>
       </div>
     </div>

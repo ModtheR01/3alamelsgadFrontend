@@ -167,8 +167,6 @@ export function SignaturePiecesSection() {
         {/* Products Grid: 2 columns on mobile, 4 on desktop */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
           {featuredProducts.map((product) => {
-            const isPriceOnDemand = product.pricingMode === 'on_demand';
-
             return (
               <div
                 key={product.id}
@@ -191,12 +189,6 @@ export function SignaturePiecesSection() {
                     {product.deliveryDays ? `${product.deliveryDays} days` : product.leadTime}
                   </div>
 
-                  {/* Pricing Mode Badge */}
-                  {isPriceOnDemand && (
-                    <div className="absolute top-2 right-2 sm:top-3 sm:right-3 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-[#1C1A19] text-white text-[9px] sm:text-[10px] uppercase tracking-wider font-medium">
-                      Bespoke
-                    </div>
-                  )}
                 </div>
 
                 {/* Information */}
@@ -212,27 +204,21 @@ export function SignaturePiecesSection() {
                       {product.name}
                     </h3>
                     <p className="text-[11px] sm:text-xs text-[#736B63] line-clamp-2 mt-1 font-light hidden sm:block">
-                      {product.shortDescription}
+                      {product.description}
                     </p>
                   </div>
 
                   {/* Pricing & Interaction */}
                   <div className="pt-2 sm:pt-3 border-t border-[#EAE4DC] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
-                      {isPriceOnDemand ? (
-                        <span className="text-[11px] sm:text-xs uppercase tracking-wider font-semibold text-[#643D26] block">
-                          On Demand
+                      <div className="flex flex-col">
+                        <span className="text-xs sm:text-sm font-semibold text-[#1C1A19]">
+                          {product.price?.toLocaleString()} EGP
                         </span>
-                      ) : (
-                        <div className="flex flex-col">
-                          <span className="text-xs sm:text-sm font-semibold text-[#1C1A19]">
-                            {product.price?.toLocaleString()} EGP
-                          </span>
-                          <span className="text-[9px] sm:text-[10px] text-[#8F8880]">
-                            Deposit: {((product.price || 0) * 0.5).toLocaleString()} EGP
-                          </span>
-                        </div>
-                      )}
+                        <span className="text-[9px] sm:text-[10px] text-[#8F8880]">
+                          Deposit: {((product.price || 0) * 0.5).toLocaleString()} EGP
+                        </span>
+                      </div>
                     </div>
 
                     <button

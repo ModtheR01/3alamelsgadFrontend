@@ -92,10 +92,8 @@ function mapBackendProduct(product: BackendProduct, subcategories: BackendSubcat
     categoryId,
     subcategoryIds,
     collectionIds: [],
-    shortDescription: product.description,
-    detailedDescription: product.description,
+    description: product.description,
     price: Number(product.price),
-    pricingMode: 'fixed',
     depositPercentage: 50,
     images: imageRecords.map((image) => image.image),
     imageRecords,
@@ -251,8 +249,6 @@ interface StoreContextType {
   saveProduct: (product: Product) => void;
   deleteProduct: (productId: string) => void;
   toggleProductFeatured: (productId: string) => Promise<void>;
-  toggleProductPricingMode: (productId: string) => void;
-
   saveCategory: (category: Category) => void;
   deleteCategory: (categoryId: string) => void;
 
@@ -582,7 +578,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     const payload = {
       name: productToSave.name.trim(),
-      description: (productToSave.detailedDescription || productToSave.shortDescription || '').trim(),
+      description: productToSave.description.trim(),
       dimensions: productToSave.dimensions.trim(),
       price: productToSave.price || 0,
       delivery_days: productToSave.deliveryDays ?? null,
@@ -641,16 +637,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const mapped = mapBackendProduct(saved, subcategories);
     setProducts((prev) => prev.map((item) => (item.id === productId ? mapped : item)));
   }, [products, subcategories]);
-
-  const toggleProductPricingMode = useCallback((productId: string) => {
-    setProducts((prev) =>
-      prev.map((product) =>
-        product.id === productId
-          ? { ...product, pricingMode: product.pricingMode === 'on_demand' ? 'fixed' : 'on_demand' }
-          : product
-      )
-    );
-  }, []);
 
   // Admin CRUD for Categories
   const saveCategory = useCallback(async (categoryToSave: Category) => {
@@ -909,7 +895,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         saveProduct,
         deleteProduct,
         toggleProductFeatured,
-        toggleProductPricingMode,
         saveCategory,
         deleteCategory,
         saveCollection,

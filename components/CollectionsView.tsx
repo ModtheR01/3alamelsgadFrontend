@@ -110,8 +110,6 @@ export default function CollectionsView() {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 lg:gap-8">
                   {collectionProducts.map((product) => {
-                    const isPriceOnDemand = product.pricingMode === 'on_demand';
-
                     return (
                       <div
                         key={product.id}
@@ -137,20 +135,14 @@ export default function CollectionsView() {
                               {product.name}
                             </h4>
                             <p className="hidden sm:block text-xs text-[#736B63] line-clamp-2 mt-1 font-light">
-                              {product.shortDescription}
+                              {product.description}
                             </p>
                           </div>
 
                           <div className="pt-2 sm:pt-3 border-t border-[#EAE4DC] flex items-center justify-between">
-                            {isPriceOnDemand ? (
-                              <span className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-[#643D26]">
-                                On Demand
-                              </span>
-                            ) : (
-                              <span className="text-xs sm:text-sm font-semibold text-[#1C1A19]">
-                                {product.price?.toLocaleString()} EGP
-                              </span>
-                            )}
+                            <span className="text-xs sm:text-sm font-semibold text-[#1C1A19]">
+                              {product.price?.toLocaleString()} EGP
+                            </span>
 
                             <span className="text-[10px] sm:text-xs uppercase tracking-wider text-[#736B63] group-hover:text-[#1C1A19] transition-colors flex items-center gap-1">
                               <span>Details</span>

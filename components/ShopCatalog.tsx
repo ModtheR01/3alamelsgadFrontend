@@ -43,7 +43,7 @@ export default function ShopCatalog() {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesName = product.name.toLowerCase().includes(q);
-        const matchesDesc = product.shortDescription.toLowerCase().includes(q);
+        const matchesDesc = product.description.toLowerCase().includes(q);
         const matchesMaterial = product.material.toLowerCase().includes(q);
         const matchesColor = product.colors.some((c) => c.name.toLowerCase().includes(q));
         if (!matchesName && !matchesDesc && !matchesMaterial && !matchesColor) {
@@ -183,7 +183,6 @@ export default function ShopCatalog() {
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 lg:gap-8 pt-6 sm:pt-10">
             {filteredProducts.map((product) => {
-              const isPriceOnDemand = product.pricingMode === 'on_demand';
               const whatsappUrl = `https://wa.me/${settings.contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
                 `Hello Tocco House, I am interested in inquiring about the "${product.name}".`
               )}`;
@@ -213,11 +212,6 @@ export default function ShopCatalog() {
                       </span>
                     </div>
 
-                    {isPriceOnDemand && (
-                      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-[#1C1A19] text-white text-[8px] sm:text-[10px] uppercase tracking-wider font-medium">
-                        Bespoke
-                      </div>
-                    )}
                   </div>
 
                   {/* Product Info Block */}
@@ -251,51 +245,29 @@ export default function ShopCatalog() {
                       </h3>
 
                       <p className="text-[11px] sm:text-xs text-[#736B63] line-clamp-2 font-light leading-relaxed hidden sm:block">
-                        {product.shortDescription}
+                        {product.description}
                       </p>
                     </div>
 
                     {/* Pricing & CTA */}
                     <div className="pt-2 sm:pt-4 border-t border-[#EAE4DC] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
-                        {isPriceOnDemand ? (
-                          <div className="flex flex-col">
-                            <span className="text-[10px] sm:text-xs uppercase tracking-wider font-semibold text-[#643D26]">
-                              On Demand
-                            </span>
-                            <span className="text-[8px] sm:text-[10px] text-[#8F8880]">Custom Quoted</span>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col">
-                            <span className="text-xs sm:text-base font-semibold text-[#1C1A19]">
-                              {product.price?.toLocaleString()} EGP
-                            </span>
-                            <span className="text-[8px] sm:text-[10px] text-[#8F8880]">
-                              Deposit: {((product.price || 0) * 0.5).toLocaleString()} EGP
-                            </span>
-                          </div>
-                        )}
+                        <div className="flex flex-col">
+                          <span className="text-xs sm:text-base font-semibold text-[#1C1A19]">
+                            {product.price?.toLocaleString()} EGP
+                          </span>
+                          <span className="text-[8px] sm:text-[10px] text-[#8F8880]">
+                            Deposit: {((product.price || 0) * 0.5).toLocaleString()} EGP
+                          </span>
+                        </div>
                       </div>
 
-                      {isPriceOnDemand ? (
-                        <a
-                          href={whatsappUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-full sm:w-auto text-center px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#2A2624] hover:bg-[#383330] text-white text-[9px] sm:text-[11px] uppercase tracking-wider font-medium transition-colors flex items-center justify-center gap-1"
-                        >
-                          <MessageCircle className="w-3 h-3 text-[#25D366]" />
-                          <span>Enquire</span>
-                        </a>
-                      ) : (
-                        <button
-                          onClick={() => navigateTo('product', { productId: product.id })}
-                          className="w-full sm:w-auto text-center px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full border border-[#D8CEBF] text-[9px] sm:text-[11px] uppercase tracking-wider font-medium text-[#1C1A19] hover:bg-[#1C1A19] hover:text-white hover:border-[#1C1A19] transition-all"
-                        >
-                          View Piece
-                        </button>
-                      )}
+                      <button
+                        onClick={() => navigateTo('product', { productId: product.id })}
+                        className="w-full sm:w-auto text-center px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full border border-[#D8CEBF] text-[9px] sm:text-[11px] uppercase tracking-wider font-medium text-[#1C1A19] hover:bg-[#1C1A19] hover:text-white hover:border-[#1C1A19] transition-all"
+                      >
+                        View Piece
+                      </button>
                     </div>
                   </div>
                 </div>

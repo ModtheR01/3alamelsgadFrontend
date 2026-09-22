@@ -13,7 +13,6 @@ import {
   CustomDesignInquiry,
   EventItem,
   ProjectItem,
-  PricingMode,
   OrderStatus,
   PaymentStatus,
   ProductFinish,
@@ -115,7 +114,6 @@ export default function AdminDashboard() {
     saveProduct,
     deleteProduct,
     toggleProductFeatured,
-    toggleProductPricingMode,
     saveCategory,
     deleteCategory,
     saveCollection,
@@ -500,10 +498,8 @@ export default function AdminDashboard() {
       categoryId: categories[0]?.id || 'cat-tables',
       subcategoryIds: [],
       collectionIds: [],
-      shortDescription: '',
-      detailedDescription: '',
+      description: '',
       price: 25000,
-      pricingMode: 'fixed',
       depositPercentage: 50,
       images: [
         'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&w=1200&q=85',
@@ -610,7 +606,7 @@ export default function AdminDashboard() {
               Tocco House Atelier CMS Studio
             </h1>
             <p className="text-xs text-[#736B63]">
-              Manage products, pricing modes, deposit workflows, and content in real-time.
+              Manage products, prices, deposit workflows, and content in real-time.
             </p>
           </div>
 
@@ -660,7 +656,7 @@ export default function AdminDashboard() {
                   Design Catalogue Archive
                 </h3>
                 <p className="text-xs text-[#736B63]">
-                  Configure product details, pricing mode (Fixed vs. Price on Demand), and color swatches.
+                  Configure product details, price, and color swatches.
                 </p>
               </div>
               <button
@@ -679,7 +675,6 @@ export default function AdminDashboard() {
                     <tr>
                       <th className="py-3 px-4">Piece</th>
                       <th className="py-3 px-4">Category</th>
-                      <th className="py-3 px-4">Pricing Mode</th>
                       <th className="py-3 px-4">Price / 50% Deposit</th>
                       <th className="py-3 px-4">Finishes</th>
                       <th className="py-3 px-4">Featured</th>
@@ -689,7 +684,6 @@ export default function AdminDashboard() {
                   <tbody className="divide-y divide-[#EAE4DC]">
                     {products.map((p) => {
                       const cat = categories.find((c) => c.id === p.categoryId);
-                      const isOnDemand = p.pricingMode === 'on_demand';
 
                       return (
                         <tr key={p.id} className="hover:bg-[#FAF8F5] transition-colors">
@@ -714,32 +708,14 @@ export default function AdminDashboard() {
                           <td className="py-3 px-4 text-[#524B45]">{cat?.name || '—'}</td>
 
                           <td className="py-3 px-4">
-                            <button
-                              onClick={() => toggleProductPricingMode(p.id)}
-                              className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${
-                                isOnDemand
-                                  ? 'bg-[#F2EDE4] text-[#643D26] border-[#D8CEBF]'
-                                  : 'bg-[#FAF0E6] text-[#B85D38] border-[#E8D4C5]'
-                              }`}
-                              title="Click to toggle Pricing Mode"
-                            >
-                              {isOnDemand ? 'Price on Demand' : 'Fixed Price'}
-                            </button>
-                          </td>
-
-                          <td className="py-3 px-4">
-                            {isOnDemand ? (
-                              <span className="text-[#8F8880] italic">WhatsApp Quote</span>
-                            ) : (
-                              <div>
-                                <span className="font-semibold text-[#1C1A19]">
-                                  {p.price?.toLocaleString()} EGP
-                                </span>
-                                <span className="text-[10px] text-[#736B63] block">
-                                  Deposit: {((p.price || 0) * 0.5).toLocaleString()} EGP
-                                </span>
-                              </div>
-                            )}
+                            <div>
+                              <span className="font-semibold text-[#1C1A19]">
+                                {p.price?.toLocaleString()} EGP
+                              </span>
+                              <span className="text-[10px] text-[#736B63] block">
+                                Deposit: {((p.price || 0) * 0.5).toLocaleString()} EGP
+                              </span>
+                            </div>
                           </td>
 
                           <td className="py-3 px-4 text-[#736B63]">
@@ -1853,66 +1829,31 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* Pricing Mode & Price */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE4DC]">
-                  <div>
-                    <label className="block text-[#1C1A19] font-medium mb-1">Pricing Mode</label>
-                    <select
-                      value={editingProduct.pricingMode}
-                      onChange={(e) =>
-                        setEditingProduct({
-                          ...editingProduct,
-                          pricingMode: e.target.value as PricingMode,
-                        })
-                      }
-                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
-                    >
-                      <option value="fixed">Fixed Price (with 50% Deposit)</option>
-                      <option value="on_demand">Price on Demand (WhatsApp Inquiry)</option>
-                    </select>
-                  </div>
-
-                  {editingProduct.pricingMode === 'fixed' && (
-                    <div>
-                      <label className="block text-[#1C1A19] font-medium mb-1">Price (EGP)</label>
-                      <input
-                        type="number"
-                        value={editingProduct.price || 0}
-                        onChange={(e) =>
-                          setEditingProduct({
-                            ...editingProduct,
-                            price: Number(e.target.value),
-                          })
-                        }
-                        className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-[#1C1A19] font-medium mb-1">Short Description</label>
+                {/* Price */}
+                <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE4DC]">
+                  <label className="block text-[#1C1A19] font-medium mb-1">Price (EGP)</label>
                   <input
-                    type="text"
-                    value={editingProduct.shortDescription}
+                    type="number"
+                    value={editingProduct.price || 0}
                     onChange={(e) =>
-                      setEditingProduct({ ...editingProduct, shortDescription: e.target.value })
+                      setEditingProduct({
+                        ...editingProduct,
+                        price: Number(e.target.value),
+                      })
                     }
-                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[#1C1A19] font-medium mb-1">
-                    Detailed Editorial Narrative
-                  </label>
+                  <label className="block text-[#1C1A19] font-medium mb-1">Description</label>
                   <textarea
                     rows={3}
-                    value={editingProduct.detailedDescription}
+                    value={editingProduct.description}
                     onChange={(e) =>
                       setEditingProduct({
                         ...editingProduct,
-                        detailedDescription: e.target.value,
+                        description: e.target.value,
                       })
                     }
                     className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
@@ -2090,18 +2031,6 @@ export default function AdminDashboard() {
                       className="rounded border-[#D8CEBF]"
                     />
                     <span>Feature on Homepage</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editingProduct.isPublished}
-                      onChange={(e) =>
-                        setEditingProduct({ ...editingProduct, isPublished: e.target.checked })
-                      }
-                      className="rounded border-[#D8CEBF]"
-                    />
-                    <span>Published in Catalog</span>
                   </label>
                 </div>
               </div>

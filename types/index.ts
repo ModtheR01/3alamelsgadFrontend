@@ -1,7 +1,5 @@
 export type ProductFinish = 'MATTE' | 'GLOSSY';
 
-export type PricingMode = 'fixed' | 'on_demand';
-
 export interface ProductColor {
   id: string;
   name: string;
@@ -30,10 +28,8 @@ export interface Product {
   subcategoryIds: string[];
   collectionIds: string[];
   collectionId?: string;
-  shortDescription: string;
-  detailedDescription: string;
+  description: string;
   price: number; // in EGP
-  pricingMode: PricingMode;
   depositPercentage?: number; // defaults to 50
   images: string[];
   imageRecords?: ProductImageDraft[];
