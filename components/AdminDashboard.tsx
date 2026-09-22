@@ -735,7 +735,7 @@ export default function AdminDashboard() {
         {/* ----------------- TAB 1: PRODUCTS ----------------- */}
         {activeTab === 'products' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
                   Design Catalogue Archive
@@ -746,7 +746,7 @@ export default function AdminDashboard() {
               </div>
               <button
                 onClick={handleNewProduct}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D]"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D] shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add New Piece</span>
@@ -859,7 +859,7 @@ export default function AdminDashboard() {
         {/* ----------------- TAB: BANNERS & HIGHLIGHTS ----------------- */}
         {activeTab === 'banners' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
                   Atelier Highlights & Banners
@@ -871,7 +871,7 @@ export default function AdminDashboard() {
               <button
                 id="admin-add-banner-btn"
                 onClick={handleNewBanner}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D]"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D] shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Create New Banner</span>
@@ -1232,7 +1232,7 @@ export default function AdminDashboard() {
         {/* ----------------- TAB 6: EVENTS ----------------- */}
         {activeTab === 'events' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
                   Exhibitions & Showcases
@@ -1243,7 +1243,7 @@ export default function AdminDashboard() {
               </div>
               <button
                 onClick={handleNewEvent}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Event</span>
@@ -1312,7 +1312,7 @@ export default function AdminDashboard() {
         {/* ----------------- TAB 7: PROJECTS ----------------- */}
         {activeTab === 'projects' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1C1A19]">
                   In Their Space (Architectural Portfolio)
@@ -1323,7 +1323,7 @@ export default function AdminDashboard() {
               </div>
               <button
                 onClick={handleNewProject}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Project</span>

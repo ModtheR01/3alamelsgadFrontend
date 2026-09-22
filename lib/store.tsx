@@ -173,7 +173,7 @@ function mapBackendCartItem(item: BackendCartItem, products: Product[] = []): Ca
     productName: item.product_name,
     productImage: product?.images[0] || '',
     unitPrice: Number(item.product_price),
-    selectedFinish: 'MATTE',
+    selectedFinish: item.selected_finish || product?.finishes[0] || 'MATTE',
     selectedColor: item.color_id
       ? { id: String(item.color_id), name: item.color_name || '', hex: item.color_hex_code || '#000000' }
       : { id: '', name: '', hex: '#000000' },
@@ -455,6 +455,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     await cartService.addItem({
       product_id: productId,
       color_id: Number.isInteger(colorId) ? colorId : null,
+      selected_finish: itemData.selectedFinish || null,
       quantity: itemData.quantity,
     });
     await refreshCart();

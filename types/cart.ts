@@ -19,6 +19,7 @@ export interface BackendCartItem {
   color_id: number | null;
   color_name: string | null;
   color_hex_code: string | null;
+  selected_finish: 'MATTE' | 'GLOSSY' | null;
   quantity: number;
   // Only present on responses from POST/PATCH /cart/items/ and GET /cart/
   original_subtotal?: string;
@@ -30,6 +31,7 @@ export interface BackendCartItem {
 export interface CartItemCreateRequest {
   product_id: number;
   color_id?: number | null;
+  selected_finish?: 'MATTE' | 'GLOSSY' | null;
   quantity: number;
 }
 
