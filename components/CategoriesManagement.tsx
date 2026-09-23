@@ -178,6 +178,7 @@ export default function CategoriesManagement() {
     });
   }, [activeSubcategories, selectedParentFilter]);
 
+  
   const filteredDeletedCategories = useMemo(() => {
     return deletedCategories.filter((cat) => {
       if (!searchQuery.trim()) return true;
