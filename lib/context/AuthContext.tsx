@@ -187,9 +187,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Delete Profile (Soft Delete)
   const deleteAccount = async () => {
     await userService.deleteProfile();
-    setUser(null);
-    setProfile(null);
-    setAddresses([]);
+    try {
+      // Backend soft-delete doesn't clear cookies; logout() clears the now-stale
+      // access/refresh cookies so they can't interfere with a later login attempt.
+      await authService.logout();
+    } finally {
+      setUser(null);
+      setProfile(null);
+      setAddresses([]);
+    }
   };
 
   // Address Actions

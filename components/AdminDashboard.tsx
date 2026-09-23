@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { useToccoStore } from '@/lib/store';
 import { toWhatsAppNumber } from '@/lib/utils';
 import CategoriesManagement from '@/components/CategoriesManagement';
+import UserManagement from '@/components/UserManagement';
 import CloudinaryImageUploader from '@/components/CloudinaryImageUploader';
 import CloudinaryImageField from '@/components/CloudinaryImageField';
 import {
@@ -48,6 +49,7 @@ import {
   Loader2,
   Palette,
   Search,
+  Users,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 import { orderService } from '@/lib/api/services/orderService';
@@ -167,6 +169,7 @@ export default function AdminDashboard() {
     | 'collaborations'
     | 'projects'
     | 'colors'
+    | 'users'
     | 'settings'
   >('products');
 
@@ -696,6 +699,7 @@ export default function AdminDashboard() {
             { key: 'collaborations', label: `Collaborations (${collaborations.length})`, icon: Compass },
             { key: 'projects', label: `In Their Space (${projects.length})`, icon: ImageIcon },
             { key: 'colors', label: `Colors (${colors.length})`, icon: Palette },
+            { key: 'users', label: 'Users & Roles', icon: Users },
             { key: 'settings', label: 'Store & Deposit Settings', icon: Settings },
           ].map((t) => {
             const Icon = t.icon;
@@ -1214,6 +1218,11 @@ export default function AdminDashboard() {
         {/* ----------------- TAB 4: CATEGORIES & SUBCATEGORIES ----------------- */}
         {activeTab === 'categories' && (
           <CategoriesManagement />
+        )}
+
+        {/* ----------------- USERS & ROLES ----------------- */}
+        {activeTab === 'users' && (
+          <UserManagement />
         )}
 
         {/* ----------------- TAB 6: EVENTS ----------------- */}
