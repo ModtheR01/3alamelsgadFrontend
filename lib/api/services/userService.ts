@@ -7,6 +7,7 @@ import {
   UserManagementUser,
   UserRole,
   ChangeUserRoleResponse,
+  ChangeUserStatusResponse,
 } from '@/types/auth';
 
 export const userService = {
@@ -59,5 +60,15 @@ export const userService = {
    */
   async changeUserRole(userId: number, role: UserRole): Promise<ChangeUserRoleResponse> {
     return apiClient.patch<ChangeUserRoleResponse>(`/user/users/${userId}/role/`, { role });
+  },
+
+  /**
+   * Activate/deactivate a user (Admin only)
+   * PATCH /user/users/<user_id>/status/
+   */
+  async changeUserStatus(userId: number, isActive: boolean): Promise<ChangeUserStatusResponse> {
+    return apiClient.patch<ChangeUserStatusResponse>(`/user/users/${userId}/status/`, {
+      is_active: isActive,
+    });
   },
 };

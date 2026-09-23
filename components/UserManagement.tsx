@@ -14,6 +14,7 @@ export default function UserManagement() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [roleChangeLoadingId, setRoleChangeLoadingId] = useState<number | null>(null);
+  const [statusChangeLoadingId, setStatusChangeLoadingId] = useState<number | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState('');
 
   const loadUsers = useCallback(async (search?: string) => {
@@ -53,6 +54,20 @@ export default function UserManagement() {
       alert(`Could not change role: ${normalizeApiError(err).message}`);
     } finally {
       setRoleChangeLoadingId(null);
+    }
+  };
+
+  const handleStatusChange = async (targetUserId: number, nextIsActive: boolean) => {
+    setStatusChangeLoadingId(targetUserId);
+    try {
+      await userService.changeUserStatus(targetUserId, nextIsActive);
+      setUserList((prev) =>
+        prev.map((u) => (u.id === targetUserId ? { ...u, is_active: nextIsActive } : u))
+      );
+    } catch (err) {
+      alert(`Could not update status: ${normalizeApiError(err).message}`);
+    } finally {
+      setStatusChangeLoadingId(null);
     }
   };
 
@@ -127,15 +142,32 @@ export default function UserManagement() {
                     <td className="py-3.5 px-4 font-mono text-[#524B45]">{u.email}</td>
                     <td className="py-3.5 px-4 font-mono text-[#736B63]">{u.phone}</td>
                     <td className="py-3.5 px-4">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
-                          u.is_active
-                            ? 'bg-[#EBF7EE] text-[#155724]'
-                            : 'bg-[#FDF3F2] text-[#9E4A2B]'
-                        }`}
-                      >
-                        {u.is_active ? 'Active' : 'Inactive'}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
+                            u.is_active
+                              ? 'bg-[#EBF7EE] text-[#155724]'
+                              : 'bg-[#FDF3F2] text-[#9E4A2B]'
+                          }`}
+                        >
+                          {u.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        {user?.role === 'ADMIN' && u.id !== user?.id && (
+                          <button
+                            onClick={() => handleStatusChange(u.id, !u.is_active)}
+                            disabled={statusChangeLoadingId === u.id}
+                            className="text-[10px] px-1.5 py-0.5 rounded border border-[#D8CEBF] text-[#736B63] hover:text-[#1C1A19] disabled:opacity-50"
+                          >
+                            {statusChangeLoadingId === u.id ? (
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                            ) : u.is_active ? (
+                              'Deactivate'
+                            ) : (
+                              'Activate'
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3.5 px-4">
                       {user?.role === 'ADMIN' ? (

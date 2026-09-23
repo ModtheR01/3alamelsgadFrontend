@@ -33,6 +33,11 @@ const nextConfig: NextConfig = {
   },
   output: 'standalone',
   transpilePackages: ['motion'],
+  // Django backend endpoints require a trailing slash (APPEND_SLASH). Next.js
+  // normally 308-redirects "/api/x/" -> "/api/x" before app/api/[...path]/route.ts
+  // ever runs, which then bounces straight back off Django's APPEND_SLASH -
+  // an infinite redirect loop the browser reports as "Failed to fetch".
+  skipTrailingSlashRedirect: true,
   webpack: (config, {dev}) => {
     // HMR is disabled in AI Studio via DISABLE_HMR env var.
     // Do not modifyâfile watching is disabled to prevent flickering during agent edits.

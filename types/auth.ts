@@ -119,3 +119,16 @@ export interface ChangeUserRoleResponse {
     role: UserRole;
   };
 }
+
+export interface ChangeUserStatusRequest {
+  is_active: boolean;
+}
+
+export interface ChangeUserStatusResponse {
+  message: string;
+  user: {
+    id: number;
+    email: string;
+    is_active: boolean;
+  };
+}
