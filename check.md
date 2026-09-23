@@ -10,7 +10,7 @@ checked :
 9- cart 
 
 now need to do :
-1- make search endpoints to allow search not filter that seems like a search 
+1- make search endpoints to allow search not filter that seems like a search               done
 2- add banners (probably wont look that good so i wnot do it for now) , in their space sections 
 3- add B2B section                                                                  done
 

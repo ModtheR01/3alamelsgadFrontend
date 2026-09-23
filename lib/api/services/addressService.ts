@@ -1,4 +1,5 @@
 import { apiClient } from '../client';
+import { PaginatedResponse } from '../pagination';
 import {
   Address,
   AddressCreateRequest,
@@ -12,7 +13,10 @@ export const addressService = {
    * GET /user/addresses/
    */
   async getAddresses(): Promise<Address[]> {
-    return apiClient.get<Address[]>('/user/addresses/');
+    const response = await apiClient.get<PaginatedResponse<Address>>('/user/addresses/', {
+      params: { page_size: 100 },
+    });
+    return response.results;
   },
 
   /**

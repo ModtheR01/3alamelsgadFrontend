@@ -1,4 +1,5 @@
 import { apiClient } from '../client';
+import { PaginatedResponse } from '../pagination';
 import {
   BackendEvent,
   EventCreateRequest,
@@ -7,7 +8,10 @@ import {
 
 export const eventService = {
   async getEvents(): Promise<BackendEvent[]> {
-    return apiClient.get<BackendEvent[]>('/events/');
+    const response = await apiClient.get<PaginatedResponse<BackendEvent>>('/events/', {
+      params: { page_size: 100 },
+    });
+    return response.results;
   },
 
   async getEvent(id: number): Promise<BackendEvent> {

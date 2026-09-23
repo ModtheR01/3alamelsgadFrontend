@@ -72,7 +72,7 @@ const EMPTY_SETTINGS: StoreSettings = {
   policies: { shipping: '', returns: '', privacy: '', terms: '', faq: [] },
 };
 
-function mapBackendProduct(product: BackendProduct, subcategories: BackendSubcategory[] = []): Product {
+export function mapBackendProduct(product: BackendProduct, subcategories: BackendSubcategory[] = []): Product {
   const subcategoryIds = product.subcategory_ids.map((id) => String(id));
   const primarySubcategory = subcategories.find((subcategory) => subcategory.id === product.subcategory_ids[0]);
   const categoryId = primarySubcategory?.category_id

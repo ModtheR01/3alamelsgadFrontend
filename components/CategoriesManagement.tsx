@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Image from '@/components/SafeImage';
 import {
   BackendCategory,
@@ -90,14 +90,16 @@ export default function CategoriesManagement() {
     subcategoriesCount?: number;
   } | null>(null);
 
-  // Manual reload function
-  const loadData = useCallback(async () => {
+  // Reload function. Pass the current search text to filter categories/subcategories
+  // server-side via `?search=`; deleted lists are always fetched in full.
+  const loadData = useCallback(async (search: string) => {
     setLoading(true);
     setErrorBanner(null);
     try {
+      const searchParams = search ? { search } : undefined;
       const [cats, subcats, delCats, delSubcats] = await Promise.all([
-        categoryService.getCategories(),
-        subcategoryService.getSubcategories(),
+        categoryService.getCategories(searchParams),
+        subcategoryService.getSubcategories(searchParams),
         categoryService.getDeletedCategories(),
         subcategoryService.getDeletedSubcategories(),
       ]);
@@ -114,35 +116,18 @@ export default function CategoriesManagement() {
     }
   }, []);
 
-  // Initial load on mount
+  // Load immediately on mount, then debounce reloads as the search box changes.
+  const didMount = useRef(false);
   useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        const [cats, subcats, delCats, delSubcats] = await Promise.all([
-          categoryService.getCategories(),
-          subcategoryService.getSubcategories(),
-          categoryService.getDeletedCategories(),
-          subcategoryService.getDeletedSubcategories(),
-        ]);
-        if (!isMounted) return;
-        setActiveCategories(cats);
-        setActiveSubcategories(subcats);
-        setDeletedCategories(delCats);
-        setDeletedSubcategories(delSubcats);
-      } catch (err: any) {
-        if (!isMounted) return;
-        const norm = normalizeApiError(err);
-        setErrorBanner(norm.message);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    const query = searchQuery.trim();
+    if (!didMount.current) {
+      didMount.current = true;
+      loadData(query);
+      return;
+    }
+    const handle = setTimeout(() => loadData(query), 350);
+    return () => clearTimeout(handle);
+  }, [searchQuery, loadData]);
 
   // Flash notifications
   const notifySuccess = (msg: string) => {
@@ -180,30 +165,18 @@ export default function CategoriesManagement() {
     return map;
   }, [activeSubcategories, deletedSubcategories]);
 
-  // Filtered lists
-  const filteredActiveCategories = useMemo(() => {
-    return activeCategories.filter((cat) => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      return cat.name.toLowerCase().includes(q) || (cat.public_id && cat.public_id.toLowerCase().includes(q));
-    });
-  }, [activeCategories, searchQuery]);
+  // Categories/subcategories are already filtered server-side by `?search=`;
+  // the parent-category dropdown is a separate, client-side-only filter.
+  const filteredActiveCategories = activeCategories;
 
   const filteredActiveSubcategories = useMemo(() => {
     return activeSubcategories.filter((sub) => {
       if (selectedParentFilter !== 'all' && sub.category_id !== Number(selectedParentFilter)) {
         return false;
       }
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      const parentName = categoryMap.get(sub.category_id)?.name || '';
-      return (
-        sub.name.toLowerCase().includes(q) ||
-        parentName.toLowerCase().includes(q) ||
-        (sub.public_id && sub.public_id.toLowerCase().includes(q))
-      );
+      return true;
     });
-  }, [activeSubcategories, selectedParentFilter, searchQuery, categoryMap]);
+  }, [activeSubcategories, selectedParentFilter]);
 
   const filteredDeletedCategories = useMemo(() => {
     return deletedCategories.filter((cat) => {
@@ -272,7 +245,7 @@ export default function CategoriesManagement() {
       }
 
       setIsCategoryModalOpen(false);
-      await loadData();
+      await loadData(searchQuery.trim());
     } catch (err: any) {
       const norm = normalizeApiError(err);
       if (norm.fieldErrors && Object.keys(norm.fieldErrors).length > 0) {
@@ -344,7 +317,7 @@ export default function CategoriesManagement() {
       }
 
       setIsSubcategoryModalOpen(false);
-      await loadData();
+      await loadData(searchQuery.trim());
     } catch (err: any) {
       const norm = normalizeApiError(err);
       if (norm.fieldErrors && Object.keys(norm.fieldErrors).length > 0) {
@@ -396,7 +369,7 @@ export default function CategoriesManagement() {
       }
 
       setItemToDelete(null);
-      await loadData();
+      await loadData(searchQuery.trim());
     } catch (err: any) {
       const norm = normalizeApiError(err);
       const isCategoryHardDelete = itemToDelete.type === 'category' && itemToDelete.mode === 'hard';
@@ -417,7 +390,7 @@ export default function CategoriesManagement() {
     try {
       const res = await categoryService.restoreCategory(cat.id);
       notifySuccess(res.detail || `Category "${cat.name}" restored successfully.`);
-      await loadData();
+      await loadData(searchQuery.trim());
     } catch (err: any) {
       const norm = normalizeApiError(err);
       notifyError(norm.message);
@@ -431,7 +404,7 @@ export default function CategoriesManagement() {
     try {
       const res = await subcategoryService.restoreSubcategory(sub.id);
       notifySuccess(res.detail || `Subcategory "${sub.name}" restored successfully.`);
-      await loadData();
+      await loadData(searchQuery.trim());
     } catch (err: any) {
       const norm = normalizeApiError(err);
       notifyError(norm.message);
@@ -457,7 +430,7 @@ export default function CategoriesManagement() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => loadData()}
+            onClick={() => loadData(searchQuery.trim())}
             disabled={loading}
             title="Reload from API"
             className="p-2 rounded-full border border-[#D8CEBF] text-[#524B45] hover:text-[#1C1A19] hover:bg-[#EFEBE3] transition-colors"

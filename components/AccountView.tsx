@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useToccoStore } from '@/lib/store';
 import { toWhatsAppNumber } from '@/lib/utils';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -140,12 +140,12 @@ export default function AccountView() {
   const [userSearchQuery, setUserSearchQuery] = useState('');
 
   // Load user list if tab is 'users' and user has permission
-  const loadUsers = React.useCallback(async () => {
+  const loadUsers = React.useCallback(async (search?: string) => {
     if (user?.role !== 'ADMIN' && user?.role !== 'MODERATOR') return;
     try {
       setUsersLoading(true);
       setUsersError(null);
-      const data = await userService.listUsers();
+      const data = await userService.listUsers(search ? { search } : undefined);
       setUserList(data);
     } catch (err) {
       const normalized = normalizeApiError(err);
@@ -155,22 +155,22 @@ export default function AccountView() {
     }
   }, [user?.role]);
 
+  // Load immediately when the Users tab is opened, then debounce reloads as the search box changes.
+  const didMountUsers = useRef(false);
   useEffect(() => {
-    if (activeTab === 'users' && (user?.role === 'ADMIN' || user?.role === 'MODERATOR')) {
-      let active = true;
-      userService
-        .listUsers()
-        .then((data) => {
-          if (active) setUserList(data);
-        })
-        .catch((err) => {
-          if (active) setUsersError(normalizeApiError(err).message);
-        });
-      return () => {
-        active = false;
-      };
+    if (!(activeTab === 'users' && (user?.role === 'ADMIN' || user?.role === 'MODERATOR'))) {
+      didMountUsers.current = false;
+      return;
     }
-  }, [activeTab, user?.role]);
+    const query = userSearchQuery.trim();
+    if (!didMountUsers.current) {
+      didMountUsers.current = true;
+      loadUsers(query);
+      return;
+    }
+    const handle = setTimeout(() => loadUsers(query), 350);
+    return () => clearTimeout(handle);
+  }, [activeTab, user?.role, userSearchQuery, loadUsers]);
 
   // Handle Login Submit
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -415,16 +415,8 @@ export default function AccountView() {
     );
   };
 
-  const filteredUsers = userList.filter((u) => {
-    const q = userSearchQuery.toLowerCase();
-    return (
-      u.first_name.toLowerCase().includes(q) ||
-      u.last_name.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      u.phone.includes(q) ||
-      u.role.toLowerCase().includes(q)
-    );
-  });
+  // userList is already filtered server-side by `?search=` when userSearchQuery is set.
+  const filteredUsers = userList;
 
   return (
     <div id="account-portal-page" className="pt-20 sm:pt-28 pb-20 sm:pb-24 bg-[#FAF8F5] min-h-screen">
@@ -1206,7 +1198,7 @@ export default function AccountView() {
                       className="text-xs px-3 py-1.5 rounded-lg border border-[#D8CEBF] bg-white focus:outline-none"
                     />
                     <button
-                      onClick={loadUsers}
+                      onClick={() => loadUsers(userSearchQuery.trim())}
                       className="p-2 rounded-lg border border-[#D8CEBF] bg-white text-[#736B63] hover:text-[#1C1A19]"
                       title="Refresh User Directory"
                     >

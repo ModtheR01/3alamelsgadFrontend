@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useToccoStore } from '@/lib/store';
 import { toWhatsAppNumber } from '@/lib/utils';
 import CategoriesManagement from '@/components/CategoriesManagement';
@@ -203,12 +203,6 @@ export default function AdminDashboard() {
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState<string | null>(null);
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
 
-  const filteredBackendOrders = React.useMemo(() => {
-    const q = orderSearchQuery.trim().toLowerCase();
-    if (!q) return backendOrders;
-    return backendOrders.filter((ord) => ord.order_number.toLowerCase().includes(q));
-  }, [backendOrders, orderSearchQuery]);
-
   const [offers, setOffers] = useState<BackendOffer[]>([]);
   const [collaborations, setCollaborations] = useState<BackendCollaboration[]>([]);
   const [colors, setColors] = useState<BackendColor[]>([]);
@@ -320,11 +314,11 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  const fetchBackendOrders = React.useCallback(async () => {
+  const fetchBackendOrders = React.useCallback(async (search?: string) => {
     setIsOrdersLoading(true);
     setOrdersError(null);
     try {
-      const data = await orderService.getAllOrders();
+      const data = await orderService.getAllOrders(search ? { search } : undefined);
       setBackendOrders(data);
     } catch (err) {
       const normalized = normalizeApiError(err);
@@ -334,20 +328,18 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  // Load immediately on mount, then debounce reloads as the search box changes.
+  const didMountOrders = useRef(false);
   React.useEffect(() => {
-    let active = true;
-    orderService
-      .getAllOrders()
-      .then((data) => {
-        if (active) setBackendOrders(data);
-      })
-      .catch((err) => {
-        if (active) setOrdersError(normalizeApiError(err).message);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+    const query = orderSearchQuery.trim();
+    if (!didMountOrders.current) {
+      didMountOrders.current = true;
+      fetchBackendOrders(query);
+      return;
+    }
+    const handle = setTimeout(() => fetchBackendOrders(query), 350);
+    return () => clearTimeout(handle);
+  }, [orderSearchQuery, fetchBackendOrders]);
 
   const handleUpdateOrderStatus = async (orderId: number, newStatus: BackendOrderStatus) => {
     setUpdatingOrderId(orderId);
@@ -994,7 +986,7 @@ export default function AdminDashboard() {
               </div>
 
               <button
-                onClick={fetchBackendOrders}
+                onClick={() => fetchBackendOrders(orderSearchQuery.trim())}
                 disabled={isOrdersLoading}
                 className="self-start sm:self-auto px-3.5 py-1.5 rounded-full border border-[#D8CEBF] text-xs text-[#524B45] hover:text-[#1C1A19] hover:border-[#1C1A19] flex items-center gap-1.5 transition-colors disabled:opacity-50"
               >
@@ -1007,7 +999,7 @@ export default function AdminDashboard() {
               <Search className="w-3.5 h-3.5 text-[#8F8880] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search by order reference (e.g. 37994724-6d53-4469-80fa-709caba5a727)"
+                placeholder="Search by order number, customer name, email, phone, or status"
                 value={orderSearchQuery}
                 onChange={(e) => setOrderSearchQuery(e.target.value)}
                 className="w-full pl-8 pr-8 py-2 rounded-lg border border-[#D8CEBF] bg-white text-xs font-mono text-[#1C1A19] placeholder:font-sans placeholder:text-[#8F8880] focus:outline-none focus:border-[#1C1A19]"
@@ -1036,7 +1028,7 @@ export default function AdminDashboard() {
                   <span>{ordersError}</span>
                 </div>
                 <button
-                  onClick={fetchBackendOrders}
+                  onClick={() => fetchBackendOrders(orderSearchQuery.trim())}
                   className="px-3 py-1 bg-red-100 hover:bg-red-200 rounded text-red-800 font-semibold"
                 >
                   Retry
@@ -1047,22 +1039,24 @@ export default function AdminDashboard() {
             {isOrdersLoading ? (
               <SkeletonListRows count={4} />
             ) : backendOrders.length === 0 ? (
-              <div className="p-12 text-center bg-white rounded-2xl border border-[#EAE4DC] text-xs text-[#736B63]">
-                No customer orders placed yet.
-              </div>
-            ) : filteredBackendOrders.length === 0 ? (
               <div className="p-12 text-center bg-white rounded-2xl border border-[#EAE4DC] text-xs text-[#736B63] space-y-2">
-                <p>No orders match reference &ldquo;{orderSearchQuery}&rdquo;.</p>
-                <button
-                  onClick={() => setOrderSearchQuery('')}
-                  className="text-[#643D26] underline underline-offset-2"
-                >
-                  Clear search
-                </button>
+                {orderSearchQuery.trim() ? (
+                  <>
+                    <p>No orders match &ldquo;{orderSearchQuery}&rdquo;.</p>
+                    <button
+                      onClick={() => setOrderSearchQuery('')}
+                      className="text-[#643D26] underline underline-offset-2"
+                    >
+                      Clear search
+                    </button>
+                  </>
+                ) : (
+                  <p>No customer orders placed yet.</p>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredBackendOrders.map((ord) => {
+                {backendOrders.map((ord) => {
                   const deposit = Number(ord.deposit_amount);
                   const isUpdating = updatingOrderId === ord.id;
                   const clientWhatsAppNumber = toWhatsAppNumber(ord.user?.phone);

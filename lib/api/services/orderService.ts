@@ -1,4 +1,5 @@
 import { apiClient } from '../client';
+import { PaginatedResponse, SearchParams } from '../pagination';
 import {
   BackendOrder,
   CreateOrderRequest,
@@ -16,16 +17,23 @@ export const orderService = {
    * Endpoint: GET /api/orders/my-orders/
    */
   async getMyOrders(): Promise<BackendOrder[]> {
-    return apiClient.get<BackendOrder[]>('/orders/my-orders/');
+    const response = await apiClient.get<PaginatedResponse<BackendOrder>>('/orders/my-orders/', {
+      params: { page_size: 100 },
+    });
+    return response.results;
   },
 
   /**
-   * Retrieves all orders across the store.
+   * Retrieves all orders across the store, optionally filtered with `?search=`
+   * (matches order number, customer email/phone/name, or status).
    * Admin and Moderator access only.
    * Endpoint: GET /api/orders/
    */
-  async getAllOrders(): Promise<BackendOrder[]> {
-    return apiClient.get<BackendOrder[]>('/orders/');
+  async getAllOrders(params: SearchParams = {}): Promise<BackendOrder[]> {
+    const response = await apiClient.get<PaginatedResponse<BackendOrder>>('/orders/', {
+      params: { page_size: 100, ...params },
+    });
+    return response.results;
   },
 
   /**

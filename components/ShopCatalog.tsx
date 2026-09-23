@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useToccoStore } from '@/lib/store';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useToccoStore, mapBackendProduct } from '@/lib/store';
 import { toWhatsAppNumber } from '@/lib/utils';
+import { productService } from '@/lib/api/services/productService';
 import { Product } from '@/types';
 import Image from '@/components/SafeImage';
 import { Search, Filter, SlidersHorizontal, ArrowRight, MessageCircle } from 'lucide-react';
@@ -11,6 +12,7 @@ export default function ShopCatalog() {
   const {
     products,
     categories,
+    subcategories,
     selectedCategoryId,
     navigateTo,
     searchQuery,
@@ -24,9 +26,45 @@ export default function ShopCatalog() {
   const [activeFinishFilter, setActiveFinishFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'featured' | 'newest' | 'price-asc' | 'price-desc'>('featured');
 
+  // Server-side search results (name/description/material), debounced
+  const [searchResults, setSearchResults] = useState<Product[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) {
+      // filteredProducts falls back to the full `products` list when the query
+      // is empty, so any stale searchResults/isSearching values are simply unused.
+      return;
+    }
+
+    let active = true;
+    const handle = setTimeout(() => {
+      setIsSearching(true);
+      productService
+        .getProducts({ search: query })
+        .then((backendProducts) => {
+          if (!active) return;
+          setSearchResults(backendProducts.map((p) => mapBackendProduct(p, subcategories)));
+        })
+        .catch(() => {
+          if (active) setSearchResults([]);
+        })
+        .finally(() => {
+          if (active) setIsSearching(false);
+        });
+    }, 350);
+
+    return () => {
+      active = false;
+      clearTimeout(handle);
+    };
+  }, [searchQuery, subcategories]);
+
   // Filter and sort products
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
+    const baseList = searchQuery.trim() ? searchResults || [] : products;
+    return baseList.filter((product) => {
       // Must be published
       if (!product.isPublished) return false;
 
@@ -38,18 +76,6 @@ export default function ShopCatalog() {
       // Finish filter
       if (activeFinishFilter !== 'all' && !product.finishes.includes(activeFinishFilter as any)) {
         return false;
-      }
-
-      // Search query filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesName = product.name.toLowerCase().includes(q);
-        const matchesDesc = product.description.toLowerCase().includes(q);
-        const matchesMaterial = product.material.toLowerCase().includes(q);
-        const matchesColor = product.colors.some((c) => c.name.toLowerCase().includes(q));
-        if (!matchesName && !matchesDesc && !matchesMaterial && !matchesColor) {
-          return false;
-        }
       }
 
       return true;
@@ -66,7 +92,7 @@ export default function ShopCatalog() {
       // 'featured'
       return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
     });
-  }, [products, activeCategoryFilter, activeFinishFilter, searchQuery, sortBy]);
+  }, [products, searchResults, activeCategoryFilter, activeFinishFilter, searchQuery, sortBy]);
 
   const visibleCategories = categories.filter((c) => c.isVisible);
 
@@ -174,7 +200,11 @@ export default function ShopCatalog() {
         {/* Active search banner if query present */}
         {searchQuery && (
           <div className="mt-3 sm:mt-4 p-2.5 sm:p-3 rounded-lg bg-[#F2EDE4] flex items-center justify-between text-xs text-[#524B45]">
-            <span>Matching &ldquo;{searchQuery}&rdquo; ({filteredProducts.length} pieces)</span>
+            <span>
+              {isSearching
+                ? 'Searching...'
+                : `Matching \u201C${searchQuery}\u201D (${filteredProducts.length} pieces)`}
+            </span>
             <button
               onClick={() => setSearchQuery('')}
               className="font-medium text-[#B85D38] hover:underline"

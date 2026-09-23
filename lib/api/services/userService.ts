@@ -1,4 +1,5 @@
 import { apiClient } from '../client';
+import { PaginatedResponse, SearchParams } from '../pagination';
 import {
   ProfileResponse,
   ProfileUpdateRequest,
@@ -41,11 +42,15 @@ export const userService = {
   },
 
   /**
-   * List all registered users (Admin only)
+   * List all registered users, optionally filtered with `?search=`
+   * (matches email, phone, first/last name). Admin only.
    * GET /user/users/
    */
-  async listUsers(): Promise<UserManagementUser[]> {
-    return apiClient.get<UserManagementUser[]>('/user/users/');
+  async listUsers(params: SearchParams = {}): Promise<UserManagementUser[]> {
+    const response = await apiClient.get<PaginatedResponse<UserManagementUser>>('/user/users/', {
+      params: { page_size: 100, ...params },
+    });
+    return response.results;
   },
 
   /**

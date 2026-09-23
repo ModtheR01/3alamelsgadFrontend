@@ -1,4 +1,5 @@
 import { apiClient } from '../client';
+import { PaginatedResponse, SearchParams } from '../pagination';
 import {
   BackendProduct,
   ProductCreateRequest,
@@ -7,11 +8,14 @@ import {
 
 export const productService = {
   /**
-   * Get all active products
+   * Get all active products, optionally filtered with `?search=`
    * GET /api/products/
    */
-  async getProducts(): Promise<BackendProduct[]> {
-    return apiClient.get<BackendProduct[]>('/products/');
+  async getProducts(params: SearchParams = {}): Promise<BackendProduct[]> {
+    const response = await apiClient.get<PaginatedResponse<BackendProduct>>('/products/', {
+      params: { page_size: 100, ...params },
+    });
+    return response.results;
   },
 
   /**
@@ -74,6 +78,9 @@ export const productService = {
    * GET /api/products/deleted/
    */
   async getDeletedProducts(): Promise<BackendProduct[]> {
-    return apiClient.get<BackendProduct[]>('/products/deleted/');
+    const response = await apiClient.get<PaginatedResponse<BackendProduct>>('/products/deleted/', {
+      params: { page_size: 100 },
+    });
+    return response.results;
   },
 };

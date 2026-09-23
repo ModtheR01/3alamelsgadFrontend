@@ -1,4 +1,5 @@
 import { apiClient } from '../client';
+import { PaginatedResponse, SearchParams } from '../pagination';
 import {
   BackendCategory,
   BackendSubcategory,
@@ -10,11 +11,14 @@ import {
 
 export const categoryService = {
   /**
-   * Get all active categories
+   * Get all active categories, optionally filtered with `?search=`
    * GET /categories/
    */
-  async getCategories(): Promise<BackendCategory[]> {
-    return apiClient.get<BackendCategory[]>('/categories/');
+  async getCategories(params: SearchParams = {}): Promise<BackendCategory[]> {
+    const response = await apiClient.get<PaginatedResponse<BackendCategory>>('/categories/', {
+      params: { page_size: 100, ...params },
+    });
+    return response.results;
   },
 
   /**
@@ -78,17 +82,24 @@ export const categoryService = {
    * GET /categories/deleted/
    */
   async getDeletedCategories(): Promise<BackendCategory[]> {
-    return apiClient.get<BackendCategory[]>('/categories/deleted/');
+    const response = await apiClient.get<PaginatedResponse<BackendCategory>>('/categories/deleted/', {
+      params: { page_size: 100 },
+    });
+    return response.results;
   },
 };
 
 export const subcategoryService = {
   /**
-   * Get all active subcategories
+   * Get all active subcategories, optionally filtered with `?search=`
+   * (matches subcategory name or parent category name)
    * GET /subcategories/
    */
-  async getSubcategories(): Promise<BackendSubcategory[]> {
-    return apiClient.get<BackendSubcategory[]>('/subcategories/');
+  async getSubcategories(params: SearchParams = {}): Promise<BackendSubcategory[]> {
+    const response = await apiClient.get<PaginatedResponse<BackendSubcategory>>('/subcategories/', {
+      params: { page_size: 100, ...params },
+    });
+    return response.results;
   },
 
   /**
@@ -151,6 +162,9 @@ export const subcategoryService = {
    * GET /subcategories/deleted/
    */
   async getDeletedSubcategories(): Promise<BackendSubcategory[]> {
-    return apiClient.get<BackendSubcategory[]>('/subcategories/deleted/');
+    const response = await apiClient.get<PaginatedResponse<BackendSubcategory>>('/subcategories/deleted/', {
+      params: { page_size: 100 },
+    });
+    return response.results;
   },
 };

@@ -1,4 +1,5 @@
 import { apiClient } from '../client';
+import { PaginatedResponse } from '../pagination';
 import {
   BackendCollaboration,
   CollaborationCreateRequest,
@@ -6,7 +7,10 @@ import {
 
 export const collaborationService = {
   async getCollaborations(): Promise<BackendCollaboration[]> {
-    return apiClient.get<BackendCollaboration[]>('/collaborations/');
+    const response = await apiClient.get<PaginatedResponse<BackendCollaboration>>('/collaborations/', {
+      params: { page_size: 100 },
+    });
+    return response.results;
   },
 
   async getCollaboration(id: number): Promise<BackendCollaboration> {
