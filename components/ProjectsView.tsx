@@ -81,14 +81,25 @@ export default function ProjectsView() {
                     Sculptural Objects Featured:
                   </span>
                   <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                    {(project.featuredPieces || project.productsUsed || []).map((piece, pIdx) => (
-                      <span
-                        key={pIdx}
-                        className="px-2.5 sm:px-3 py-1 rounded-full bg-[#EFEBE3] text-[11px] sm:text-xs text-[#524B45] border border-[#E0D8CB]"
-                      >
-                        {piece}
-                      </span>
-                    ))}
+                    {(project.featuredPieces || project.productsUsed || []).map((piece, pIdx) =>
+                      project.productId ? (
+                        <button
+                          key={pIdx}
+                          type="button"
+                          onClick={() => navigateTo('product', { productId: project.productId })}
+                          className="px-2.5 sm:px-3 py-1 rounded-full bg-[#EFEBE3] text-[11px] sm:text-xs text-[#524B45] border border-[#E0D8CB] hover:bg-[#E0D8CB] transition-colors"
+                        >
+                          {piece}
+                        </button>
+                      ) : (
+                        <span
+                          key={pIdx}
+                          className="px-2.5 sm:px-3 py-1 rounded-full bg-[#EFEBE3] text-[11px] sm:text-xs text-[#524B45] border border-[#E0D8CB]"
+                        >
+                          {piece}
+                        </span>
+                      )
+                    )}
                   </div>
                 </div>
 
