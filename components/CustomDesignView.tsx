@@ -1,21 +1,13 @@
 'use client';
 
 import React from 'react';
-import { useToccoStore } from '@/lib/store';
-import { toWhatsAppNumber } from '@/lib/utils';
+import CustomDesignRequestForm from '@/components/CustomDesignRequestForm';
 import {
-  MessageCircle,
   Hammer,
   ShieldCheck,
 } from 'lucide-react';
 
 export default function CustomDesignView() {
-  const { settings } = useToccoStore();
-
-  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
-    'Hello Tocco House, I am planning a custom fiberglass piece and would like to consult with your atelier.'
-  )}`;
-
   return (
     <div id="custom-design-page" className="pt-20 sm:pt-28 pb-20 sm:pb-24 bg-[#FAF8F5] min-h-screen">
       <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
@@ -84,46 +76,8 @@ export default function CustomDesignView() {
 
         {/* Custom Inquiry Section: Direct WhatsApp Consultation */}
         <div className="py-8 sm:py-16 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-          {/* Left: What to Share on WhatsApp (7 cols) */}
-          <div className="lg:col-span-7 bg-white p-4 sm:p-10 rounded-xl sm:rounded-2xl border border-[#EAE4DC] shadow-sm space-y-5 sm:space-y-6">
-            <div className="space-y-1">
-              <h3 className="text-lg sm:text-xl font-normal text-[#1C1A19]">
-                Start a Custom Commission on WhatsApp
-              </h3>
-              <p className="text-xs text-[#736B63]">
-                Message our atelier directly and share the details below so we can prepare a
-                tailored proposal.
-              </p>
-            </div>
-
-            <ul className="space-y-2.5 sm:space-y-3 text-xs sm:text-sm text-[#524B45]">
-              <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#B85D38] mt-1.5 shrink-0" />
-                <span>Project space (private residence, Sahel villa, hospitality, or commercial office)</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#B85D38] mt-1.5 shrink-0" />
-                <span>Object type (table, chair/lounger, sculptural piece, planter, character/pop art, etc.)</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#B85D38] mt-1.5 shrink-0" />
-                <span>Approximate dimensions and preferred finish (matte or high-gloss)</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#B85D38] mt-1.5 shrink-0" />
-                <span>Color / RAL tint preference, plus any reference photos or sketches</span>
-              </li>
-            </ul>
-
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-3.5 sm:py-4 rounded-full bg-[#1C1A19] text-white text-[11px] sm:text-xs uppercase tracking-[0.22em] sm:tracking-[0.25em] font-medium hover:bg-[#332F2D] transition-all flex items-center justify-center gap-2"
-            >
-              <MessageCircle className="w-4 h-4 text-[#25D366]" />
-              <span>Chat with Design Concierge</span>
-            </a>
+          <div className="lg:col-span-7">
+            <CustomDesignRequestForm requestType="CLIENT" />
           </div>
 
           {/* Right: Quality Commitments (5 cols) */}

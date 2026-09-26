@@ -50,12 +50,14 @@ import {
   Palette,
   Search,
   Users,
+  FileText,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 import { orderService } from '@/lib/api/services/orderService';
 import { offerService } from '@/lib/api/services/offerService';
 import { collaborationService } from '@/lib/api/services/collaborationService';
 import { colorService } from '@/lib/api/services/colorService';
+import CustomDesignRequestsManagement from '@/components/CustomDesignRequestsManagement';
 import { BackendOrder, BackendOrderStatus } from '@/types/order';
 import { BackendOffer, OfferCreateRequest, OfferProductRequest, OfferType } from '@/types/offer';
 import { BackendCollaboration, CollaborationCreateRequest } from '@/types/collaboration';
@@ -167,6 +169,7 @@ export default function AdminDashboard() {
     | 'events'
     | 'offers'
     | 'collaborations'
+    | 'custom-requests'
     | 'projects'
     | 'colors'
     | 'users'
@@ -697,6 +700,7 @@ export default function AdminDashboard() {
             { key: 'events', label: `Events (${events.length})`, icon: Calendar },
             { key: 'offers', label: `Offers (${offers.length})`, icon: Tag },
             { key: 'collaborations', label: `Collaborations (${collaborations.length})`, icon: Compass },
+            { key: 'custom-requests', label: 'Custom Requests', icon: FileText },
             { key: 'projects', label: `In Their Space (${projects.length})`, icon: ImageIcon },
             { key: 'colors', label: `Colors (${colors.length})`, icon: Palette },
             { key: 'users', label: 'Users & Roles', icon: Users },
@@ -720,6 +724,8 @@ export default function AdminDashboard() {
             );
           })}
         </div>
+
+        {activeTab === 'custom-requests' && <CustomDesignRequestsManagement />}
 
         {/* ----------------- TAB 1: PRODUCTS ----------------- */}
         {activeTab === 'products' && (
