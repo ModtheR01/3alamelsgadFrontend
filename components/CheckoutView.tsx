@@ -267,35 +267,48 @@ export default function CheckoutView() {
                 1. Customer Details
               </h3>
 
-              {/* Read-only: the order API takes contact details from the signed-in account, not this form */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
-                    Full Name
-                  </label>
-                  <div className="w-full text-xs px-3.5 py-3 rounded-lg bg-[#F5F2EB] border border-[#E8E1D5] text-[#1C1A19]">
-                    {authUser ? `${authUser.first_name} ${authUser.last_name}`.trim() : 'Sign in to load your details'}
-                  </div>
-                </div>
+              {authUser ? (
+                <>
+                  {/* Read-only: the order API takes contact details from the signed-in account */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
+                        Full Name
+                      </label>
+                      <div className="w-full text-xs px-3.5 py-3 rounded-lg bg-[#F5F2EB] border border-[#E8E1D5] text-[#1C1A19]">
+                        {`${authUser.first_name} ${authUser.last_name}`.trim()}
+                      </div>
+                    </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
-                    Mobile Phone (WhatsApp Active)
-                  </label>
-                  <div className="w-full text-xs px-3.5 py-3 rounded-lg bg-[#F5F2EB] border border-[#E8E1D5] text-[#1C1A19]">
-                    {authUser?.phone || (isAuthLoading ? 'Checking account...' : 'Sign in to load your phone')}
+                    <div className="space-y-1.5">
+                      <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
+                        Mobile Phone (WhatsApp Active)
+                      </label>
+                      <div className="w-full text-xs px-3.5 py-3 rounded-lg bg-[#F5F2EB] border border-[#E8E1D5] text-[#1C1A19]">
+                        {authUser.phone || 'Not provided'}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
-                  Email Address (For Order Receipts & Updates)
-                </label>
-                <div className="w-full text-xs px-3.5 py-3 rounded-lg bg-[#F5F2EB] border border-[#E8E1D5] text-[#1C1A19]">
-                  {authUser?.email || (isAuthLoading ? 'Checking account...' : 'Sign in to load your email')}
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] sm:text-xs uppercase tracking-wider font-medium text-[#1C1A19]">
+                      Email Address (For Order Receipts & Updates)
+                    </label>
+                    <div className="w-full text-xs px-3.5 py-3 rounded-lg bg-[#F5F2EB] border border-[#E8E1D5] text-[#1C1A19]">
+                      {authUser.email}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-start gap-3 rounded-lg border border-[#EAE4DC] bg-white p-4">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#643D26]" />
+                  <p className="text-xs leading-relaxed text-[#736B63]">
+                    {isAuthLoading
+                      ? 'Checking your account details...'
+                      : 'Customer details are locked until you sign in. Your name, phone, and email will load from your account.'}
+                  </p>
                 </div>
-              </div>
+              )}
 
               {authUser && (
                 <p className="text-[11px] text-[#736B63]">
