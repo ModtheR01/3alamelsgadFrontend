@@ -802,26 +802,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Settings
   const updateSettings = useCallback(async (newSettings: Partial<StoreSettings>) => {
-    // The backend stores payment_wallets as a single JSON blob and replaces it wholesale on PATCH,
-    // so every save must resend all already-populated wallet keys or the omitted ones get wiped out.
-    // Blank values are rejected by the backend ("cannot be empty"), so unset keys are left out entirely.
-    let paymentWallets: Record<string, string> | undefined;
+    // PATCH merges by key: untouched wallet keys are left as-is server-side, so only send
+    // keys that actually changed; a key cleared to '' is sent as `null` to delete it.
+    let paymentWallets: Record<string, string | null> | undefined;
     if (newSettings.paymentMethods) {
-      const merged: Record<string, string> = {
-        mobile_wallet:
-          newSettings.paymentMethods.mobileWallet?.number ??
-          settings.paymentMethods.mobileWallet.number,
-        vodafone_cash:
-          newSettings.paymentMethods.vodafoneCash?.number ??
-          settings.paymentMethods.vodafoneCash.number,
-        instapay:
-          newSettings.paymentMethods.instapay?.address ??
-          settings.paymentMethods.instapay.address,
-      };
-      const nonEmpty = Object.fromEntries(
-        Object.entries(merged).filter(([, value]) => value.trim() !== '')
-      );
-      paymentWallets = Object.keys(nonEmpty).length > 0 ? nonEmpty : undefined;
+      const candidates: Array<[string, string | undefined, string]> = [
+        ['mobile_wallet', newSettings.paymentMethods.mobileWallet?.number, settings.paymentMethods.mobileWallet.number],
+        ['vodafone_cash', newSettings.paymentMethods.vodafoneCash?.number, settings.paymentMethods.vodafoneCash.number],
+        ['instapay', newSettings.paymentMethods.instapay?.address, settings.paymentMethods.instapay.address],
+      ];
+      const changed: Record<string, string | null> = {};
+      for (const [key, next, current] of candidates) {
+        if (next === undefined || next === current) continue;
+        changed[key] = next.trim() === '' ? null : next.trim();
+      }
+      paymentWallets = Object.keys(changed).length > 0 ? changed : undefined;
     }
 
     const dashboardPatch = {
@@ -840,15 +835,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...prev.paymentMethods,
         mobileWallet: {
           ...prev.paymentMethods.mobileWallet,
-          number: saved.payment_wallets.mobile_wallet ?? prev.paymentMethods.mobileWallet.number,
+          number: saved.payment_wallets.mobile_wallet || '',
         },
         vodafoneCash: {
           ...prev.paymentMethods.vodafoneCash,
-          number: saved.payment_wallets.vodafone_cash ?? prev.paymentMethods.vodafoneCash.number,
+          number: saved.payment_wallets.vodafone_cash || '',
         },
         instapay: {
           ...prev.paymentMethods.instapay,
-          address: saved.payment_wallets.instapay ?? prev.paymentMethods.instapay.address,
+          address: saved.payment_wallets.instapay || '',
         },
       },
     }));

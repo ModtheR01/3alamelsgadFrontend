@@ -7,5 +7,6 @@ export interface DashboardSettings {
 
 export interface DashboardSettingsPatch {
   deposit_percentage?: string | number;
-  payment_wallets?: Record<string, string>;
+  // A key set to `null` deletes that wallet server-side; omitted keys are left untouched.
+  payment_wallets?: Record<string, string | null>;
 }
