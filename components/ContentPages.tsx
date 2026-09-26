@@ -121,10 +121,6 @@ export function FaqView() {
 
   const faqs = [
     {
-      q: 'Is fiberglass furniture truly safe for outdoor summer sun in Sahel?',
-      a: 'Yes, completely. Tocco House utilizes marine-grade isophthalic resins and UV-stabilized gelcoats identical to those used in luxury yacht hulls. They withstand intense North Coast heat, pool chlorine, and saltwater sea spray without cracking or peeling.',
-    },
-    {
       q: `Why is a ${settings.depositPercentage}% handcrafted deposit required to place an order?`,
       a: `Tocco House operates as an artisanal design house rather than a warehouse retailer. Every order initiates custom mould preparation, fiberglass lamination, and artisan hand-sanding in our Cairo workshop. The ${settings.depositPercentage}% deposit commissions these dedicated materials and hours of craftsmanship.`,
     },
