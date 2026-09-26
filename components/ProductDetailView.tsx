@@ -52,6 +52,7 @@ export default function ProductDetailView() {
   const [isCustomColorSelected, setIsCustomColorSelected] = useState(false);
   const [isCreatingCustomColor, setIsCreatingCustomColor] = useState(false);
   const [customColorDraft, setCustomColorDraft] = useState('#A1B2C3');
+  const [hasChosenCustomColor, setHasChosenCustomColor] = useState(false);
   const [customColorError, setCustomColorError] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(
     product?.sizes?.[0]
@@ -367,7 +368,7 @@ Could you please provide pricing and production details?`;
                 </div>
                 {isColorMenuOpen && (
                   <div className="space-y-3 rounded-xl border border-[#EAE4DC] bg-white p-4">
-                    <p className="text-[11px] text-[#736B63]">Not your favorite color? Choose one.</p>
+                    <p className="text-[11px] text-[#736B63]">Explore more color options</p>
                     {isSharedColorsLoading ? (
                       <div className="flex justify-center py-2" aria-label="Loading shared colors">
                         <Loader2 className="h-4 w-4 animate-spin text-[#643D26]" />
@@ -380,7 +381,7 @@ Could you please provide pricing and production details?`;
                             type="button"
                             onClick={() => selectSharedColor(color)}
                             className={`grid h-9 w-9 place-items-center rounded-full border-2 transition-transform hover:scale-110 ${
-                              selectedColor.id === String(color.id) ? 'border-[#643D26]' : 'border-transparent'
+                              selectedColor.id === String(color.id) ? 'border-[#643D26]' : 'border-[#D8CEBF]'
                             }`}
                             style={{ backgroundColor: color.hex_code }}
                             title={color.hex_code}
@@ -390,7 +391,7 @@ Could you please provide pricing and production details?`;
                       </div>
                     )}
                     <div className="flex flex-col gap-2.5 border-t border-[#EAE4DC] pt-3 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-[11px] text-[#736B63]">Still not what you want?</span>
+                      <span className="text-[11px] text-[#736B63]">Looking for something more specific?</span>
                       <div className="flex flex-wrap items-center gap-2">
                         <label className="relative inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#D8CEBF] bg-white px-3 py-2 text-[10px] uppercase tracking-wider text-[#1C1A19] hover:bg-[#FAF8F5]">
                           <span className="h-3.5 w-3.5 rounded-full border border-black/15" style={{ backgroundColor: customColorDraft }} />
@@ -401,14 +402,17 @@ Could you please provide pricing and production details?`;
                             aria-label="Pick a custom color"
                             disabled={isCreatingCustomColor}
                             className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                            onChange={(event) => setCustomColorDraft(event.target.value.toUpperCase())}
+                            onChange={(event) => {
+                              setCustomColorDraft(event.target.value.toUpperCase());
+                              setHasChosenCustomColor(true);
+                            }}
                           />
                         </label>
                         <button
                           type="button"
                           onClick={() => void createCustomColor(customColorDraft)}
-                          disabled={isCreatingCustomColor}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-[#1C1A19] px-3 py-2 text-[10px] uppercase tracking-wider text-white hover:bg-[#332F2D] disabled:opacity-60"
+                          disabled={!hasChosenCustomColor || isCreatingCustomColor}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-[#1C1A19] px-3 py-2 text-[10px] uppercase tracking-wider text-white hover:bg-[#332F2D] disabled:cursor-not-allowed disabled:opacity-45"
                         >
                           {isCreatingCustomColor ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                           <span>{isCreatingCustomColor ? 'Adding...' : 'Add one'}</span>

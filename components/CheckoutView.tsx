@@ -37,7 +37,7 @@ export default function CheckoutView() {
     user: legacyUser,
   } = useToccoStore();
 
-  const { user: authUser, addresses: authAddresses, createAddress } = useAuth();
+  const { user: authUser, addresses: authAddresses, createAddress, isLoading: isAuthLoading } = useAuth();
 
   const mobileWalletNumber =
     settings.paymentMethods.mobileWallet.number || settings.paymentMethods.vodafoneCash.number;
@@ -146,6 +146,7 @@ export default function CheckoutView() {
             await cartService.addItem({
               product_id: numProdId,
               selected_color_id: numColorId && Number.isInteger(numColorId) ? numColorId : null,
+              selected_finish: item.selectedFinish,
               quantity: item.quantity,
             });
           }
@@ -160,7 +161,33 @@ export default function CheckoutView() {
         customer_notes: orderNote.trim(),
       });
 
-      setLastCreatedOrder(createdOrder);
+      const remainingCartItems = [...cart];
+      const orderWithFinishes = {
+        ...createdOrder,
+        items: createdOrder.items.map((orderItem) => {
+          const orderColorHex = orderItem.color_hex_code?.toUpperCase();
+          const matchesCartItem = (
+            cartItem: typeof cart[number],
+            requireQuantityMatch: boolean,
+            requireColorMatch: boolean
+          ) => {
+            const parsedProductId = Number(cartItem.productId);
+            const cartProductId = Number.isInteger(parsedProductId)
+              ? parsedProductId
+              : Number(cartItem.productId.replace(/\D/g, '')) || 1;
+            return cartProductId === orderItem.product_id
+              && (!requireQuantityMatch || cartItem.quantity === orderItem.quantity)
+              && (!requireColorMatch || !orderColorHex || cartItem.selectedColor.hex.toUpperCase() === orderColorHex);
+          };
+          let cartItemIndex = remainingCartItems.findIndex((item) => matchesCartItem(item, true, true));
+          if (cartItemIndex < 0) cartItemIndex = remainingCartItems.findIndex((item) => matchesCartItem(item, true, false));
+          if (cartItemIndex < 0) cartItemIndex = remainingCartItems.findIndex((item) => matchesCartItem(item, false, false));
+          const [cartItem] = cartItemIndex >= 0 ? remainingCartItems.splice(cartItemIndex, 1) : [];
+          return { ...orderItem, selected_finish: cartItem?.selectedFinish ?? null };
+        }),
+      };
+
+      setLastCreatedOrder(orderWithFinishes);
       clearCart();
       navigateTo('confirmation');
     } catch (err: any) {
@@ -198,6 +225,39 @@ export default function CheckoutView() {
           </p>
         </div>
 
+        {!isAuthLoading && !authUser && (
+          <div className="mt-5 flex flex-col gap-4 rounded-xl border border-[#D8CEBF] bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="flex items-start gap-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#F5F2EB] text-[#643D26]">
+                <AlertCircle className="h-4 w-4" />
+              </div>
+              <div className="space-y-1">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-[#1C1A19]">
+                  Sign in to continue checkout
+                </h2>
+                <p className="max-w-2xl text-xs leading-relaxed text-[#736B63]">
+                  Your delivery details and order information are linked to your account. Sign in or create an account to unlock checkout and place your order.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigateTo('account')}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#1C1A19] px-5 py-2.5 text-xs font-medium uppercase tracking-wider text-white hover:bg-[#332F2D]"
+            >
+              Sign In / Create Account
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        {isAuthLoading && (
+          <div className="mt-5 flex items-center gap-2 rounded-xl border border-[#EAE4DC] bg-white p-4 text-xs text-[#736B63]">
+            <Loader2 className="h-4 w-4 animate-spin text-[#643D26]" />
+            Checking your account...
+          </div>
+        )}
+
         <form onSubmit={handlePlaceOrder} className="py-6 sm:py-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
           {/* Left: Customer & Address Information (7 cols) */}
           <div className="lg:col-span-7 space-y-6 sm:space-y-10">
@@ -214,7 +274,7 @@ export default function CheckoutView() {
                     Full Name
                   </label>
                   <div className="w-full text-xs px-3.5 py-3 rounded-lg bg-[#F5F2EB] border border-[#E8E1D5] text-[#1C1A19]">
-                    {authUser ? `${authUser.first_name} ${authUser.last_name}`.trim() : '—'}
+                    {authUser ? `${authUser.first_name} ${authUser.last_name}`.trim() : 'Sign in to load your details'}
                   </div>
                 </div>
 
@@ -223,7 +283,7 @@ export default function CheckoutView() {
                     Mobile Phone (WhatsApp Active)
                   </label>
                   <div className="w-full text-xs px-3.5 py-3 rounded-lg bg-[#F5F2EB] border border-[#E8E1D5] text-[#1C1A19]">
-                    {authUser?.phone || '—'}
+                    {authUser?.phone || (isAuthLoading ? 'Checking account...' : 'Sign in to load your phone')}
                   </div>
                 </div>
               </div>
@@ -233,7 +293,7 @@ export default function CheckoutView() {
                   Email Address (For Order Receipts & Updates)
                 </label>
                 <div className="w-full text-xs px-3.5 py-3 rounded-lg bg-[#F5F2EB] border border-[#E8E1D5] text-[#1C1A19]">
-                  {authUser?.email || '—'}
+                  {authUser?.email || (isAuthLoading ? 'Checking account...' : 'Sign in to load your email')}
                 </div>
               </div>
 
@@ -259,19 +319,11 @@ export default function CheckoutView() {
               </h3>
 
               {!authUser ? (
-                <div className="p-5 rounded-xl bg-white border border-[#D8CEBF] text-center space-y-3">
-                  <MapPin className="w-6 h-6 text-[#643D26] mx-auto" />
-                  <h4 className="text-xs uppercase font-semibold text-[#1C1A19]">Atelier Client Account Required</h4>
-                  <p className="text-xs text-[#736B63] max-w-md mx-auto">
-                    To maintain provenance, delivery certificates, and bespoke production records, please sign in or register your account before placing your commission.
+                <div className="flex items-start gap-3 rounded-lg border border-[#EAE4DC] bg-white p-4">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#643D26]" />
+                  <p className="text-xs leading-relaxed text-[#736B63]">
+                    Delivery details are locked until you sign in. Use the account button above to continue.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => navigateTo('account')}
-                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D]"
-                  >
-                    Sign In / Register
-                  </button>
                 </div>
               ) : (
                 <>
@@ -644,24 +696,36 @@ export default function CheckoutView() {
               )}
 
               {/* Place Order CTA */}
-              <button
-                id="place-order-submit-btn"
-                type="submit"
-                disabled={isSubmitting || !authUser}
-                className="w-full py-3.5 sm:py-4 rounded-full bg-[#1C1A19] text-white text-[11px] sm:text-xs uppercase tracking-[0.22em] sm:tracking-[0.25em] font-medium hover:bg-[#332F2D] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Transmitting Commission...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Confirm Order & Proceed to Deposit</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
+              {authUser ? (
+                <button
+                  id="place-order-submit-btn"
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 sm:py-4 rounded-full bg-[#1C1A19] text-white text-[11px] sm:text-xs uppercase tracking-[0.22em] sm:tracking-[0.25em] font-medium hover:bg-[#332F2D] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Transmitting Commission...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Confirm Order & Proceed to Deposit</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigateTo('account')}
+                  disabled={isAuthLoading}
+                  className="w-full py-3.5 sm:py-4 rounded-full bg-[#1C1A19] text-white text-[11px] sm:text-xs uppercase tracking-[0.22em] sm:tracking-[0.25em] font-medium hover:bg-[#332F2D] transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isAuthLoading ? 'Checking Account...' : 'Sign In / Create Account to Continue'}
+                  {!isAuthLoading && <ArrowRight className="w-4 h-4" />}
+                </button>
+              )}
             </div>
           </div>
         </form>

@@ -63,7 +63,7 @@ export default function OrderConfirmationView() {
         productName: it.product_name,
         productImage:
           'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=800&q=80',
-        selectedFinish: 'Artisanal Gelcoat',
+        selectedFinish: it.selected_finish || 'Not specified',
         selectedColor: it.color_name
           ? { id: it.color_name, name: it.color_name, hex: it.color_hex_code || '#EBE3D5' }
           : undefined,

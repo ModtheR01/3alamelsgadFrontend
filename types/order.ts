@@ -21,6 +21,7 @@ export interface BackendOrderItem {
   product_price: string;
   color_name: string | null;
   color_hex_code: string | null;
+  selected_finish?: 'MATTE' | 'GLOSSY' | null;
   quantity: number;
   subtotal: string;
 }
