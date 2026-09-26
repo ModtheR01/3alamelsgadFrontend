@@ -40,8 +40,17 @@ import {
 import { MessageCircle } from 'lucide-react';
 
 function ToccoApp() {
-  const { activeView, navigateTo, settings } = useToccoStore();
+  const { activeView, navigateTo, settings, syncGuestCart } = useToccoStore();
   const { user, isLoading } = useAuth();
+
+  // Push any locally-held guest cart items into the real backend cart once a user signs in.
+  const wasAuthenticated = React.useRef(false);
+  useEffect(() => {
+    if (user && !wasAuthenticated.current) {
+      syncGuestCart();
+    }
+    wasAuthenticated.current = Boolean(user);
+  }, [user, syncGuestCart]);
 
   const canAccessAdmin = user?.role === 'ADMIN' || user?.role === 'MODERATOR';
 

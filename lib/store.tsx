@@ -20,6 +20,15 @@ import { productImageService } from '@/lib/api/services/productImageService';
 import { categoryService, subcategoryService } from '@/lib/api/services/categoryService';
 import { cartService } from '@/lib/api/services/cartService';
 import { orderService } from '@/lib/api/services/orderService';
+import { ApiError } from '@/lib/api/errors';
+import {
+  getGuestCart,
+  addGuestCartItem,
+  removeGuestCartItem,
+  updateGuestCartItemQuantity,
+  clearGuestCart,
+  isGuestCartItemId,
+} from '@/lib/guestCart';
 import { BackendProduct, BackendProductImage } from '@/types/product';
 import { BackendCategory, BackendSubcategory } from '@/types/category';
 import { BackendCartItem } from '@/types/cart';
@@ -243,6 +252,7 @@ interface StoreContextType {
   removeFromCart: (cartItemId: string) => void;
   updateCartQuantity: (cartItemId: string, quantity: number) => void;
   clearCart: () => void;
+  syncGuestCart: () => Promise<void>;
   cartSubtotal: number;
   cartDepositAmount: number;
   cartRemainingAmount: number;
@@ -309,6 +319,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [collaborations, setCollaborations] = useState<BackendCollaboration[]>([]);
   const [settings, setSettings] = useState<StoreSettings>(EMPTY_SETTINGS);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isGuestCart, setIsGuestCart] = useState(false);
   const [cartPricing, setCartPricing] = useState({
     originalTotal: 0,
     discountTotal: 0,
@@ -342,6 +353,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .getCart()
           .then((backendCart) => {
             if (!active) return;
+            setIsGuestCart(false);
             setCart(backendCart.items.map((item) => mapBackendCartItem(item, mappedProducts)));
             setCartPricing({
               originalTotal: Number(backendCart.original_total),
@@ -351,7 +363,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             });
           })
           .catch(() => {
-            if (active) setCart([]);
+            // Not authenticated (or request failed) - fall back to the locally persisted guest cart.
+            if (active) {
+              setIsGuestCart(true);
+              setCart(getGuestCart());
+            }
           });
       })
       .catch(() => {
@@ -436,6 +452,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Cart logic
   const refreshCart = useCallback(async () => {
     const backendCart = await cartService.getCart();
+    setIsGuestCart(false);
     setCart(backendCart.items.map((item) => mapBackendCartItem(item, products)));
     setCartPricing({
       originalTotal: Number(backendCart.original_total),
@@ -452,22 +469,42 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       throw new Error('This product is not connected to a backend product record.');
     }
 
-    await cartService.addItem({
-      product_id: productId,
-      color_id: Number.isInteger(colorId) ? colorId : null,
-      selected_finish: itemData.selectedFinish || null,
-      quantity: itemData.quantity,
-    });
-    await refreshCart();
+    try {
+      await cartService.addItem({
+        product_id: productId,
+        color_id: Number.isInteger(colorId) ? colorId : null,
+        selected_finish: itemData.selectedFinish || null,
+        quantity: itemData.quantity,
+      });
+      await refreshCart();
+    } catch (err) {
+      // Not signed in: keep the item in a local guest cart instead of losing it.
+      // It gets pushed to the real backend cart once the user signs in (syncGuestCart).
+      if (err instanceof ApiError && err.status === 401) {
+        setIsGuestCart(true);
+        setCart(addGuestCartItem(itemData));
+      } else {
+        throw err;
+      }
+    }
+
     setIsCartDrawerOpen(true);
   }, [refreshCart]);
 
   const removeFromCart = useCallback(async (cartItemId: string) => {
+    if (isGuestCartItemId(cartItemId)) {
+      setCart(removeGuestCartItem(cartItemId));
+      return;
+    }
     await cartService.removeItem(Number(cartItemId));
     await refreshCart();
   }, [refreshCart]);
 
   const updateCartQuantity = useCallback(async (cartItemId: string, quantity: number) => {
+    if (isGuestCartItemId(cartItemId)) {
+      setCart(updateGuestCartItemQuantity(cartItemId, quantity));
+      return;
+    }
     if (quantity <= 0) {
       await cartService.removeItem(Number(cartItemId));
     } else {
@@ -477,15 +514,52 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [refreshCart]);
 
   const clearCart = useCallback(async () => {
+    clearGuestCart();
+    if (isGuestCart) {
+      setCart([]);
+      setCartPricing({ originalTotal: 0, discountTotal: 0, total: 0, freeShipping: false });
+      return;
+    }
     await cartService.clearCart();
     setCart([]);
     setCartPricing({ originalTotal: 0, discountTotal: 0, total: 0, freeShipping: false });
-  }, []);
+  }, [isGuestCart]);
+
+  // Guest cart items never reached the backend, so push them one-by-one once the
+  // visitor signs in, then discard the local copy and hydrate from the real cart.
+  const syncGuestCart = useCallback(async () => {
+    const guestItems = getGuestCart();
+    if (guestItems.length === 0) return;
+
+    for (const item of guestItems) {
+      const productId = Number(item.productId);
+      if (!Number.isInteger(productId)) continue;
+      const colorId = item.selectedColor.id ? Number(item.selectedColor.id) : null;
+      try {
+        await cartService.addItem({
+          product_id: productId,
+          color_id: Number.isInteger(colorId) ? colorId : null,
+          selected_finish: item.selectedFinish || null,
+          quantity: item.quantity,
+        });
+      } catch {
+        // Skip items that fail to sync (e.g. product no longer available) and continue with the rest.
+      }
+    }
+
+    clearGuestCart();
+    setIsGuestCart(false);
+    await refreshCart();
+  }, [refreshCart]);
 
   // Cart calculations
-  // Prefer the backend's offer-aware total (accounts for active discounts); fall back
-  // to a naive client-side sum only if the cart hasn't synced with the backend yet.
-  const cartSubtotal = cart.length > 0 ? cartPricing.total : 0;
+  // Prefer the backend's offer-aware total (accounts for active discounts); the guest
+  // cart has no backend pricing yet, so sum items locally until it's synced.
+  const cartSubtotal = cart.length === 0
+    ? 0
+    : isGuestCart
+      ? cart.reduce((sum, item) => sum + (item.subtotal ?? item.unitPrice * item.quantity), 0)
+      : cartPricing.total;
   const depositRatio = settings.depositPercentage / 100;
   const cartDepositAmount = Math.round(cartSubtotal * depositRatio);
   const cartRemainingAmount = cartSubtotal - cartDepositAmount;
@@ -873,6 +947,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         removeFromCart,
         updateCartQuantity,
         clearCart,
+        syncGuestCart,
         cartSubtotal,
         cartDepositAmount,
         cartRemainingAmount,

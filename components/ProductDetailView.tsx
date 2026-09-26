@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo } from 'react';
 import { useToccoStore } from '@/lib/store';
-import { useAuth } from '@/lib/context/AuthContext';
 import { normalizeApiError } from '@/lib/api/errors';
 import { toWhatsAppNumber } from '@/lib/utils';
 import { ProductFinish, ProductColor, ProductSize } from '@/types';
@@ -31,7 +30,6 @@ export default function ProductDetailView() {
     categories,
     settings,
   } = useToccoStore();
-  const { isAuthenticated } = useAuth();
 
   const product = useMemo(() => {
     return selectedProductId ? getProductById(selectedProductId) : null;
@@ -89,12 +87,6 @@ Could you please provide pricing and production details?`;
 
   const handleAddToCart = async () => {
     setCartError(null);
-
-    if (!isAuthenticated) {
-      setCartError('Please sign in to add pieces to your Design Bag.');
-      return;
-    }
-
     setIsAddingToCart(true);
     try {
       await addToCart({
@@ -397,23 +389,14 @@ Could you please provide pricing and production details?`;
                   </button>
               </div>
 
-              {/* Add to Cart Error / Sign-in Prompt */}
+              {/* Add to Cart Error */}
               {cartError && (
                 <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5">
                   <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                  <div className="flex-1 space-y-1.5">
-                    <p className="font-medium text-red-800">{cartError}</p>
-                    {!isAuthenticated && (
-                      <button
-                        onClick={() => navigateTo('account')}
-                        className="text-[11px] font-semibold uppercase tracking-wider text-[#643D26] hover:text-[#1C1A19] underline underline-offset-2"
-                      >
-                        Sign In / Create Account
-                      </button>
-                    )}
-                  </div>
+                  <p className="font-medium text-red-800">{cartError}</p>
                 </div>
               )}
+
 
               {/* Direct Concierge Inquiry secondary link */}
               <div className="text-center pt-1 sm:pt-2">
