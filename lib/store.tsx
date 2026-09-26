@@ -472,7 +472,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       await cartService.addItem({
         product_id: productId,
-        color_id: Number.isInteger(colorId) ? colorId : null,
+        selected_color_id: Number.isInteger(colorId) ? colorId : null,
         selected_finish: itemData.selectedFinish || null,
         quantity: itemData.quantity,
       });
@@ -538,7 +538,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       try {
         await cartService.addItem({
           product_id: productId,
-          color_id: Number.isInteger(colorId) ? colorId : null,
+          selected_color_id: Number.isInteger(colorId) ? colorId : null,
           selected_finish: item.selectedFinish || null,
           quantity: item.quantity,
         });

@@ -3,8 +3,10 @@
 import React, { useState, useMemo } from 'react';
 import { useToccoStore } from '@/lib/store';
 import { normalizeApiError } from '@/lib/api/errors';
+import { colorService } from '@/lib/api/services/colorService';
 import { toWhatsAppNumber } from '@/lib/utils';
 import { ProductFinish, ProductColor, ProductSize } from '@/types';
+import { BackendColor } from '@/types/product';
 import Image from '@/components/SafeImage';
 import {
   ArrowLeft,
@@ -19,6 +21,7 @@ import {
   Clock,
   AlertCircle,
   Loader2,
+  Plus,
 } from 'lucide-react';
 
 export default function ProductDetailView() {
@@ -43,6 +46,13 @@ export default function ProductDetailView() {
   const [selectedColor, setSelectedColor] = useState<ProductColor>(
     product?.colors[0] || { id: 'c-default', name: 'Default', hex: '#643D26' }
   );
+  const [sharedColors, setSharedColors] = useState<BackendColor[]>([]);
+  const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
+  const [isSharedColorsLoading, setIsSharedColorsLoading] = useState(false);
+  const [isCustomColorSelected, setIsCustomColorSelected] = useState(false);
+  const [isCreatingCustomColor, setIsCreatingCustomColor] = useState(false);
+  const [customColorDraft, setCustomColorDraft] = useState('#A1B2C3');
+  const [customColorError, setCustomColorError] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(
     product?.sizes?.[0]
   );
@@ -67,6 +77,46 @@ export default function ProductDetailView() {
   }
 
   const category = categories.find((c) => c.id === product.categoryId);
+
+  const toggleColorMenu = async () => {
+    if (isColorMenuOpen) {
+      setIsColorMenuOpen(false);
+      return;
+    }
+    setIsColorMenuOpen(true);
+    setCustomColorError(null);
+    setIsSharedColorsLoading(true);
+    try {
+      setSharedColors(await colorService.getColors());
+    } catch (err) {
+      setCustomColorError(normalizeApiError(err).message);
+    } finally {
+      setIsSharedColorsLoading(false);
+    }
+  };
+
+  const selectSharedColor = (color: BackendColor) => {
+    setSelectedColor({ id: String(color.id), name: color.name, hex: color.hex_code });
+    setIsCustomColorSelected(true);
+    setIsColorMenuOpen(false);
+    setCustomColorError(null);
+  };
+
+  const createCustomColor = async (hexCode: string) => {
+    setIsCreatingCustomColor(true);
+    setCustomColorError(null);
+    try {
+      const color = await colorService.createCustomColor(hexCode.toUpperCase());
+      setSharedColors((current) =>
+        current.some((item) => item.id === color.id) ? current : [color, ...current]
+      );
+      selectSharedColor(color);
+    } catch (err) {
+      setCustomColorError(normalizeApiError(err).message);
+    } finally {
+      setIsCreatingCustomColor(false);
+    }
+  };
 
   // Base price + size price delta
   const unitPrice = (product.price || 0) + (selectedSize?.priceDelta || 0);
@@ -267,7 +317,7 @@ Could you please provide pricing and production details?`;
             )}
 
             {/* Configurable Attribute: Color Swatches */}
-            {product.colors.length > 0 && (
+            {(product.colors.length > 0 || product.allowsCustomization) && (
               <div className="space-y-2.5 sm:space-y-3">
                 <label className="block text-xs uppercase tracking-[0.2em] font-semibold text-[#1C1A19]">
                   Color: <span className="text-[#643D26] font-normal">{selectedColor.name}</span>
@@ -278,7 +328,10 @@ Could you please provide pricing and production details?`;
                     return (
                       <button
                         key={color.id}
-                        onClick={() => setSelectedColor(color)}
+                        onClick={() => {
+                          setSelectedColor(color);
+                          setIsCustomColorSelected(false);
+                        }}
                         className={`group relative p-1 rounded-full border-2 transition-all touch-manipulation ${
                           isChosen ? 'border-[#643D26] scale-110' : 'border-transparent hover:scale-105'
                         }`}
@@ -292,7 +345,81 @@ Could you please provide pricing and production details?`;
                       </button>
                     );
                   })}
+                  <button
+                    type="button"
+                    onClick={() => void toggleColorMenu()}
+                    className={`group relative grid h-10 w-10 place-items-center rounded-full border-2 transition-all touch-manipulation ${
+                      isCustomColorSelected ? 'border-[#643D26] scale-110' : 'border-[#D8CEBF] hover:border-[#643D26]'
+                    }`}
+                    title="Choose a custom color"
+                    aria-label="Choose a custom color"
+                    aria-expanded={isColorMenuOpen}
+                  >
+                    {isCustomColorSelected ? (
+                      <span
+                        className="h-7 w-7 rounded-full border border-black/15"
+                        style={{ backgroundColor: selectedColor.hex }}
+                      />
+                    ) : (
+                      <Plus className="h-4 w-4 text-[#643D26]" />
+                    )}
+                  </button>
                 </div>
+                {isColorMenuOpen && (
+                  <div className="space-y-3 rounded-xl border border-[#EAE4DC] bg-white p-4">
+                    <p className="text-[11px] text-[#736B63]">Not your favorite color? Choose one.</p>
+                    {isSharedColorsLoading ? (
+                      <div className="flex justify-center py-2" aria-label="Loading shared colors">
+                        <Loader2 className="h-4 w-4 animate-spin text-[#643D26]" />
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-2.5">
+                        {sharedColors.map((color) => (
+                          <button
+                            key={color.id}
+                            type="button"
+                            onClick={() => selectSharedColor(color)}
+                            className={`grid h-9 w-9 place-items-center rounded-full border-2 transition-transform hover:scale-110 ${
+                              selectedColor.id === String(color.id) ? 'border-[#643D26]' : 'border-transparent'
+                            }`}
+                            style={{ backgroundColor: color.hex_code }}
+                            title={color.hex_code}
+                            aria-label={`Select ${color.hex_code}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-2.5 border-t border-[#EAE4DC] pt-3 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="text-[11px] text-[#736B63]">Still not what you want?</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="relative inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#D8CEBF] bg-white px-3 py-2 text-[10px] uppercase tracking-wider text-[#1C1A19] hover:bg-[#FAF8F5]">
+                          <span className="h-3.5 w-3.5 rounded-full border border-black/15" style={{ backgroundColor: customColorDraft }} />
+                          <span>Choose color</span>
+                          <input
+                            type="color"
+                            value={customColorDraft}
+                            aria-label="Pick a custom color"
+                            disabled={isCreatingCustomColor}
+                            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                            onChange={(event) => setCustomColorDraft(event.target.value.toUpperCase())}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => void createCustomColor(customColorDraft)}
+                          disabled={isCreatingCustomColor}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-[#1C1A19] px-3 py-2 text-[10px] uppercase tracking-wider text-white hover:bg-[#332F2D] disabled:opacity-60"
+                        >
+                          {isCreatingCustomColor ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                          <span>{isCreatingCustomColor ? 'Adding...' : 'Add one'}</span>
+                        </button>
+                      </div>
+                    </div>
+                    {customColorError && (
+                      <p role="alert" className="text-[11px] text-[#A33B2B]">{customColorError}</p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

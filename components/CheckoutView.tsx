@@ -141,11 +141,11 @@ export default function CheckoutView() {
           for (const item of cart) {
             const numProdId = parseInt(item.productId.replace(/\D/g, '')) || 1;
             const numColorId = item.selectedColor?.id
-              ? parseInt(String(item.selectedColor.id).replace(/\D/g, '')) || 1
-              : 1;
+              ? Number(item.selectedColor.id)
+              : null;
             await cartService.addItem({
               product_id: numProdId,
-              color_id: numColorId,
+              selected_color_id: numColorId && Number.isInteger(numColorId) ? numColorId : null,
               quantity: item.quantity,
             });
           }

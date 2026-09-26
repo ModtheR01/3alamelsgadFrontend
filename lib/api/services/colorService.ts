@@ -35,6 +35,14 @@ export const colorService = {
   },
 
   /**
+   * Create or retrieve a shared customer color
+   * POST /api/products/colors/custom/
+   */
+  async createCustomColor(hex_code: string): Promise<BackendColor> {
+    return apiClient.post<BackendColor>('/products/colors/custom/', { hex_code });
+  },
+
+  /**
    * Update a color
    * PUT /api/products/colors/<id>/ or PATCH /api/products/colors/<id>/
    */

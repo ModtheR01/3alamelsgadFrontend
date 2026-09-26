@@ -30,7 +30,7 @@ export interface BackendCartItem {
 
 export interface CartItemCreateRequest {
   product_id: number;
-  color_id?: number | null;
+  selected_color_id?: number | null;
   selected_finish?: 'MATTE' | 'GLOSSY' | null;
   quantity: number;
 }
