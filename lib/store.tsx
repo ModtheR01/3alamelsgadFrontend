@@ -162,7 +162,7 @@ function mapBackendSpaceProject(project: BackendSpaceProject): ProjectItem {
     title: project.customer_name || 'In Their Space',
     subtitle: project.product_name || 'Tocco House Installation',
     description: project.caption || '',
-    location: '',
+    location: project.location || '',
     coverImage: project.image,
     gallery: [],
     productsUsed: project.product_name ? [project.product_name] : [],
@@ -758,6 +758,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const payload: SpaceProjectRequest = {
       customer_name: projectToSave.customerName || projectToSave.title,
       caption: projectToSave.description,
+      location: projectToSave.location || '',
       image: projectToSave.coverImage,
       public_id: projectToSave.publicId || '',
       product_id: projectToSave.productId ? Number(projectToSave.productId) : null,

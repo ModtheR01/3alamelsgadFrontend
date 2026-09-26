@@ -2276,6 +2276,15 @@ export default function AdminDashboard() {
                     className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
                   />
                 </div>
+                <div>
+                  <label className="block text-[#1C1A19] mb-1">Location <span className="font-normal text-[#8F8880]">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={editingProject.location}
+                    onChange={(e) => setEditingProject({ ...editingProject, location: e.target.value })}
+                    className="w-full p-2.5 rounded-lg border border-[#D8CEBF]"
+                  />
+                </div>
                 <CloudinaryImageField
                   label="Project Image"
                   required

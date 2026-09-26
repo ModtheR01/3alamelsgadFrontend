@@ -2,6 +2,7 @@ export interface BackendSpaceProject {
   id: number;
   customer_name: string;
   caption: string;
+  location: string;
   image: string;
   public_id: string;
   product_id: number | null;
@@ -13,6 +14,7 @@ export interface BackendSpaceProject {
 export interface SpaceProjectRequest {
   customer_name?: string;
   caption?: string;
+  location?: string;
   image: string;
   public_id: string;
   product_id?: number | null;
