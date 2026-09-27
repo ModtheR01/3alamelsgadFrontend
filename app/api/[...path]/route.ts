@@ -11,7 +11,12 @@ import { NextRequest, NextResponse } from 'next/server';
 // Host correctly from the destination URL. This catch-all only matches
 // paths not already handled by a more specific route file (e.g.
 // /api/cloudinary/upload, /api/cloudinary/sign).
-const API_PROXY_TARGET = process.env.API_PROXY_TARGET;
+// Strip a trailing slash and/or an accidentally-included "/api" suffix so
+// this still works whether the env var is set to the bare backend origin
+// (correct) or the origin already ending in "/api" (a common misconfiguration
+// that previously caused every proxied request to 404 with a doubled
+// "/api/api/..." path).
+const API_PROXY_TARGET = process.env.API_PROXY_TARGET?.replace(/\/+$/, '').replace(/\/api$/, '');
 
 async function proxy(request: NextRequest) {
   if (!API_PROXY_TARGET) {
