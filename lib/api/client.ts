@@ -23,6 +23,7 @@ class ApiClient {
     return cookie ? decodeURIComponent(cookie.slice('csrftoken='.length)) : null;
   }
 
+  
   private async getCsrfToken(): Promise<string> {
     const cookieToken = this.readCsrfCookie();
     if (cookieToken) return cookieToken;
