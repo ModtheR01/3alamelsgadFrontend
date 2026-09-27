@@ -7,7 +7,9 @@
  * backend directly (e.g. local dev without running the proxy).
  */
 
-const ENV_API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+const ENV_API_URL = process.env.NODE_ENV === 'production'
+  ? '/api'
+  : process.env.NEXT_PUBLIC_API_URL || '/api';
 
 class ApiConfig {
   private baseUrl: string = ENV_API_URL;

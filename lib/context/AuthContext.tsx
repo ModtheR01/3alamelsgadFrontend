@@ -16,6 +16,7 @@ import { authService } from '../api/services/authService';
 import { userService } from '../api/services/userService';
 import { addressService } from '../api/services/addressService';
 import { apiClient } from '../api/client';
+import { ApiError } from '../api/errors';
 
 interface AuthContextType {
   user: BackendUser | null;
@@ -76,10 +77,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         phone: currentUser.phone,
       });
       await loadAddresses();
-    } catch {
-      setUser(null);
-      setProfile(null);
-      setAddresses([]);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setUser(null);
+        setProfile(null);
+        setAddresses([]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -103,11 +106,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const addrs = await addressService.getAddresses().catch(() => []);
         if (active) setAddresses(addrs);
       })
-      .catch(() => {
+      .catch((err) => {
         if (!active) return;
-        setUser(null);
-        setProfile(null);
-        setAddresses([]);
+        if (err instanceof ApiError && err.status === 401) {
+          setUser(null);
+          setProfile(null);
+          setAddresses([]);
+        }
       })
       .finally(() => {
         if (active) setIsLoading(false);
@@ -154,13 +159,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Logout
   const logout = async () => {
-    try {
-      await authService.logout();
-    } finally {
-      setUser(null);
-      setProfile(null);
-      setAddresses([]);
-    }
+    await authService.logout();
+    setUser(null);
+    setProfile(null);
+    setAddresses([]);
   };
 
   // Refresh current session

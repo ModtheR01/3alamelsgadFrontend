@@ -61,6 +61,7 @@ export default function AccountView() {
   // Auth Mode: 'login' | 'register'
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authLoading, setAuthLoading] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authFieldErrors, setAuthFieldErrors] = useState<Record<string, string[]>>({});
 
@@ -100,6 +101,18 @@ export default function AccountView() {
   const [backendOrders, setBackendOrders] = useState<BackendOrder[]>([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
+
+  const handleLogout = async () => {
+    setAuthError(null);
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } catch (err) {
+      setAuthError(normalizeApiError(err).message);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   const fetchMyOrders = React.useCallback(async () => {
     if (!user) return;
@@ -392,13 +405,18 @@ export default function AccountView() {
           </div>
 
           {user && (
-            <div className="flex items-center gap-3 self-start md:self-auto">
+            <div className="flex flex-col items-start gap-2 self-start md:self-auto">
               <button
-                onClick={logout}
-                className="px-4 py-2 rounded-full border border-[#D8CEBF] text-xs uppercase tracking-wider text-[#B85D38] hover:bg-[#FAF3F0] transition-colors"
+                type="button"
+                onClick={() => void handleLogout()}
+                disabled={isLoggingOut}
+                className="px-4 py-2 rounded-full border border-[#D8CEBF] text-xs uppercase tracking-wider text-[#B85D38] hover:bg-[#FAF3F0] transition-colors disabled:cursor-wait disabled:opacity-60"
               >
-                Sign Out
+                {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
               </button>
+              {authError && (
+                <p role="alert" className="max-w-xs text-[11px] text-rose-700">{authError}</p>
+              )}
             </div>
           )}
         </div>

@@ -26,6 +26,12 @@ async function proxy(request: NextRequest) {
   if (contentType) headers.set('content-type', contentType);
   const cookie = request.headers.get('cookie');
   if (cookie) headers.set('cookie', cookie);
+  const csrfToken = request.headers.get('x-csrftoken');
+  if (csrfToken) headers.set('x-csrftoken', csrfToken);
+  const origin = request.headers.get('origin');
+  if (origin) headers.set('origin', origin);
+  const referer = request.headers.get('referer');
+  if (referer) headers.set('referer', referer);
   const accept = request.headers.get('accept');
   if (accept) headers.set('accept', accept);
 

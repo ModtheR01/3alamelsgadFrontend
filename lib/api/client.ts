@@ -11,7 +11,64 @@ type AuthFailureListener = () => void;
 
 class ApiClient {
   private refreshPromise: Promise<boolean> | null = null;
+  private csrfBootstrapPromise: Promise<string> | null = null;
   private authFailureListeners: Set<AuthFailureListener> = new Set();
+
+  private readCsrfCookie(): string | null {
+    if (typeof document === 'undefined') return null;
+    const cookie = document.cookie
+      .split(';')
+      .map((entry) => entry.trim())
+      .find((entry) => entry.startsWith('csrftoken='));
+    return cookie ? decodeURIComponent(cookie.slice('csrftoken='.length)) : null;
+  }
+
+  private async getCsrfToken(): Promise<string> {
+    const cookieToken = this.readCsrfCookie();
+    if (cookieToken) return cookieToken;
+
+    if (!this.csrfBootstrapPromise) {
+      this.csrfBootstrapPromise = (async () => {
+        const bootstrapUrl = `${apiConfig.getBaseUrl()}/auth/csrf/`;
+        let response: Response;
+        try {
+          response = await fetch(bootstrapUrl, {
+            method: 'GET',
+            credentials: 'include',
+            cache: 'no-store',
+            headers: { Accept: 'application/json' },
+          });
+        } catch (err) {
+          throw new ApiError(normalizeApiError(err));
+        }
+
+        if (response.status === 404) {
+          throw new ApiError({
+            message: 'The backend CSRF bootstrap endpoint is missing. Add GET /api/auth/csrf/ and set a readable csrftoken cookie.',
+            fieldErrors: {},
+            status: 404,
+          });
+        }
+
+        await this.handleResponse<unknown>(response);
+        const token = this.readCsrfCookie();
+        if (!token) {
+          throw new ApiError({
+            message: 'The backend did not provide a readable csrftoken cookie. Ask the backend team to enable GET /api/auth/csrf/.',
+            fieldErrors: {},
+            status: 0,
+          });
+        }
+        return token;
+      })();
+    }
+
+    try {
+      return await this.csrfBootstrapPromise;
+    } finally {
+      this.csrfBootstrapPromise = null;
+    }
+  }
 
   onAuthFailure(listener: AuthFailureListener): () => void {
     this.authFailureListeners.add(listener);
@@ -66,11 +123,16 @@ class ApiClient {
       ...(headers as Record<string, string>),
     };
 
+    const normalizedMethod = String(method).toUpperCase();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(normalizedMethod)) {
+      requestHeaders['X-CSRFToken'] = await this.getCsrfToken();
+    }
+
     const fetchConfig: RequestInit = {
       method,
       headers: requestHeaders,
-      credentials: 'include', // Strictly required: Send HttpOnly access & refresh cookies
       ...customConfig,
+      credentials: 'include', // Strictly required: Send HttpOnly access & refresh cookies
     };
 
     if (body !== undefined && body !== null) {
@@ -132,12 +194,14 @@ class ApiClient {
         // Real backend: POST /auth/refresh/ with credentials: 'include'
         // Empty body! Refresh token is read from HttpOnly cookie by Django backend
         const refreshUrl = `${apiConfig.getBaseUrl()}/auth/refresh/`;
+        const csrfToken = await this.getCsrfToken();
         const res = await fetch(refreshUrl, {
           method: 'POST',
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
             Accept: 'application/json',
+            'X-CSRFToken': csrfToken,
           },
         });
 
@@ -145,9 +209,14 @@ class ApiClient {
           return true;
         }
 
+        if (res.status !== 401) {
+          await this.handleResponse<unknown>(res);
+        }
+
         return false;
-      } catch {
-        return false;
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+        throw new ApiError(normalizeApiError(err));
       } finally {
         this.refreshPromise = null;
       }
