@@ -233,30 +233,6 @@ export default function BannersSection() {
                   <div className="absolute inset-0 bg-gradient-to-t from-[#1C1A19] via-[#1C1A19]/60 to-black/35" />
                 </div>
 
-                {/* Top Badge & Category Header */}
-                <div className="relative z-10 p-5 sm:p-6 flex items-center justify-between gap-2">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-[10px] sm:text-[11px] uppercase tracking-wider font-medium text-[#FAF8F5]">
-                    <TypeIcon className="w-3.5 h-3.5 text-[#E0A96D]" />
-                    <span>{banner.badgeText}</span>
-                  </div>
-
-                  {banner.type === 'special_offer' && (
-                    <span className="px-2.5 py-1 rounded-full bg-[#B85D38] text-[10px] uppercase tracking-wider font-semibold text-white">
-                      Offer
-                    </span>
-                  )}
-                  {banner.type === 'new_product' && (
-                    <span className="px-2.5 py-1 rounded-full bg-[#3D5A45] text-[10px] uppercase tracking-wider font-semibold text-white">
-                      New
-                    </span>
-                  )}
-                  {banner.type === 'upcoming_event' && (
-                    <span className="px-2.5 py-1 rounded-full bg-[#4A4B6B] text-[10px] uppercase tracking-wider font-semibold text-white">
-                      Event
-                    </span>
-                  )}
-                </div>
-
                 {/* Bottom Content Container */}
                 <div className="relative z-10 p-5 sm:p-6 space-y-3.5 sm:space-y-4">
                   {/* Highlight pill (e.g. promo code or event location) */}
@@ -305,23 +281,7 @@ export default function BannersSection() {
                     </p>
                   </div>
 
-                  {/* Action CTA Button */}
-                  <div className="pt-2">
-                    <button
-                      id={`banner-cta-${banner.id}`}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleBannerClick(banner);
-                      }}
-                      className="w-full py-3 px-4 rounded-xl bg-white text-[#1C1A19] text-xs uppercase tracking-[0.16em] font-medium flex items-center justify-between group-hover:bg-[#FAF8F5] active:scale-[0.98] transition-all shadow-md touch-manipulation min-h-[44px]"
-                    >
-                      <span>{banner.ctaText}</span>
-                      <div className="w-6 h-6 rounded-full bg-[#1C1A19]/5 flex items-center justify-center transition-transform group-hover:translate-x-1">
-                        <ArrowRight className="w-3.5 h-3.5 text-[#1C1A19]" />
-                      </div>
-                    </button>
-                  </div>
+
                 </div>
               </div>
             );
