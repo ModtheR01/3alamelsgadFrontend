@@ -8,7 +8,7 @@
  */
 import { CartItem } from '@/types';
 
-const STORAGE_KEY = 'tocco_guest_cart_v1';
+const STORAGE_KEY = 'alamelsgad_guest_cart_v2';
 const GUEST_ID_PREFIX = 'guest-';
 
 function readCart(): CartItem[] {
@@ -46,7 +46,9 @@ export function addGuestCartItem(item: Omit<CartItem, 'id'>): CartItem[] {
       i.productId === item.productId &&
       i.selectedColor.id === item.selectedColor.id &&
       i.selectedFinish === item.selectedFinish &&
-      i.selectedSize?.id === item.selectedSize?.id
+      i.selectedSize?.id === item.selectedSize?.id &&
+      i.arawalConfig?.width === item.arawalConfig?.width &&
+      i.arawalConfig?.lengthMeters === item.arawalConfig?.lengthMeters
   );
 
   if (existing) {

@@ -1,5 +1,5 @@
 import { apiClient } from '../client';
-import { PaginatedResponse, SearchParams } from '../pagination';
+import { PaginatedResponse, SearchParams, unwrapResults } from '../pagination';
 import {
   BackendCategory,
   BackendSubcategory,
@@ -18,7 +18,7 @@ export const categoryService = {
     const response = await apiClient.get<PaginatedResponse<BackendCategory>>('/categories/', {
       params: { page_size: 100, ...params },
     });
-    return response.results;
+    return unwrapResults<BackendCategory>(response);
   },
 
   /**
@@ -85,7 +85,7 @@ export const categoryService = {
     const response = await apiClient.get<PaginatedResponse<BackendCategory>>('/categories/deleted/', {
       params: { page_size: 100 },
     });
-    return response.results;
+    return unwrapResults<BackendCategory>(response);
   },
 };
 
@@ -99,7 +99,7 @@ export const subcategoryService = {
     const response = await apiClient.get<PaginatedResponse<BackendSubcategory>>('/subcategories/', {
       params: { page_size: 100, ...params },
     });
-    return response.results;
+    return unwrapResults<BackendSubcategory>(response);
   },
 
   /**
@@ -165,6 +165,6 @@ export const subcategoryService = {
     const response = await apiClient.get<PaginatedResponse<BackendSubcategory>>('/subcategories/deleted/', {
       params: { page_size: 100 },
     });
-    return response.results;
+    return unwrapResults<BackendSubcategory>(response);
   },
 };

@@ -41,85 +41,125 @@ import { spaceProjectService } from '@/lib/api/services/spaceProjectService';
 import { BackendSpaceProject, SpaceProjectRequest } from '@/types/spaceProject';
 
 const EMPTY_SETTINGS: StoreSettings = {
-  brandName: 'Tocco House',
-  tagline: '',
-  subTagline: '',
+  brandName: 'عالم السجاد',
+  tagline: 'لمسة تغير شكل بيتك',
+  subTagline: 'سجاد تركي · سجاد شرقي · بدائل سجاد · أروال بالمتر',
   depositPercentage: 50,
-  defaultLeadTime: 'Made to order',
-  defaultShippingTime: 'Shipping details confirmed after order review',
+  defaultLeadTime: 'شحن سريع لجميع المحافظات',
+  defaultShippingTime: 'توصيل خلال ٢-٤ أيام عمل',
   contact: {
-    phone: '01080182663',
-    whatsapp: '01080182663',
-    email: '',
-    atelierAddress: 'Villa 291, yasmin 1, first settlement, new cairo',
-    mapUrl: 'https://www.google.com/maps/place/30%C2%B003%2700.6%22N+31%C2%B027%2720.0%22E/@30.0501537,31.4529839,17z/data=!3m1!4b1!4m4!3m3!8m2!3d30.0501537!4d31.4555588?hl=en&entry=ttu&g_ep=EgoyMDI2MDkxNi4wIKXMDSoASAFQAw%3D%3D',
-    instagramHandles: ['@tocco_house', '@toccoplus'],
-    hours: 'By appointment',
+    phone: '+201010750072',
+    whatsapp: '201010750072',
+    email: 'info@alamelsgad.com',
+    atelierAddress: 'معرض عالم السجاد، المنصورة، مصر',
+    mapUrl:
+      'https://www.google.com/maps/place/%D8%B9%D8%A7%D9%84%D9%85+%D8%A7%D9%84%D8%B3%D8%AC%D8%A7%D8%AF%E2%80%AD/@31.0483445,31.4038586,17z/data=!3m1!4b1!4m6!3m5!1s0x14f79d7444b18405:0x32e14297ac3ddc8f!8m2!3d31.0483445!4d31.4038586!16s%2Fg%2F11f3xffcn1!18m1!1e1?entry=ttu&g_ep=EgoyMDI2MDkyMy4wIKXMDSoASAFQAw%3D%3D',
+    instagramHandles: ['@alamelsgad', '@alamelsgad123'],
+    hours: 'يومياً من ١٠ صباحاً حتى ١١ مساءً',
   },
   paymentMethods: {
-    instapay: { active: false, address: '', accountName: '', instructions: 'InstaPay details will appear here once configured.' },
-    mobileWallet: { active: false, number: '', provider: '', instructions: 'Mobile wallet details will appear here once configured.' },
-    vodafoneCash: { active: false, number: '', instructions: 'Vodafone Cash details will appear here once configured.' },
+    instapay: {
+      active: true,
+      address: 'alamelsgad@instapay',
+      accountName: 'عالم السجاد',
+      instructions: 'الدفع المباشر عبر تطبيق إنستاباي لتأكيد سريع لطلبك.',
+    },
+    mobileWallet: {
+      active: true,
+      number: '01010750072',
+      provider: 'محفظة إلكترونية',
+      instructions: 'تحويل على رقم المحفظة (فودافون كاش / اتصالات / وي / أورنج).',
+    },
+    vodafoneCash: {
+      active: true,
+      number: '01010750072',
+      instructions: 'فودافون كاش على الرقم 01010750072.',
+    },
     bankTransfer: {
-      active: false,
-      bankName: 'Bank details coming soon',
-      accountNumber: 'Account number coming soon',
-      iban: 'IBAN coming soon',
+      active: true,
+      bankName: 'البنك الأهلي المصري',
+      accountNumber: '01010750072',
+      iban: '',
       swift: '',
-      accountHolder: 'Account name coming soon',
-      instructions: 'Bank transfer details will be confirmed by the atelier team.',
+      accountHolder: 'معرض عالم السجاد',
+      instructions: 'التحويل البنكي متاح للطلبات الكبيرة والكميات.',
     },
   },
   homepage: {
-    heroHeading: 'Objects with character.',
-    heroSubheading: 'Contemporary Egyptian design house specializing in distinctive fiberglass furniture, sculptural pieces, and architectural design objects.',
-    heroCtaText: 'Discover Tocco House',
-    heroImage: '/images/hero_villa_clean.jpg',
-    storyQuote: '',
-    storySubtext: '',
+    heroHeading: 'لمسة تغير شكل بيتك',
+    heroSubheading:
+      'تشكيلات راقية من السجاد التركي، الشرقي، بدائل السجاد، والأروال بالمتر لتمنح منزلك دفئاً وفخامة استثنائية.',
+    heroCtaText: 'تسوق التشكيلات الآن',
+    heroImage:
+      'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1920&q=85',
+    storyQuote:
+      'السجاد ليس مجرد غطاء للأرضيات، بل هو روح البيت ولمسته التي تجمع بين الأصالة والراحة العصرية.',
+    storySubtext:
+      'في عالم السجاد، نختار بدقة كل خيط وتصميم ليناسب كل ركن في منزلك بأعلى معايير الجودة والذوق الرفيع.',
   },
   policies: { shipping: '', returns: '', privacy: '', terms: '', faq: [] },
 };
 
 export function mapBackendProduct(product: BackendProduct, subcategories: BackendSubcategory[] = []): Product {
-  const subcategoryIds = product.subcategory_ids.map((id) => String(id));
-  const primarySubcategory = subcategories.find((subcategory) => subcategory.id === product.subcategory_ids[0]);
+  const subcategoryList = Array.isArray(subcategories) ? subcategories : [];
+  const rawSubcategoryIds = Array.isArray(product?.subcategory_ids) ? product.subcategory_ids : [];
+  const subcategoryIds = rawSubcategoryIds.map((id) => String(id));
+  const primarySubcategory = subcategoryList.find((subcategory) => subcategory.id === rawSubcategoryIds[0]);
   const categoryId = primarySubcategory?.category_id
     ? String(primarySubcategory.category_id)
     : '';
-  const imageRecords = product.images.map((image: BackendProductImage, index) => ({
-    image: image.image,
-    public_id: image.public_id,
-    is_primary: image.is_primary,
-    sort_order: image.sort_order ?? index,
+  const rawImages = Array.isArray(product?.images) ? product.images : [];
+  const imageRecords = rawImages.map((image: BackendProductImage, index) => ({
+    image: image?.image || '',
+    public_id: image?.public_id,
+    is_primary: image?.is_primary,
+    sort_order: image?.sort_order ?? index,
   }));
 
+  const isArawal =
+    /أروال|arawal|رول|مشاية بالمتر|طاقة/i.test(product?.name || '') ||
+    /أروال|arawal|رول/i.test(product?.description || '') ||
+    Boolean(primarySubcategory && /أروال|arawal|رول/i.test(primarySubcategory.name || ''));
+
+  const parsedPrice = Number(product?.price) || 0;
+  const rawDims = product?.dimensions || '';
+  const parsedWidths = (rawDims.match(/\d+(\.\d+)?/g) || [])
+    .map(Number)
+    .filter((n) => n >= 30 && n <= 500);
+  const uniqueWidths = Array.from(new Set(parsedWidths)).sort((a, b) => a - b);
+  const availableWidths = uniqueWidths.length > 0 ? uniqueWidths : isArawal ? [80] : undefined;
+
   return {
-    id: String(product.id),
-    slug: String(product.id),
-    name: product.name,
+    id: String(product?.id || ''),
+    slug: String(product?.id || ''),
+    name: product?.name || '',
     categoryId,
     subcategoryIds,
-    description: product.description,
-    price: Number(product.price),
-    images: imageRecords.map((image) => image.image),
+    description: product?.description || '',
+    price: parsedPrice,
+    images: imageRecords.length > 0
+      ? imageRecords.map((image) => image.image).filter(Boolean)
+      : ['https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85'],
     imageRecords,
-    dimensions: product.dimensions,
-    deliveryDays: product.delivery_days,
-    material: product.material,
-    finishes: product.finish || [],
-    colors: product.colors.map((color) => ({ id: String(color.id), name: color.name, hex: color.hex_code })),
+    dimensions: rawDims || (availableWidths ? availableWidths.map((w) => `${w} سم`).join('، ') : ''),
+    deliveryDays: product?.delivery_days,
+    material: product?.material || '',
+    finishes: Array.isArray(product?.finish) ? product.finish : [],
+    colors: Array.isArray(product?.colors) ? product.colors.map((color) => ({ id: String(color.id), name: color.name, hex: color.hex_code })) : [],
     sizes: [],
-    faq: product.faq || [],
-    leadTime: product.delivery_days ? `${product.delivery_days} days` : EMPTY_SETTINGS.defaultLeadTime,
-    shippingTime: '',
-    isFeatured: product.featured,
-    isPublished: !product.deleted_at,
+    faq: Array.isArray(product?.faq) ? product.faq : [],
+    leadTime: product?.delivery_days ? `${product.delivery_days} أيام` : EMPTY_SETTINGS.defaultLeadTime,
+    shippingTime: 'توصيل خلال ٢-٤ أيام عمل',
+    isFeatured: Boolean(product?.featured),
+    isPublished: !product?.deleted_at,
     inStock: true,
     allowsCustomization: false,
-    createdAt: product.created_at,
-    seoTitle: product.name,
-    seoDescription: product.description,
+    isArawal,
+    arawalUnitPricePerMeter: isArawal ? parsedPrice : undefined,
+    availableWidths,
+    createdAt: product?.created_at || new Date().toISOString(),
+    seoTitle: product?.name || '',
+    seoDescription: product?.description || '',
   };
 }
 
@@ -342,24 +382,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     ])
       .then(([backendProducts, backendCategories, backendSubcategories]) => {
         if (!active) return;
-        setSubcategories(backendSubcategories);
-        const mappedProducts = backendProducts.map((product) => mapBackendProduct(product, backendSubcategories));
+        const subcatList = Array.isArray(backendSubcategories) ? backendSubcategories : [];
+        const catList = Array.isArray(backendCategories) ? backendCategories : [];
+        const prodList = Array.isArray(backendProducts) ? backendProducts : [];
+
+        setSubcategories(subcatList);
+        const mappedProducts = prodList.map((product) => mapBackendProduct(product, subcatList));
         setProducts(mappedProducts);
-        setCategories(backendCategories.map(mapBackendCategory));
+        setCategories(catList.map(mapBackendCategory));
 
         // Cart items reference product images by id, so hydrate the cart only
         // once the product catalog is available to resolve thumbnails correctly.
         return cartService
           .getCart()
           .then((backendCart) => {
-            if (!active) return;
+            if (!active || !backendCart) return;
+            const items = Array.isArray(backendCart.items) ? backendCart.items : [];
             setIsGuestCart(false);
-            setCart(backendCart.items.map((item) => mapBackendCartItem(item, mappedProducts)));
+            setCart(items.map((item) => mapBackendCartItem(item, mappedProducts)));
             setCartPricing({
-              originalTotal: Number(backendCart.original_total),
-              discountTotal: Number(backendCart.discount_amount),
-              total: Number(backendCart.total_price),
-              freeShipping: backendCart.free_shipping,
+              originalTotal: Number(backendCart.original_total) || 0,
+              discountTotal: Number(backendCart.discount_amount) || 0,
+              total: Number(backendCart.total_price) || 0,
+              freeShipping: Boolean(backendCart.free_shipping),
             });
           })
           .catch(() => {
@@ -404,23 +449,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
 
     dashboardService.getSettings().then((data) => {
-      if (!active) return;
+      if (!active || !data) return;
+      const wallets = data.payment_wallets || {};
       setSettings((current) => ({
         ...current,
-        depositPercentage: Number(data.deposit_percentage),
+        depositPercentage: data.deposit_percentage !== undefined && data.deposit_percentage !== null
+          ? Number(data.deposit_percentage)
+          : current.depositPercentage,
         paymentMethods: {
           ...current.paymentMethods,
           mobileWallet: {
             ...current.paymentMethods.mobileWallet,
-            number: data.payment_wallets.mobile_wallet || current.paymentMethods.mobileWallet.number,
+            number: wallets.mobile_wallet || current.paymentMethods.mobileWallet.number,
           },
           instapay: {
             ...current.paymentMethods.instapay,
-            address: data.payment_wallets.instapay || current.paymentMethods.instapay.address,
+            address: wallets.instapay || current.paymentMethods.instapay.address,
           },
           vodafoneCash: {
             ...current.paymentMethods.vodafoneCash,
-            number: data.payment_wallets.vodafone_cash || current.paymentMethods.vodafoneCash.number,
+            number: wallets.vodafone_cash || current.paymentMethods.vodafoneCash.number,
           },
         },
       }));
@@ -829,22 +877,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
 
     const saved = await dashboardService.updateSettings(dashboardPatch);
+    const savedWallets = saved?.payment_wallets || {};
     setSettings((prev) => ({
       ...prev,
-      depositPercentage: Number(saved.deposit_percentage),
+      depositPercentage: saved?.deposit_percentage !== undefined && saved?.deposit_percentage !== null
+        ? Number(saved.deposit_percentage)
+        : prev.depositPercentage,
       paymentMethods: {
         ...prev.paymentMethods,
         mobileWallet: {
           ...prev.paymentMethods.mobileWallet,
-          number: saved.payment_wallets.mobile_wallet || '',
+          number: savedWallets.mobile_wallet || '',
         },
         vodafoneCash: {
           ...prev.paymentMethods.vodafoneCash,
-          number: saved.payment_wallets.vodafone_cash || '',
+          number: savedWallets.vodafone_cash || '',
         },
         instapay: {
           ...prev.paymentMethods.instapay,
-          address: saved.payment_wallets.instapay || '',
+          address: savedWallets.instapay || '',
         },
       },
     }));

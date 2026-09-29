@@ -740,7 +740,7 @@ export default function AccountView() {
                   <div className="space-y-4 sm:space-y-6">
                     {backendOrders.map((ord) => {
                       const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
-                        `Hello Tocco House, I am inquiring about my Commission #${ord.order_number}.`
+                        `مرحباً عالم السجاد، أود الاستفسار عن حالة طلبي رقم #${ord.order_number}.`
                       )}`;
                       const depositPercentage = Number(ord.deposit_percentage);
                       const deposit = Math.round(Number(ord.total_price) * depositPercentage / 100);

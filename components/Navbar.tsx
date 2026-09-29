@@ -3,8 +3,23 @@
 import React, { useState, useEffect } from 'react';
 import { useToccoStore, AppView } from '@/lib/store';
 import { useAuth } from '@/lib/context/AuthContext';
-import ToccoLogo from './ToccoLogo';
-import { ShoppingBag, User, Search, Menu, X, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { useLanguage } from '@/lib/context/LanguageContext';
+import { BRAND_CONFIG } from '@/lib/brandConfig';
+import AlamelsgadLogo from './AlamelsgadLogo';
+import {
+  ShoppingBag,
+  User,
+  Search,
+  Menu,
+  X,
+  Languages,
+  Phone,
+  MessageCircle,
+  MapPin,
+  ChevronLeft,
+  ChevronRight,
+  Truck,
+} from 'lucide-react';
 
 export default function Navbar() {
   const {
@@ -14,9 +29,11 @@ export default function Navbar() {
     setIsCartDrawerOpen,
     searchQuery,
     setSearchQuery,
+    categories,
   } = useToccoStore();
 
   const { user } = useAuth();
+  const { language, toggleLanguage, t, isRtl } = useLanguage();
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -30,21 +47,28 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const navLinks: { label: string; view: AppView }[] = [
-    { label: 'Shop', view: 'shop' },
-    { label: 'Our Story', view: 'our-story' },
-    { label: 'Custom Design', view: 'custom-design' },
-    { label: 'For Business', view: 'b2b' },
-    { label: 'Events', view: 'events' },
-    { label: 'Projects', view: 'projects' },
+  const navLinks: { labelAr: string; labelEn: string; view: AppView; highlight?: boolean }[] = [
+    { labelAr: 'الرئيسية', labelEn: 'Home', view: 'home' },
+    { labelAr: 'كل السجاد', labelEn: 'All Carpets', view: 'shop' },
+    { labelAr: 'سجاد تركي فاخر', labelEn: 'Turkish Carpets', view: 'shop' },
+    { labelAr: 'سجاد شرقي أصيل', labelEn: 'Oriental Rugs', view: 'shop' },
+    { labelAr: 'رولات أروال بالمتر', labelEn: 'Runner Rolls', view: 'shop', highlight: true },
+    { labelAr: 'بدائل السجاد', labelEn: 'Modern Alternatives', view: 'shop' },
+    { labelAr: 'معرض المنصورة', labelEn: 'Showroom', view: 'contact' },
   ];
 
-  const handleNavClick = (view: AppView) => {
-    navigateTo(view);
+  const handleNavClick = (view: AppView, categoryId?: string) => {
+    if (view === 'shop' && categoryId) {
+      navigateTo(view, { categoryId });
+    } else {
+      navigateTo(view);
+    }
     setMobileMenuOpen(false);
   };
 
   const isTransparent = !isScrolled && activeView === 'home' && !mobileMenuOpen && !isSearchOpen;
+
+  const ArrowIcon = isRtl ? ChevronLeft : ChevronRight;
 
   return (
     <header
@@ -52,47 +76,84 @@ export default function Navbar() {
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isTransparent
           ? 'bg-transparent border-b border-transparent shadow-none'
-          : 'bg-[#FAF8F5]/95 backdrop-blur-md border-b border-[#EAE4DC] shadow-[0_2px_12px_rgba(40,25,15,0.03)]'
+          : 'bg-[#FBF9F5]/95 backdrop-blur-md border-b border-[#EAE3D8] shadow-[0_2px_12px_rgba(35,23,15,0.04)]'
       }`}
     >
+      {/* Top micro announcement bar (Luxury e-commerce banner) */}
+      <div className="bg-[#1C120B] text-[#EDE6DC] text-[11px] sm:text-xs py-1.5 px-4 border-b border-[#2C1D13]">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[#D2C3B4]">
+            <Truck className="w-3.5 h-3.5 text-[#C49F74] shrink-0" />
+            <span className="hidden sm:inline font-medium">
+              {t('شحن وتوصيل لجميع المحافظات · معاينة السجاد قبل الاستلام', 'Fast shipping to all Egyptian governorates · Inspection upon delivery')}
+            </span>
+            <span className="sm:hidden font-medium">
+              {t('شحن ومعاينة لكافة المحافظات', 'Shipping across Egypt')}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4 text-[11px]">
+            <span className="hidden md:inline text-[#C49F74]">
+              {t('معرض المنصورة: يومياً من ١٠ ص حتى ١١ م', 'Mansoura Showroom: Daily 10 AM - 11 PM')}
+            </span>
+            <a
+              href={BRAND_CONFIG.whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[#EFEBE4] hover:text-[#25D366] transition-colors font-medium"
+            >
+              <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
+              <span className="font-mono">{BRAND_CONFIG.phoneDisplay}</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
-        {/* Left: Brand Identity */}
+        {/* Brand Identity / Logo */}
         <button
           id="nav-logo-btn"
           onClick={() => handleNavClick('home')}
-          className="group flex items-center text-left focus:outline-none"
-          aria-label="Tocco House Home"
+          className="group flex items-center text-start focus:outline-none touch-manipulation"
+          aria-label="عالم السجاد - Alamelsgad"
         >
-          <ToccoLogo size="sm" showSubtitle={false} theme={isTransparent ? 'light' : 'dark'} />
+          <AlamelsgadLogo
+            size="md"
+            variant="horizontal"
+            theme={isTransparent ? 'light' : 'dark'}
+            showTagline={true}
+          />
         </button>
 
-        {/* Center: Editorial Navigation Links (Desktop) */}
+        {/* Center: Desktop Navigation Links */}
         <nav
           id="desktop-nav-links"
-          className="hidden md:flex items-center gap-8 text-[13px] tracking-[0.18em] uppercase font-medium"
+          className="hidden lg:flex items-center gap-6 xl:gap-8 text-[13px] font-semibold tracking-normal"
         >
           {navLinks.map((link) => {
             const isActive = activeView === link.view;
             return (
               <button
-                key={link.view}
+                key={`${link.view}-${link.labelEn}`}
                 id={`nav-link-${link.view}`}
                 onClick={() => handleNavClick(link.view)}
-                className={`relative py-1 transition-colors duration-200 ${
+                className={`relative py-1.5 transition-colors duration-200 ${
+                  link.highlight ? 'text-[#A27B5C] hover:text-[#7A5437]' : ''
+                } ${
                   isTransparent
                     ? isActive
-                      ? 'text-white font-semibold'
+                      ? 'text-white font-bold'
                       : 'text-white/85 hover:text-white'
                     : isActive
-                    ? 'text-[#1C1A19] font-semibold'
-                    : 'text-[#4A4540] hover:text-[#1C1A19]'
+                    ? 'text-[#241710] font-bold'
+                    : 'text-[#5C4A3E] hover:text-[#241710]'
                 }`}
               >
-                {link.label}
+                <span>{language === 'ar' ? link.labelAr : link.labelEn}</span>
                 {isActive && (
                   <span
-                    className={`absolute bottom-0 left-0 w-full h-[1.5px] animate-in fade-in duration-200 ${
-                      isTransparent ? 'bg-white' : 'bg-[#643D26]'
+                    className={`absolute bottom-0 inset-x-0 h-[2px] rounded-full animate-in fade-in duration-200 ${
+                      isTransparent ? 'bg-white' : 'bg-[#A27B5C]'
                     }`}
                   />
                 )}
@@ -101,8 +162,23 @@ export default function Navbar() {
           })}
         </nav>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-1.5 sm:gap-4">
+        {/* Right: Actions (Search, Language Switcher, Account, Cart, Mobile Toggle) */}
+        <div className="flex items-center gap-1 sm:gap-2">
+          {/* Language Switcher */}
+          <button
+            onClick={toggleLanguage}
+            className={`px-2.5 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-colors flex items-center gap-1.5 border ${
+              isTransparent
+                ? 'text-white border-white/20 hover:bg-white/10'
+                : 'text-[#473428] border-[#E8DEC0] bg-[#FAF5EB] hover:bg-[#F2E8D7]'
+            }`}
+            title={t('تغيير اللغة إلى English', 'Switch to Arabic')}
+            aria-label="Toggle language"
+          >
+            <Languages className="w-3.5 h-3.5 text-[#A27B5C]" />
+            <span>{language === 'ar' ? 'English' : 'عربي'}</span>
+          </button>
+
           {/* Search Toggle */}
           <button
             id="nav-search-toggle-btn"
@@ -115,15 +191,15 @@ export default function Navbar() {
             className={`p-2.5 rounded-full transition-colors focus:outline-none touch-manipulation ${
               isTransparent
                 ? 'text-white/90 hover:text-white hover:bg-white/10'
-                : 'text-[#4A4540] hover:text-[#1C1A19] hover:bg-[#F2EDE4]'
+                : 'text-[#5C4A3E] hover:text-[#241710] hover:bg-[#EFE7DC]'
             }`}
-            title="Search Catalog"
+            title={t('البحث في السجاد', 'Search Carpets')}
             aria-label="Search"
           >
             <Search className="w-4 h-4" />
           </button>
 
-          {/* Account Portal */}
+          {/* User Account Portal */}
           <button
             id="nav-account-btn"
             onClick={() => handleNavClick('account')}
@@ -131,10 +207,10 @@ export default function Navbar() {
               isTransparent
                 ? 'text-white/90 hover:text-white hover:bg-white/10'
                 : activeView === 'account'
-                ? 'text-[#643D26] bg-[#EFEBE3]'
-                : 'text-[#4A4540] hover:text-[#1C1A19] hover:bg-[#F2EDE4]'
+                ? 'text-[#A27B5C] bg-[#EFE7DC]'
+                : 'text-[#5C4A3E] hover:text-[#241710] hover:bg-[#EFE7DC]'
             }`}
-            title="Customer Account & Order Tracking"
+            title={t('حسابي والطلبات', 'My Account & Orders')}
             aria-label="Account"
           >
             <div className="relative">
@@ -144,151 +220,137 @@ export default function Navbar() {
               )}
             </div>
             {user && (
-              <span className="hidden sm:inline-block text-[11px] font-medium tracking-normal capitalize truncate max-w-[90px]">
-                {user.first_name}
+              <span className="hidden sm:inline-block text-[11px] font-medium tracking-normal truncate max-w-[90px]">
+                {user.first_name || user.email}
               </span>
             )}
           </button>
 
-          {/* Cart Bag */}
+          {/* Shopping Bag Trigger */}
           <button
             id="nav-cart-btn"
             onClick={() => setIsCartDrawerOpen(true)}
-            className={`relative p-2.5 rounded-full transition-colors focus:outline-none touch-manipulation ${
+            className={`relative p-2.5 rounded-full transition-colors focus:outline-none touch-manipulation flex items-center justify-center ${
               isTransparent
-                ? 'text-white/90 hover:text-white hover:bg-white/10'
-                : 'text-[#4A4540] hover:text-[#1C1A19] hover:bg-[#F2EDE4]'
+                ? 'text-white hover:bg-white/10'
+                : 'text-[#241710] hover:bg-[#EFE7DC]'
             }`}
-            title="View Shopping Bag"
+            title={t('سلة المشتريات', 'Shopping Cart')}
             aria-label="Cart"
           >
-            <ShoppingBag className="w-4 h-4" />
+            <ShoppingBag className="w-5 h-5" />
             {cartItemsCount > 0 && (
-              <span
-                id="cart-badge-count"
-                className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 bg-[#643D26] text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-xs ring-1 ring-white/30"
-              >
+              <span className="absolute -top-1 -right-1 bg-[#A27B5C] text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-in zoom-in-50">
                 {cartItemsCount}
               </span>
             )}
           </button>
 
-          {/* Admin Dashboard CMS Toggle (Desktop) */}
-          {(user?.role === 'ADMIN' || user?.role === 'MODERATOR') && <button
-            id="nav-admin-btn"
-            onClick={() => handleNavClick('admin')}
-            className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-[11px] tracking-wider uppercase font-medium rounded-full border transition-all duration-200 ${
-              isTransparent
-                ? 'text-white border-white/40 bg-white/10 backdrop-blur-xs hover:bg-white/20 hover:border-white/70'
-                : activeView === 'admin'
-                ? 'bg-[#1C1A19] text-white border-[#1C1A19]'
-                : 'text-[#643D26] border-[#D8CEBF] bg-[#F5F1EA] hover:border-[#643D26]'
-            }`}
-            title="Manage Catalogue, Orders & CMS"
-          >
-            <SlidersHorizontal className="w-3 h-3" />
-            <span>Admin CMS</span>
-          </button>}
-
-          {/* Mobile Hamburger Toggle */}
+          {/* Mobile Menu Trigger */}
           <button
             id="mobile-menu-toggle-btn"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className={`md:hidden p-2.5 rounded-full focus:outline-none touch-manipulation transition-colors ${
+            className={`lg:hidden p-2 rounded-lg transition-colors focus:outline-none touch-manipulation ${
               isTransparent
                 ? 'text-white hover:bg-white/10'
-                : 'text-[#4A4540] hover:text-[#1C1A19] hover:bg-[#F2EDE4]'
+                : 'text-[#241710] hover:bg-[#EFE7DC]'
             }`}
-            aria-label="Toggle Navigation Menu"
+            aria-label="Toggle navigation menu"
           >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
       </div>
 
-      {/* Inline Search Drawer / Dropdown */}
+      {/* Expandable Search Bar on Top */}
       {isSearchOpen && (
-        <div
-          id="nav-search-bar"
-          className="border-t border-[#EAE4DC] bg-[#FAF8F5] px-4 py-3 animate-in slide-in-from-top-2 duration-200 shadow-inner"
-        >
+        <div className="bg-[#FAF6F0] border-t border-b border-[#E8DEC0] px-4 py-3 sm:px-8 animate-in slide-in-from-top-2 duration-200">
           <div className="max-w-3xl mx-auto flex items-center gap-3">
-            <Search className="w-4 h-4 text-[#736B63] shrink-0" />
+            <Search className="w-5 h-5 text-[#8A7565]" />
             <input
-              id="catalog-search-input"
               type="text"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                if (activeView !== 'shop') navigateTo('shop');
-              }}
-              placeholder="Search pieces, categories, mineral finishes..."
-              className="w-full bg-transparent text-xs sm:text-sm text-[#1C1A19] placeholder-[#8F8880] focus:outline-none"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t(
+                'ابحث عن سجاد تركي، شرقي، أروال بالمتر، بدائل سجاد...',
+                'Search Turkish carpets, oriental rugs, custom runners, alternatives...'
+              )}
+              className="w-full bg-transparent text-sm sm:text-base text-[#241710] placeholder-[#9C8A7C] focus:outline-none"
               autoFocus
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="text-[11px] text-[#736B63] hover:text-[#1C1A19] uppercase tracking-wider shrink-0"
+                className="text-xs text-[#8A7565] hover:text-[#241710] p-1"
               >
-                Clear
+                <X className="w-4 h-4" />
               </button>
             )}
-            <button
-              onClick={() => setIsSearchOpen(false)}
-              className="text-xs text-[#736B63] hover:text-[#1C1A19] p-1 shrink-0"
-            >
-              <X className="w-4 h-4" />
-            </button>
           </div>
         </div>
       )}
 
-      {/* Mobile Navigation Full Screen Drawer */}
+      {/* Mobile Navigation Drawer */}
       {mobileMenuOpen && (
-        <div
-          id="mobile-navigation-menu"
-          className="md:hidden fixed inset-x-0 top-16 sm:top-20 h-[calc(100dvh-4rem)] sm:h-[calc(100dvh-5rem)] bg-[#FAF8F5] z-50 flex flex-col justify-between p-6 shadow-2xl overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200"
-        >
-          <div className="space-y-6">
-            {/* Navigation links */}
-            <nav className="flex flex-col space-y-1 text-sm tracking-[0.2em] uppercase font-medium text-[#4A4540]">
-              {navLinks.map((link) => {
-                const isActive = activeView === link.view;
-                return (
-                  <button
-                    key={link.view}
-                    onClick={() => handleNavClick(link.view)}
-                    className={`text-left py-3 px-3 rounded-xl transition-colors flex items-center justify-between ${
-                      isActive
-                        ? 'bg-[#EFEBE3] text-[#643D26] font-semibold'
-                        : 'hover:bg-[#F5F2EB] text-[#332F2D]'
-                    }`}
-                  >
-                    <span>{link.label}</span>
-                    <span className="text-[10px] tracking-widest text-[#8F8880]">→</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
+        <div className="lg:hidden bg-[#FBF9F5] border-b border-[#EAE3D8] shadow-2xl animate-in slide-in-from-top duration-300">
+          <div className="px-5 pt-4 pb-6 space-y-4">
+            {/* Direct Search in Mobile Menu */}
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t('ابحث عن سجاد أو رول...', 'Search carpets or runners...')}
+                className="w-full px-4 py-2.5 pe-10 bg-[#EFEBE3] text-sm rounded-xl border border-[#DFD7CB] text-[#241710] placeholder-[#8F7D70] focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
+              />
+              <Search className="w-4 h-4 text-[#8F7D70] absolute top-3.5 end-3 pointer-events-none" />
+            </div>
 
-          {/* Bottom Actions inside Mobile Drawer */}
-          <div className="pt-6 border-t border-[#EAE4DC] space-y-3">
-            {(user?.role === 'ADMIN' || user?.role === 'MODERATOR') && <button
-              onClick={() => handleNavClick('admin')}
-              className="flex items-center justify-between w-full py-3 px-4 rounded-xl bg-[#F2EDE4] text-xs uppercase tracking-widest font-medium text-[#643D26]"
-            >
-              <span className="flex items-center gap-2.5">
-                <SlidersHorizontal className="w-4 h-4" />
-                Admin CMS Studio
-              </span>
-              <span className="text-[10px] text-[#8F8880]">Manage</span>
-            </button>}
+            {/* Navigation Links */}
+            <div className="space-y-1 divide-y divide-[#EFE8DD]/70">
+              {navLinks.map((link) => (
+                <button
+                  key={`mobile-${link.view}-${link.labelEn}`}
+                  onClick={() => handleNavClick(link.view)}
+                  className={`w-full py-3 flex items-center justify-between text-start text-sm font-semibold transition-colors ${
+                    activeView === link.view
+                      ? 'text-[#A27B5C]'
+                      : 'text-[#241710] hover:text-[#A27B5C]'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    {language === 'ar' ? link.labelAr : link.labelEn}
+                    {link.highlight && (
+                      <span className="text-[10px] bg-[#A27B5C]/15 text-[#865F3E] px-2 py-0.5 rounded font-normal">
+                        {t('حسب طلبك', 'Custom')}
+                      </span>
+                    )}
+                  </span>
+                  <ArrowIcon className="w-4 h-4 text-[#9C8A7C]" />
+                </button>
+              ))}
+            </div>
 
-            <div className="flex items-center justify-between pt-2 text-xs text-[#8F8880]">
-              <span>Tocco House Cairo</span>
-              <span>Handcrafted in Egypt</span>
+            {/* Quick Contact & Showroom Links in Mobile Menu */}
+            <div className="pt-3 border-t border-[#EAE3D8] flex flex-col gap-2.5 text-xs text-[#5C4A3E]">
+              <a
+                href={BRAND_CONFIG.whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 p-2.5 rounded-xl bg-[#EFE8DD] text-[#241710] font-medium"
+              >
+                <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                <span>{t('تواصل عبر واتساب:', 'Chat on WhatsApp:')} {BRAND_CONFIG.phoneDisplay}</span>
+              </a>
+              <a
+                href={BRAND_CONFIG.googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 p-2.5 rounded-xl bg-[#EFE8DD] text-[#241710] font-medium"
+              >
+                <MapPin className="w-4 h-4 text-[#A27B5C]" />
+                <span>{t('موقع المعرض على خرائط جوجل', 'Showroom on Google Maps')}</span>
+              </a>
             </div>
           </div>
         </div>

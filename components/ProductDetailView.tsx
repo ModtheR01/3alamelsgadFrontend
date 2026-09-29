@@ -1,27 +1,34 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useToccoStore } from '@/lib/store';
+import { useLanguage } from '@/lib/context/LanguageContext';
 import { normalizeApiError } from '@/lib/api/errors';
 import { colorService } from '@/lib/api/services/colorService';
 import { toWhatsAppNumber } from '@/lib/utils';
+import { BRAND_CONFIG, ArawalWidth, ArawalSelection } from '@/lib/brandConfig';
 import { ProductFinish, ProductColor, ProductSize } from '@/types';
 import { BackendColor } from '@/types/product';
 import Image from '@/components/SafeImage';
 import {
   ArrowLeft,
+  ArrowRight,
   MessageCircle,
   ShieldCheck,
   Truck,
   Sparkles,
   Check,
-  Layers,
   Ruler,
   Maximize2,
   Clock,
   AlertCircle,
   Loader2,
   Plus,
+  Minus,
+  Info,
+  Layers,
+  ChevronRight,
+  ChevronLeft,
 } from 'lucide-react';
 
 export default function ProductDetailView() {
@@ -34,44 +41,82 @@ export default function ProductDetailView() {
     settings,
   } = useToccoStore();
 
+  const { t, isRtl } = useLanguage();
+
   const product = useMemo(() => {
     return selectedProductId ? getProductById(selectedProductId) : null;
   }, [selectedProductId, getProductById]);
 
+  // Is this an ARAWAL product?
+  const isArawalProduct = useMemo(() => {
+    if (!product) return false;
+    return (
+      product.isArawal ||
+      /أروال|arawal|رول|مشاية بالمتر/i.test(product.name) ||
+      /أروال|arawal|رول/i.test(product.description || '')
+    );
+  }, [product]);
+
   // Active state for configurable attributes
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [selectedFinish, setSelectedFinish] = useState<ProductFinish>(
-    product?.finishes[0] || 'MATTE'
+    product?.finishes?.[0] || 'MATTE'
   );
   const [selectedColor, setSelectedColor] = useState<ProductColor>(
-    product?.colors[0] || { id: 'c-default', name: 'Default', hex: '#643D26' }
+    product?.colors?.[0] || { id: 'c-default', name: 'البيج الطبيعي', hex: '#D2C1AF' }
   );
-  const [sharedColors, setSharedColors] = useState<BackendColor[]>([]);
-  const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
-  const [isSharedColorsLoading, setIsSharedColorsLoading] = useState(false);
-  const [isCustomColorSelected, setIsCustomColorSelected] = useState(false);
-  const [isCreatingCustomColor, setIsCreatingCustomColor] = useState(false);
-  const [customColorDraft, setCustomColorDraft] = useState('#A1B2C3');
-  const [hasChosenCustomColor, setHasChosenCustomColor] = useState(false);
-  const [customColorError, setCustomColorError] = useState<string | null>(null);
+
+  // Dynamic Available Widths defined by Admin
+  const availableWidths = useMemo(() => {
+    if (product?.availableWidths && product.availableWidths.length > 0) {
+      return product.availableWidths;
+    }
+    const rawDims = product?.dimensions || '';
+    const parsed = (rawDims.match(/\d+(\.\d+)?/g) || []).map(Number).filter((n) => n >= 30 && n <= 500);
+    if (parsed.length > 0) {
+      return Array.from(new Set(parsed)).sort((a, b) => a - b);
+    }
+    return [80];
+  }, [product]);
+
+  // ARAWAL State (Width defined by admin per product, customer selects length)
+  const [selectedArawalWidth, setSelectedArawalWidth] = useState<number | null>(null);
+  const arawalWidth =
+    selectedArawalWidth !== null && availableWidths.includes(selectedArawalWidth)
+      ? selectedArawalWidth
+      : availableWidths[0] || 80;
+  const [arawalLengthMeters, setArawalLengthMeters] = useState<number>(3);
+
+  // Safe fallback images array
+  const productImages = useMemo(() => {
+    if (product?.images && Array.isArray(product.images) && product.images.length > 0) {
+      return product.images;
+    }
+    return ['https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85'];
+  }, [product]);
+
+  // Standard Product Size State
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(
     product?.sizes?.[0]
   );
+
   const [quantity, setQuantity] = useState(1);
   const [addedAnimation, setAddedAnimation] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [cartError, setCartError] = useState<string | null>(null);
 
-  // If no product selected, offer redirect to shop
+  // If no product selected, redirect to shop
   if (!product) {
     return (
-      <div className="pt-32 pb-24 text-center min-h-[60vh] flex flex-col items-center justify-center space-y-4">
-        <p className="text-lg text-[#1C1A19]">Piece not found</p>
+      <div className="pt-32 pb-24 text-center min-h-[60vh] flex flex-col items-center justify-center space-y-4 px-4">
+        <p className="text-lg text-[#251811] font-medium">
+          {t('لم يتم العثور على المنتج المطلوب', 'Product not found')}
+        </p>
         <button
           onClick={() => navigateTo('shop')}
-          className="px-6 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-widest"
+          className="px-7 py-3 rounded-full bg-[#251811] text-white text-xs uppercase tracking-widest font-semibold hover:bg-[#402B1F] transition-all"
         >
-          Return to Catalog
+          {t('العودة لتشكيلات السجاد', 'Return to Carpet Collections')}
         </button>
       </div>
     );
@@ -79,60 +124,49 @@ export default function ProductDetailView() {
 
   const category = categories.find((c) => c.id === product.categoryId);
 
-  const toggleColorMenu = async () => {
-    if (isColorMenuOpen) {
-      setIsColorMenuOpen(false);
-      return;
-    }
-    setIsColorMenuOpen(true);
-    setCustomColorError(null);
-    setIsSharedColorsLoading(true);
-    try {
-      setSharedColors(await colorService.getColors());
-    } catch (err) {
-      setCustomColorError(normalizeApiError(err).message);
-    } finally {
-      setIsSharedColorsLoading(false);
-    }
-  };
+  // Price calculations:
+  // For ARAWAL: Total price = Unit-length price × selected length
+  // For Standard carpet: Base price + size delta
+  const unitPricePerMeter = product.arawalUnitPricePerMeter || product.price || 500;
+  const arawalCalculatedTotal = Math.round(unitPricePerMeter * arawalLengthMeters);
 
-  const selectSharedColor = (color: BackendColor) => {
-    setSelectedColor({ id: String(color.id), name: color.name, hex: color.hex_code });
-    setIsCustomColorSelected(true);
-    setIsColorMenuOpen(false);
-    setCustomColorError(null);
-  };
+  const effectiveUnitPrice = isArawalProduct
+    ? arawalCalculatedTotal
+    : (product.price || 0) + (selectedSize?.priceDelta || 0);
 
-  const createCustomColor = async (hexCode: string) => {
-    setIsCreatingCustomColor(true);
-    setCustomColorError(null);
-    try {
-      const color = await colorService.createCustomColor(hexCode.toUpperCase());
-      setSharedColors((current) =>
-        current.some((item) => item.id === color.id) ? current : [color, ...current]
-      );
-      selectSharedColor(color);
-    } catch (err) {
-      setCustomColorError(normalizeApiError(err).message);
-    } finally {
-      setIsCreatingCustomColor(false);
-    }
-  };
+  const totalCalculatedPrice = effectiveUnitPrice * quantity;
 
-  // Base price + size price delta
-  const unitPrice = (product.price || 0) + (selectedSize?.priceDelta || 0);
-  const depositRatio = settings.depositPercentage / 100;
-  const depositDue = Math.round(unitPrice * depositRatio);
-  const remainingDue = unitPrice - depositDue;
+  // Deposit calculation
+  const depositRatio = (settings.depositPercentage || 50) / 100;
+  const depositDue = Math.round(totalCalculatedPrice * depositRatio);
+  const remainingDue = totalCalculatedPrice - depositDue;
 
-  // WhatsApp Enquiry URL with contextual product prefill
-  const whatsappPrefill = `Hello Tocco House, I am inquiring about the "${product.name}".
-Finish: ${selectedFinish}
-Color: ${selectedColor.name}
-${selectedSize ? `Size: ${selectedSize.name} (${selectedSize.dimensions})` : ''}
-Could you please provide pricing and production details?`;
+  // Construct Arawal selection object if applicable
+  const currentArawalConfig: ArawalSelection | undefined = isArawalProduct
+    ? {
+        isArawal: true,
+        width: arawalWidth,
+        lengthMeters: arawalLengthMeters,
+        unitPricePerMeter,
+        totalPrice: arawalCalculatedTotal,
+      }
+    : undefined;
 
-  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
+  // Contextual WhatsApp enquiry text
+  const whatsappPrefill = isArawalProduct
+    ? `مرحباً عالم السجاد، استفسار عن رول أروال بالمتر:
+القطعة: ${product.name}
+العرض المختار: ${arawalWidth} سم
+الطول المطلوب: ${arawalLengthMeters} متر
+السعر الإجمالي المحسوب: ${effectiveUnitPrice} ج.م
+برجاء تأكيد التوفر والتوصيل.`
+    : `مرحباً عالم السجاد، استفسار بخصوص سجادة:
+الاسم: ${product.name}
+اللون: ${selectedColor.name}
+${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
+السعر: ${effectiveUnitPrice} ج.م`;
+
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(BRAND_CONFIG.whatsappNumber)}?text=${encodeURIComponent(
     whatsappPrefill
   )}`;
 
@@ -140,14 +174,19 @@ Could you please provide pricing and production details?`;
     setCartError(null);
     setIsAddingToCart(true);
     try {
+      const displayName = isArawalProduct
+        ? `${product.name} (رول أروال: عرض ${arawalWidth} سم × طول ${arawalLengthMeters} م)`
+        : product.name;
+
       await addToCart({
         productId: product.id,
-        productName: product.name,
-        productImage: product.images[0],
-        unitPrice,
+        productName: displayName,
+        productImage: product.images[0] || 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85',
+        unitPrice: effectiveUnitPrice,
         selectedFinish,
         selectedColor,
         selectedSize,
+        arawalConfig: currentArawalConfig,
         quantity,
       });
 
@@ -160,68 +199,76 @@ Could you please provide pricing and production details?`;
     }
   };
 
+  const ArrowIcon = isRtl ? ChevronRight : ChevronLeft;
+
   return (
-    <div id="product-detail-page" className="pt-20 sm:pt-28 pb-32 sm:pb-24 bg-[#FAF8F5] min-h-screen">
+    <div id="product-detail-page" className="pt-24 sm:pt-32 pb-24 sm:pb-32 bg-[#FAF8F5] min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Breadcrumb Navigation - scrollable on small screens */}
-        <div className="py-2.5 sm:py-4 flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs uppercase tracking-wider text-[#736B63] overflow-x-auto whitespace-nowrap scrollbar-none">
+        {/* Breadcrumb Navigation */}
+        <div className="py-2.5 sm:py-4 flex items-center gap-2 text-xs text-[#8A796B] overflow-x-auto whitespace-nowrap scrollbar-none">
           <button
             onClick={() => navigateTo('shop')}
-            className="flex items-center gap-1 hover:text-[#1C1A19] transition-colors shrink-0"
+            className="flex items-center gap-1 hover:text-[#251811] transition-colors shrink-0 font-medium"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Catalog</span>
+            <span>{t('تشكيلات السجاد', 'Carpet Collections')}</span>
           </button>
           <span>/</span>
           {category && (
             <>
               <button
                 onClick={() => navigateTo('shop', { categoryId: category.id })}
-                className="hover:text-[#1C1A19] transition-colors shrink-0"
+                className="hover:text-[#251811] transition-colors shrink-0"
               >
                 {category.name}
               </button>
               <span>/</span>
             </>
           )}
-          <span className="text-[#1C1A19] font-medium truncate max-w-[160px] sm:max-w-xs">{product.name}</span>
+          <span className="text-[#251811] font-semibold truncate max-w-[220px]">
+            {product.name}
+          </span>
         </div>
 
         {/* Main Product Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 pt-4 sm:pt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-14 pt-4 sm:pt-6">
           {/* Left: Product Imagery Showcase (7 cols) */}
-          <div className="lg:col-span-7 space-y-3 sm:space-y-4">
-            {/* Primary Main Image with High Resolution */}
-            <div className="relative aspect-[4/5] sm:aspect-square w-full rounded-2xl overflow-hidden bg-[#EFEBE3] border border-[#EAE4DC] shadow-[0_12px_36px_rgba(40,25,15,0.06)]">
+          <div className="lg:col-span-7 space-y-4">
+            {/* Primary Main Image with Clean Framing */}
+            <div className="relative aspect-[4/3] sm:aspect-[5/4] w-full rounded-2xl overflow-hidden bg-[#EFE9DF] border border-[#E4DACD] shadow-[0_12px_36px_rgba(40,25,15,0.06)]">
               <Image
-                src={product.images[selectedImageIdx] || product.images[0]}
+                src={productImages[selectedImageIdx] || productImages[0]}
                 alt={product.name}
                 fill
                 priority
-                className="object-cover"
+                className="object-cover object-center transition-all duration-500 hover:scale-[1.02]"
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute top-3 left-3 sm:top-4 sm:left-4 px-2.5 py-1 sm:px-3 sm:py-1 rounded-full bg-white/90 backdrop-blur-sm text-[10px] sm:text-[11px] uppercase tracking-wider text-[#524B45] font-medium">
-                {product.material.split(',')[0]}
-              </div>
+
+              {/* ARAWAL Badge on Image */}
+              {isArawalProduct && (
+                <div className="absolute top-4 start-4 bg-[#251811]/90 backdrop-blur-md text-[#EED8BE] text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md border border-[#C49F74]/30">
+                  <Ruler className="w-3.5 h-3.5 text-[#C49F74]" />
+                  <span>{t('رول أروال بالمتر', 'Arawal Runner by Meter')}</span>
+                </div>
+              )}
             </div>
 
-            {/* Gallery Thumbnails (if multiple images exist) */}
-            {product.images.length > 1 && (
-              <div className="flex gap-2.5 sm:gap-3 overflow-x-auto pb-1 scrollbar-none">
-                {product.images.map((img, idx) => (
+            {/* Thumbnail Strip */}
+            {productImages.length > 1 && (
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+                {productImages.map((img, idx) => (
                   <button
                     key={idx}
                     onClick={() => setSelectedImageIdx(idx)}
-                    className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
+                    className={`relative w-20 h-20 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
                       selectedImageIdx === idx
-                        ? 'border-[#643D26] opacity-100 shadow-sm'
-                        : 'border-[#EAE4DC] opacity-70 hover:opacity-100'
+                        ? 'border-[#A27B5C] ring-2 ring-[#A27B5C]/20 shadow-md'
+                        : 'border-[#E4DACD] opacity-75 hover:opacity-100'
                     }`}
                   >
                     <Image
                       src={img}
-                      alt={`${product.name} thumbnail ${idx + 1}`}
+                      alt={`${product.name} ${idx + 1}`}
                       fill
                       className="object-cover"
                       referrerPolicy="no-referrer"
@@ -231,332 +278,391 @@ Could you please provide pricing and production details?`;
               </div>
             )}
 
-            {/* Craftsmanship & Material Details Accordion / Specs */}
-            <div className="pt-4 sm:pt-8 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div className="p-4 sm:p-5 rounded-xl bg-[#F5F2EB] border border-[#E8E1D5] space-y-1.5 sm:space-y-2">
-                <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
-                  <Layers className="w-4 h-4 text-[#643D26]" />
-                  <span>Material & Casting</span>
-                </div>
-                <p className="text-xs text-[#524B45] leading-relaxed font-light">
-                  {product.material}
-                </p>
+            {/* Product Guarantees Ribbon */}
+            <div className="grid grid-cols-3 gap-3 pt-4 border-t border-[#EAE2D5] text-center">
+              <div className="p-3 rounded-xl bg-[#F4EFE6] border border-[#E8DEC0]">
+                <Truck className="w-5 h-5 mx-auto text-[#A27B5C] mb-1" />
+                <span className="text-[11px] font-semibold text-[#251811] block">
+                  {t('شحن لكافة المحافظات', 'All Governorates')}
+                </span>
+                <span className="text-[10px] text-[#7A6A5E]">
+                  {t('توصيل ٢-٤ أيام', '2–4 business days')}
+                </span>
               </div>
-
-              <div className="p-4 sm:p-5 rounded-xl bg-[#F5F2EB] border border-[#E8E1D5] space-y-1.5 sm:space-y-2">
-                <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
-                  <Ruler className="w-4 h-4 text-[#643D26]" />
-                  <span>Dimensions & Weight</span>
-                </div>
-                <p className="text-xs text-[#524B45] leading-relaxed font-mono">
-                  {product.dimensions}
-                  {product.height && <span className="block mt-0.5">Height: {product.height} cm</span>}
-                </p>
+              <div className="p-3 rounded-xl bg-[#F4EFE6] border border-[#E8DEC0]">
+                <Sparkles className="w-5 h-5 mx-auto text-[#A27B5C] mb-1" />
+                <span className="text-[11px] font-semibold text-[#251811] block">
+                  {t('جودة عالية وخيوط فاخرة', 'Premium Weave')}
+                </span>
+                <span className="text-[10px] text-[#7A6A5E]">
+                  {t('مقاوم للهبوط والاهتراء', 'High durability')}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-[#F4EFE6] border border-[#E8DEC0]">
+                <ShieldCheck className="w-5 h-5 mx-auto text-[#A27B5C] mb-1" />
+                <span className="text-[11px] font-semibold text-[#251811] block">
+                  {t('معاينة عند الاستلام', 'Inspection on Delivery')}
+                </span>
+                <span className="text-[10px] text-[#7A6A5E]">
+                  {t('تأكيد الطلب بعد المراجعة', 'Verified orders')}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Right: Specifications, Selection & Order Actions (5 cols) */}
-          <div className="lg:col-span-5 space-y-6 sm:space-y-8">
-            {/* Title & Tagline */}
-            <div className="space-y-1.5 sm:space-y-2 pb-4 sm:pb-6 border-b border-[#EAE4DC]">
-              <span className="text-[11px] sm:text-xs uppercase tracking-[0.25em] font-medium text-[#B85D38]">
-                {category?.name || 'Sculptural Object'}
-              </span>
-              <h1 className="text-2xl sm:text-4xl font-normal tracking-tight text-[#1C1A19]">
+          {/* Right: Product Customization & Ordering (5 cols) */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Header info */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-[#A27B5C] uppercase tracking-wider">
+                {isArawalProduct ? (
+                  <span>{t('أروال ومشايات بالمتر', 'Custom Arawal Runners')}</span>
+                ) : (
+                  <span>{category?.name || t('سجاد فاخر', 'Luxury Carpet')}</span>
+                )}
+              </div>
+
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#251811] tracking-tight leading-tight">
                 {product.name}
               </h1>
-            </div>
 
-            {/* Pricing Presentation */}
-            <div className="space-y-2">
-              <div className="space-y-2 sm:space-y-2.5">
-                  <div className="flex items-baseline gap-2 sm:gap-3">
-                    <span className="text-2xl sm:text-3xl font-normal text-[#1C1A19]">
-                      {unitPrice.toLocaleString()} EGP
-                    </span>
-                    <span className="text-[11px] sm:text-xs uppercase tracking-wider text-[#736B63]">
-                      Incl. Tax
-                    </span>
-                  </div>
-
-                  {/* Deposit Callout */}
-                  <div className="p-3 sm:p-3.5 rounded-xl bg-[#F5F0E8] border border-[#E6DDCE] space-y-1">
-                    <div className="flex items-center justify-between text-xs font-semibold text-[#643D26]">
-                      <span>{settings.depositPercentage}% Handcrafted Deposit:</span>
-                      <span>{depositDue.toLocaleString()} EGP</span>
+              {/* Price Presentation */}
+              <div className="pt-2">
+                {isArawalProduct ? (
+                  <div className="space-y-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-extrabold text-[#251811]">
+                        {effectiveUnitPrice.toLocaleString()}
+                      </span>
+                      <span className="text-base font-semibold text-[#665448]">
+                        {t('جنيه مصري', 'EGP')}
+                      </span>
+                      <span className="text-xs text-[#8A796B] font-normal">
+                        ({arawalLengthMeters} {t('متر طول', 'meters length')})
+                      </span>
                     </div>
-                    <p className="text-[11px] text-[#524B45] leading-normal">
-                      Initiates raw casting in our Cairo atelier. The remaining balance ({remainingDue.toLocaleString()} EGP) is due upon delivery inspection.
+                    <p className="text-xs text-[#8A796B]">
+                      {t('سعر المتر الطولي:', 'Price per linear meter:')}{' '}
+                      <span className="font-bold text-[#A27B5C]">
+                        {unitPricePerMeter.toLocaleString()} {t('ج.م', 'EGP')}
+                      </span>
                     </p>
                   </div>
+                ) : (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-extrabold text-[#251811]">
+                      {effectiveUnitPrice.toLocaleString()}
+                    </span>
+                    <span className="text-base font-semibold text-[#665448]">
+                      {t('جنيه مصري', 'EGP')}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Configurable Attribute: Finishes */}
-            {product.finishes.length > 0 && (
-              <div className="space-y-2.5 sm:space-y-3">
-                <label className="block text-xs uppercase tracking-[0.2em] font-semibold text-[#1C1A19]">
-                  Finish: <span className="text-[#643D26] font-normal">{selectedFinish}</span>
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5">
-                  {product.finishes.map((finish) => (
+            {/* ARAWAL CONFIGURATION SECTION (NORMAL PRODUCT SOLD BY LENGTH) */}
+            {isArawalProduct && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#F6F1E8] border border-[#E5DACD] space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-[#E5DACD]">
+                  <Ruler className="w-4 h-4 text-[#A27B5C]" />
+                  <h3 className="text-sm font-bold text-[#251811]">
+                    {t('مواصفات الرول', 'Roll Options')}
+                  </h3>
+                </div>
+
+                {/* Step 1: Admin-Controlled Available Width(s) */}
+                {availableWidths.length === 1 ? (
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-[#E0D5C6] text-xs">
+                    <span className="font-bold text-[#251811]">{t('العرض المتوفر:', 'Available Width:')}</span>
+                    <span className="font-extrabold text-[#A27B5C] text-sm">
+                      {arawalWidth} {t('سم', 'cm')}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-[#251811]">
+                        {t('اختر العرض:', 'Select Width:')}
+                      </span>
+                      <span className="text-[#8A796B] font-bold">
+                        {arawalWidth} {t('سم', 'cm')}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {availableWidths.map((w) => (
+                        <button
+                          key={w}
+                          type="button"
+                          onClick={() => setSelectedArawalWidth(w)}
+                          className={`py-2 px-3.5 rounded-xl text-center font-bold text-xs transition-all ${
+                            arawalWidth === w
+                              ? 'bg-[#251811] text-white shadow-md ring-2 ring-[#A27B5C]/30'
+                              : 'bg-white text-[#251811] border border-[#DED4C7] hover:border-[#A27B5C]'
+                          }`}
+                        >
+                          <div>{w} {t('سم', 'cm')}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 2: Length Selection in Meters */}
+                <div className="space-y-2 pt-2 border-t border-[#E5DACD]">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-[#251811]">
+                      {t('اختر الطول المطلوب (بالمتر):', 'Choose length needed (meters):')}
+                    </span>
+                    <span className="font-extrabold text-[#A27B5C] text-sm">
+                      {arawalLengthMeters} {t('متر', 'meters')}
+                    </span>
+                  </div>
+
+                  {/* Stepper Control */}
+                  <div className="flex items-center gap-3">
                     <button
-                      key={finish}
-                      onClick={() => setSelectedFinish(finish)}
-                      className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl border text-[11px] sm:text-xs uppercase tracking-wider font-medium transition-all ${
-                        selectedFinish === finish
-                          ? 'border-[#643D26] bg-[#F5EFEB] text-[#643D26] shadow-xs'
-                          : 'border-[#D8CEBF] bg-[#FAF8F5] text-[#524B45] hover:border-[#1C1A19]'
+                      type="button"
+                      onClick={() =>
+                        setArawalLengthMeters((prev) =>
+                          Math.max(BRAND_CONFIG.arawal.minMeterLength, Number((prev - 0.5).toFixed(1)))
+                        )
+                      }
+                      className="w-10 h-10 rounded-xl bg-white border border-[#DED4C7] text-[#251811] flex items-center justify-center font-bold hover:bg-[#EFE9DF] active:scale-95 transition-all"
+                      aria-label="Decrease Length"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+
+                    <div className="flex-1 bg-white border border-[#DED4C7] rounded-xl py-2 px-3 text-center">
+                      <input
+                        type="number"
+                        min={BRAND_CONFIG.arawal.minMeterLength}
+                        max={BRAND_CONFIG.arawal.maxMeterLength}
+                        step={BRAND_CONFIG.arawal.lengthStep}
+                        value={arawalLengthMeters}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          if (!isNaN(val) && val > 0) {
+                            setArawalLengthMeters(Math.min(BRAND_CONFIG.arawal.maxMeterLength, Math.max(1, val)));
+                          }
+                        }}
+                        className="w-full text-center text-base font-extrabold text-[#251811] focus:outline-none"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setArawalLengthMeters((prev) =>
+                          Math.min(BRAND_CONFIG.arawal.maxMeterLength, Number((prev + 0.5).toFixed(1)))
+                        )
+                      }
+                      className="w-10 h-10 rounded-xl bg-white border border-[#DED4C7] text-[#251811] flex items-center justify-center font-bold hover:bg-[#EFE9DF] active:scale-95 transition-all"
+                      aria-label="Increase Length"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Quick Preset Buttons */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[10px] text-[#8A796B]">{t('أطوال شائعة:', 'Common lengths:')}</span>
+                    {[1.5, 2, 2.5, 3, 4, 5, 6].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setArawalLengthMeters(preset)}
+                        className={`text-[11px] px-2.5 py-1 rounded-lg transition-colors font-medium ${
+                          arawalLengthMeters === preset
+                            ? 'bg-[#A27B5C] text-white'
+                            : 'bg-white text-[#5C4A3E] border border-[#DFD6C9] hover:bg-[#F0EAE0]'
+                        }`}
+                      >
+                        {preset} {t('م', 'm')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Calculation Transparency Box */}
+                <div className="p-3 rounded-xl bg-white border border-[#E0D5C6] space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between text-[#5C4A3E]">
+                    <span>{t('العرض المحدد:', 'Selected width:')}</span>
+                    <span className="font-semibold">{arawalWidth} {t('سم', 'cm')}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[#5C4A3E]">
+                    <span>{t('سعر المتر:', 'Price per meter:')}</span>
+                    <span className="font-semibold">
+                      {unitPricePerMeter.toLocaleString()} {t('ج.م', 'EGP')}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[#5C4A3E]">
+                    <span>{t('الطول المحدد:', 'Selected length:')}</span>
+                    <span className="font-semibold">
+                      {arawalLengthMeters} {t('متر', 'meters')}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between font-extrabold text-[#251811] text-sm pt-1 border-t border-[#F2ECE3]">
+                    <span>{t('الإجمالي:', 'Subtotal:')}</span>
+                    <span className="text-[#A27B5C]">
+                      {arawalCalculatedTotal.toLocaleString()} {t('ج.م', 'EGP')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Standard Sizes (if NOT ARAWAL and product has sizes) */}
+            {!isArawalProduct && product.sizes && product.sizes.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-[#251811]">
+                  {t('المقاس:', 'Select Size:')}
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {product.sizes.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSelectedSize(s)}
+                      className={`p-3 rounded-xl text-start text-xs border transition-all ${
+                        selectedSize?.id === s.id
+                          ? 'border-[#A27B5C] bg-[#FAF5EB] font-bold text-[#251811] ring-1 ring-[#A27B5C]'
+                          : 'border-[#E4DACD] bg-white text-[#5C4A3E] hover:border-[#A27B5C]'
                       }`}
                     >
-                      {finish}
+                      <div className="font-bold">{s.name}</div>
+                      <div className="text-[11px] text-[#8A796B]">{s.dimensions}</div>
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Configurable Attribute: Color Swatches */}
-            {(product.colors.length > 0 || product.allowsCustomization) && (
-              <div className="space-y-2.5 sm:space-y-3">
-                <label className="block text-xs uppercase tracking-[0.2em] font-semibold text-[#1C1A19]">
-                  Color: <span className="text-[#643D26] font-normal">{selectedColor.name}</span>
-                </label>
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  {product.colors.map((color) => {
-                    const isChosen = selectedColor.id === color.id;
-                    return (
-                      <button
-                        key={color.id}
-                        onClick={() => {
-                          setSelectedColor(color);
-                          setIsCustomColorSelected(false);
-                        }}
-                        className={`group relative p-1 rounded-full border-2 transition-all touch-manipulation ${
-                          isChosen ? 'border-[#643D26] scale-110' : 'border-transparent hover:scale-105'
-                        }`}
-                        title={color.name}
-                        aria-label={`Select color ${color.name}`}
-                      >
-                        <span
-                          className="w-7 h-7 sm:w-8 sm:h-8 rounded-full block border border-black/15 shadow-xs"
-                          style={{ backgroundColor: color.hex }}
-                        />
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={() => void toggleColorMenu()}
-                    className={`group relative grid h-10 w-10 place-items-center rounded-full border-2 transition-all touch-manipulation ${
-                      isCustomColorSelected ? 'border-[#643D26] scale-110' : 'border-[#D8CEBF] hover:border-[#643D26]'
-                    }`}
-                    title="Choose a custom color"
-                    aria-label="Choose a custom color"
-                    aria-expanded={isColorMenuOpen}
-                  >
-                    {isCustomColorSelected ? (
+            {/* Color Swatches (if product has colors) */}
+            {product.colors && product.colors.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-[#251811]">{t('اللون:', 'Color:')}</span>
+                  <span className="text-[#8A796B] font-medium">{selectedColor.name}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {product.colors.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setSelectedColor(c)}
+                      className={`h-9 px-3 rounded-full flex items-center gap-2 border text-xs font-medium transition-all ${
+                        selectedColor.id === c.id
+                          ? 'border-[#251811] bg-white shadow-sm ring-2 ring-[#A27B5C]/20'
+                          : 'border-[#E4DACD] bg-white text-[#5C4A3E] hover:border-[#A27B5C]'
+                      }`}
+                    >
                       <span
-                        className="h-7 w-7 rounded-full border border-black/15"
-                        style={{ backgroundColor: selectedColor.hex }}
+                        className="w-4 h-4 rounded-full border border-black/10 shrink-0"
+                        style={{ backgroundColor: c.hex }}
                       />
-                    ) : (
-                      <Plus className="h-4 w-4 text-[#643D26]" />
-                    )}
-                  </button>
-                </div>
-                {isColorMenuOpen && (
-                  <div className="space-y-3 rounded-xl border border-[#EAE4DC] bg-white p-4">
-                    <p className="text-[11px] text-[#736B63]">Explore more color options</p>
-                    {isSharedColorsLoading ? (
-                      <div className="flex justify-center py-2" aria-label="Loading shared colors">
-                        <Loader2 className="h-4 w-4 animate-spin text-[#643D26]" />
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap gap-2.5">
-                        {sharedColors.map((color) => (
-                          <button
-                            key={color.id}
-                            type="button"
-                            onClick={() => selectSharedColor(color)}
-                            className={`grid h-9 w-9 place-items-center rounded-full border-2 transition-transform hover:scale-110 ${
-                              selectedColor.id === String(color.id) ? 'border-[#643D26]' : 'border-[#D8CEBF]'
-                            }`}
-                            style={{ backgroundColor: color.hex_code }}
-                            title={color.hex_code}
-                            aria-label={`Select ${color.hex_code}`}
-                          />
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex flex-col gap-2.5 border-t border-[#EAE4DC] pt-3 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-[11px] text-[#736B63]">Looking for something more specific?</span>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <label className="relative inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#D8CEBF] bg-white px-3 py-2 text-[10px] uppercase tracking-wider text-[#1C1A19] hover:bg-[#FAF8F5]">
-                          <span className="h-3.5 w-3.5 rounded-full border border-black/15" style={{ backgroundColor: customColorDraft }} />
-                          <span>Choose color</span>
-                          <input
-                            type="color"
-                            value={customColorDraft}
-                            aria-label="Pick a custom color"
-                            disabled={isCreatingCustomColor}
-                            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                            onChange={(event) => {
-                              setCustomColorDraft(event.target.value.toUpperCase());
-                              setHasChosenCustomColor(true);
-                            }}
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => void createCustomColor(customColorDraft)}
-                          disabled={!hasChosenCustomColor || isCreatingCustomColor}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-[#1C1A19] px-3 py-2 text-[10px] uppercase tracking-wider text-white hover:bg-[#332F2D] disabled:cursor-not-allowed disabled:opacity-45"
-                        >
-                          {isCreatingCustomColor ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                          <span>{isCreatingCustomColor ? 'Adding...' : 'Add one'}</span>
-                        </button>
-                      </div>
-                    </div>
-                    {customColorError && (
-                      <p role="alert" className="text-[11px] text-[#A33B2B]">{customColorError}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Configurable Attribute: Sizes (if applicable) */}
-            {product.sizes && product.sizes.length > 0 && (
-              <div className="space-y-2.5 sm:space-y-3">
-                <label className="block text-xs uppercase tracking-[0.2em] font-semibold text-[#1C1A19]">
-                  Size Dimension:
-                </label>
-                <div className="space-y-2">
-                  {product.sizes.map((sz) => {
-                    const isChosen = selectedSize?.id === sz.id;
-                    return (
-                      <button
-                        key={sz.id}
-                        onClick={() => setSelectedSize(sz)}
-                        className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all ${
-                          isChosen
-                            ? 'border-[#643D26] bg-[#F5EFEB]'
-                            : 'border-[#D8CEBF] bg-[#FAF8F5] hover:border-[#1C1A19]'
-                        }`}
-                      >
-                        <div>
-                          <p className="text-xs font-semibold text-[#1C1A19] uppercase tracking-wider">
-                            {sz.name}
-                          </p>
-                          <p className="text-[11px] text-[#736B63] font-mono">{sz.dimensions}</p>
-                        </div>
-                        {sz.priceDelta !== 0 && (
-                          <span className="text-xs font-medium text-[#643D26]">
-                            +{sz.priceDelta.toLocaleString()} EGP
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                      <span>{c.name}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Production & Delivery Timeline */}
-            <div className="pt-2 border-t border-[#EAE4DC] flex flex-col gap-2 text-xs text-[#524B45]">
-              <div className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-[#643D26]" />
-                <span>
-                  <strong className="text-[#1C1A19]">Estimated manufacturing & delivery:</strong>{' '}
-                  {product.deliveryDays ? `${product.deliveryDays} days` : product.leadTime}
+            {/* Quantity Selector */}
+            <div className="flex items-center justify-between py-2 border-t border-b border-[#EAE2D5]">
+              <span className="text-xs font-bold text-[#251811]">{t('الكمية:', 'Quantity:')}</span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  className="w-8 h-8 rounded-lg bg-white border border-[#DED4C7] text-[#251811] flex items-center justify-center hover:bg-[#F2ECE3]"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="font-extrabold text-sm text-[#251811] min-w-[20px] text-center">
+                  {quantity}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => q + 1)}
+                  className="w-8 h-8 rounded-lg bg-white border border-[#DED4C7] text-[#251811] flex items-center justify-center hover:bg-[#F2ECE3]"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
-            {/* Primary Action Button (Desktop & in-page) */}
-            <div className="pt-2 sm:pt-4 space-y-3">
-              <div className="flex gap-2.5 sm:gap-3">
-                  {/* Quantity */}
-                  <div className="flex items-center border border-[#D8CEBF] rounded-full bg-white px-2.5 sm:px-3">
-                    <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="p-1 text-[#736B63] hover:text-[#1C1A19]"
-                      aria-label="Decrease quantity"
-                    >
-                      -
-                    </button>
-                    <span className="px-2.5 sm:px-3 text-xs font-semibold text-[#1C1A19]">{quantity}</span>
-                    <button
-                      onClick={() => setQuantity(quantity + 1)}
-                      className="p-1 text-[#736B63] hover:text-[#1C1A19]"
-                      aria-label="Increase quantity"
-                    >
-                      +
-                    </button>
-                  </div>
+            {/* Add to Cart & WhatsApp CTAs */}
+            <div className="space-y-3 pt-2">
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={isAddingToCart}
+                className={`w-full py-4 px-6 rounded-full font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg ${
+                  addedAnimation
+                    ? 'bg-emerald-700 text-white'
+                    : 'bg-[#251811] hover:bg-[#3D291D] text-white active:scale-[0.99]'
+                }`}
+              >
+                {isAddingToCart ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : addedAnimation ? (
+                  <>
+                    <Check className="w-5 h-5 text-white" />
+                    <span>{t('تمت الإضافة إلى السلة بنجاح!', 'Added to Bag!')}</span>
+                  </>
+                ) : (
+                  <span>
+                    {t('إضافة إلى السلة', 'Add to Cart')} · {totalCalculatedPrice.toLocaleString()} {t('ج.م', 'EGP')}
+                  </span>
+                )}
+              </button>
 
-                  {/* Add to Cart CTA */}
-                  <button
-                    id="add-to-cart-btn"
-                    onClick={handleAddToCart}
-                    disabled={isAddingToCart}
-                    className="flex-1 py-3.5 sm:py-4 rounded-full bg-[#1C1A19] text-white text-[11px] sm:text-xs uppercase tracking-[0.22em] sm:tracking-[0.25em] font-medium hover:bg-[#332F2D] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    {isAddingToCart ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Adding...</span>
-                      </>
-                    ) : addedAnimation ? (
-                      <>
-                        <Check className="w-4 h-4 text-[#25D366]" />
-                        <span>Added to Design Bag</span>
-                      </>
-                    ) : (
-                      <span>Add to Cart · {settings.depositPercentage}% Deposit</span>
-                    )}
-                  </button>
-              </div>
-
-              {/* Add to Cart Error */}
               {cartError && (
-                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                  <p className="font-medium text-red-800">{cartError}</p>
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{cartError}</span>
                 </div>
               )}
 
-
-
-              {/* Direct Concierge Inquiry secondary link */}
-              <div className="text-center pt-1 sm:pt-2">
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[11px] uppercase tracking-wider text-[#736B63] hover:text-[#643D26] inline-flex items-center gap-1.5 transition-colors"
-                >
-                  <MessageCircle className="w-3 h-3 text-[#25D366]" />
-                  <span>Have questions? Inquire on WhatsApp</span>
-                </a>
-              </div>
+              {/* Direct WhatsApp Concierge CTA */}
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 px-6 rounded-full bg-white border border-[#25D366]/40 hover:border-[#25D366] text-[#1E7E34] hover:bg-[#25D366]/5 font-semibold text-xs transition-all flex items-center justify-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                <span>{t('طلب أو استفسار عبر واتساب مباشرة', 'Inquire or Order via WhatsApp')}</span>
+              </a>
             </div>
 
-            {/* Detailed Description */}
-            <div className="pt-6 border-t border-[#EAE4DC] space-y-3">
-              <h3 className="text-xs uppercase tracking-[0.2em] font-semibold text-[#1C1A19]">
-                The Narrative
-              </h3>
-              <p className="text-xs sm:text-sm text-[#524B45] font-light leading-relaxed whitespace-pre-line">
-                {product.description}
-              </p>
+            {/* Description & Specifications Accordion/Card */}
+            <div className="pt-4 border-t border-[#EAE2D5] space-y-3 text-xs leading-relaxed text-[#5C4A3E]">
+              <div>
+                <h4 className="font-bold text-[#251811] mb-1">{t('وصف السجاد:', 'Description:')}</h4>
+                <p>{product.description || t('سجاد فاخر مصنوع بأعلى معايير الحرفة والدقة ليمنح منزلك لمسة دافئة وفخمة تدوم طويلاً.', 'Luxury carpet crafted with precision and craftsmanship.')}</p>
+              </div>
+
+              {product.dimensions && !isArawalProduct && (
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[#251811]">{t('الأبعاد:', 'Dimensions:')}</span>
+                  <span>{product.dimensions}</span>
+                </div>
+              )}
+
+              {product.material && (
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[#251811]">{t('الخامة والنسيج:', 'Material:')}</span>
+                  <span>{product.material}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
-
     </div>
   );
 }

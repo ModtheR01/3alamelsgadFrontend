@@ -2,11 +2,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useToccoStore, mapBackendProduct } from '@/lib/store';
-import { toWhatsAppNumber } from '@/lib/utils';
+import { useLanguage } from '@/lib/context/LanguageContext';
 import { productService } from '@/lib/api/services/productService';
 import { Product } from '@/types';
 import Image from '@/components/SafeImage';
-import { Search, Filter, SlidersHorizontal, ArrowRight, MessageCircle } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, ArrowRight, ArrowLeft, Ruler, Sparkles, X } from 'lucide-react';
 
 export default function ShopCatalog() {
   const {
@@ -17,24 +17,23 @@ export default function ShopCatalog() {
     navigateTo,
     searchQuery,
     setSearchQuery,
-    settings,
   } = useToccoStore();
+
+  const { t, isRtl } = useLanguage();
 
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>(
     selectedCategoryId || 'all'
   );
-  const [activeFinishFilter, setActiveFinishFilter] = useState<string>('all');
+  const [arawalOnlyFilter, setArawalOnlyFilter] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<'featured' | 'newest' | 'price-asc' | 'price-desc'>('featured');
 
-  // Server-side search results (name/description/material), debounced
+  // Server-side search results (debounced)
   const [searchResults, setSearchResults] = useState<Product[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     const query = searchQuery.trim();
     if (!query) {
-      // filteredProducts falls back to the full `products` list when the query
-      // is empty, so any stale searchResults/isSearching values are simply unused.
       return;
     }
 
@@ -64,261 +63,236 @@ export default function ShopCatalog() {
   // Filter and sort products
   const filteredProducts = useMemo(() => {
     const baseList = searchQuery.trim() ? searchResults || [] : products;
-    return baseList.filter((product) => {
-      // Must be published
-      if (!product.isPublished) return false;
+    return baseList
+      .filter((product) => {
+        if (!product.isPublished) return false;
 
-      // Category filter
-      if (activeCategoryFilter !== 'all' && product.categoryId !== activeCategoryFilter) {
-        return false;
-      }
+        // Category filter
+        if (activeCategoryFilter !== 'all' && product.categoryId !== activeCategoryFilter) {
+          return false;
+        }
 
-      // Finish filter
-      if (activeFinishFilter !== 'all' && !product.finishes.includes(activeFinishFilter as any)) {
-        return false;
-      }
+        // Arawal specific filter
+        if (arawalOnlyFilter && !product.isArawal && !/أروال|arawal|رول/i.test(product.name)) {
+          return false;
+        }
 
-      return true;
-    }).sort((a, b) => {
-      if (sortBy === 'newest') {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }
-      if (sortBy === 'price-asc') {
-        return (a.price || 999999) - (b.price || 999999);
-      }
-      if (sortBy === 'price-desc') {
-        return (b.price || 0) - (a.price || 0);
-      }
-      // 'featured'
-      return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
-    });
-  }, [products, searchResults, activeCategoryFilter, activeFinishFilter, searchQuery, sortBy]);
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'newest') {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        }
+        if (sortBy === 'price-asc') {
+          return (a.price || 999999) - (b.price || 999999);
+        }
+        if (sortBy === 'price-desc') {
+          return (b.price || 0) - (a.price || 0);
+        }
+        return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
+      });
+  }, [products, searchResults, activeCategoryFilter, arawalOnlyFilter, searchQuery, sortBy]);
 
   const visibleCategories = categories.filter((c) => c.isVisible);
+  const ArrowIcon = isRtl ? ArrowLeft : ArrowRight;
 
   return (
-    <div id="shop-catalog-page" className="pt-20 sm:pt-28 pb-16 sm:pb-24 bg-[#FAF8F5] min-h-screen">
-      <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
-        {/* Editorial Header */}
-        <div className="py-6 sm:py-12 border-b border-[#EAE4DC] space-y-2 sm:space-y-4">
-          <span className="text-[10px] sm:text-xs uppercase tracking-[0.25em] sm:tracking-[0.3em] font-medium text-[#B85D38]">
-            Catalog of Objects
+    <div id="shop-catalog-page" className="pt-24 sm:pt-32 pb-24 sm:pb-32 bg-[#FAF8F5] min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="pb-8 border-b border-[#EAE3D8] space-y-2">
+          <span className="text-xs uppercase tracking-widest font-bold text-[#A27B5C]">
+            {t('تشكيلات عالم السجاد الحصرية', 'Alamelsgad Carpet Archive')}
           </span>
-          <h1 className="text-2xl sm:text-5xl font-normal tracking-tight text-[#1C1A19]">
-            The Collection
+          <h1 className="text-2xl sm:text-4xl font-extrabold text-[#251811] tracking-tight">
+            {t('كتالوج السجاد والأروال', 'Carpet Collections & Runners')}
           </h1>
-          <p className="text-xs sm:text-base text-[#736B63] font-light max-w-2xl leading-relaxed">
-            Each fiberglass piece is hand-laminated and hand-glazed in our Cairo atelier. 
-            All objects require a {settings.depositPercentage}% deposit to initiate artisanal casting.
+          <p className="text-xs sm:text-sm text-[#736357] font-normal max-w-2xl leading-relaxed">
+            {t(
+              'سجاد تركي فاخر، سجاد شرقي، بدائل سجاد عصرية، ورولات أروال ومشايات بالمتر مع توصيل سريع لكافة محافظات مصر.',
+              'Luxury Turkish carpets, oriental rugs, modern alternatives, and runner rolls sold by meter with fast Egypt-wide delivery.'
+            )}
           </p>
         </div>
 
-        {/* Search Bar */}
-        <div className="pt-4 sm:pt-6">
-          <div className="relative max-w-md">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search pieces, categories, mineral finishes..."
-              className="w-full bg-white border border-[#D8CEBF] rounded-full px-4 py-2.5 pl-10 text-xs sm:text-sm text-[#1C1A19] placeholder-[#8F8880] focus:outline-none focus:border-[#643D26]"
-            />
-            <Search className="w-4 h-4 text-[#736B63] absolute left-3.5 top-1/2 -translate-y-1/2" />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] uppercase tracking-wider text-[#736B63] hover:text-[#1C1A19]"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Filter Controls Bar */}
-        <div className="py-4 sm:py-6 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 border-b border-[#EAE4DC]">
-          {/* Category Chips - smooth touch scrolling */}
-          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
+        {/* Filter & Search Bar */}
+        <div className="py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* Category Tabs (Segmented Buttons) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
             <button
-              onClick={() => setActiveCategoryFilter('all')}
-              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-[11px] sm:text-xs uppercase tracking-wider font-medium whitespace-nowrap transition-all ${
-                activeCategoryFilter === 'all'
-                  ? 'bg-[#1C1A19] text-white'
-                  : 'bg-[#EFEBE3] text-[#524B45] hover:bg-[#E5DFD4]'
+              onClick={() => {
+                setActiveCategoryFilter('all');
+                setArawalOnlyFilter(false);
+              }}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 ${
+                activeCategoryFilter === 'all' && !arawalOnlyFilter
+                  ? 'bg-[#251811] text-white shadow-xs'
+                  : 'bg-white text-[#5C4A3E] border border-[#DED4C7] hover:border-[#A27B5C]'
               }`}
             >
-              All Objects ({products.filter((p) => p.isPublished).length})
+              {t('جميع التشكيلات', 'All Carpets')} ({products.length})
             </button>
 
-            {visibleCategories.map((cat) => {
-              const count = products.filter((p) => p.categoryId === cat.id && p.isPublished).length;
-              const isSelected = activeCategoryFilter === cat.id;
+            {/* Dedicated ARAWAL runner tab */}
+            <button
+              onClick={() => {
+                setArawalOnlyFilter(!arawalOnlyFilter);
+                setActiveCategoryFilter('all');
+              }}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+                arawalOnlyFilter
+                  ? 'bg-[#A27B5C] text-white shadow-xs'
+                  : 'bg-[#FAF5EB] text-[#865F3E] border border-[#E8DEC0] hover:bg-[#F2E8D7]'
+              }`}
+            >
+              <Ruler className="w-3.5 h-3.5" />
+              <span>{t('أروال بالمتر (٦٠ - ١٢٠ سم)', 'Arawal Runners')}</span>
+            </button>
 
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategoryFilter(cat.id)}
-                  className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-[11px] sm:text-xs uppercase tracking-wider font-medium whitespace-nowrap transition-all ${
-                    isSelected
-                      ? 'bg-[#1C1A19] text-white'
-                      : 'bg-[#EFEBE3] text-[#524B45] hover:bg-[#E5DFD4]'
-                  }`}
-                >
-                  {cat.name} ({count})
-                </button>
-              );
-            })}
+            {visibleCategories.map((category) => (
+              <button
+                key={category.id}
+                onClick={() => {
+                  setActiveCategoryFilter(category.id);
+                  setArawalOnlyFilter(false);
+                }}
+                className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 ${
+                  activeCategoryFilter === category.id && !arawalOnlyFilter
+                    ? 'bg-[#251811] text-white shadow-xs'
+                    : 'bg-white text-[#5C4A3E] border border-[#DED4C7] hover:border-[#A27B5C]'
+                }`}
+              >
+                {category.name}
+              </button>
+            ))}
           </div>
 
-          {/* Secondary Finish & Sort Selectors */}
-          <div className="grid grid-cols-2 sm:flex items-center gap-2 sm:gap-3 w-full sm:w-auto shrink-0">
-            {/* Finish Filter */}
-            <select
-              value={activeFinishFilter}
-              onChange={(e) => setActiveFinishFilter(e.target.value)}
-              className="w-full sm:w-auto bg-[#FAF8F5] border border-[#D8CEBF] text-[11px] sm:text-xs uppercase tracking-wider text-[#1C1A19] rounded-full px-3 py-2 focus:outline-none cursor-pointer"
-            >
-              <option value="all">All Finishes</option>
-              <option value="Matte">Matte Glaze</option>
-              <option value="Glossy">High-Gloss Marine</option>
-            </select>
-
-            {/* Sort Order */}
+          {/* Sort Selector */}
+          <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+            <span className="text-xs text-[#8A796B] font-medium">{t('الترتيب:', 'Sort:')}</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="w-full sm:w-auto bg-[#FAF8F5] border border-[#D8CEBF] text-[11px] sm:text-xs uppercase tracking-wider text-[#1C1A19] rounded-full px-3 py-2 focus:outline-none cursor-pointer"
+              className="p-2 rounded-xl border border-[#DED4C7] bg-white text-xs font-bold text-[#251811] focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
             >
-              <option value="featured">Featured First</option>
-              <option value="newest">Newest Releases</option>
-              <option value="price-asc">Price: Low to High</option>
-              <option value="price-desc">Price: High to Low</option>
+              <option value="featured">{t('المميز أولاً', 'Featured First')}</option>
+              <option value="newest">{t('الأحدث إضافة', 'Newest Added')}</option>
+              <option value="price-asc">{t('السعر: من الأقل للأعلى', 'Price: Low to High')}</option>
+              <option value="price-desc">{t('السعر: من الأعلى للأقل', 'Price: High to Low')}</option>
             </select>
           </div>
         </div>
 
-        {/* Active search banner if query present */}
-        {searchQuery && (
-          <div className="mt-3 sm:mt-4 p-2.5 sm:p-3 rounded-lg bg-[#F2EDE4] flex items-center justify-between text-xs text-[#524B45]">
+        {/* Active Search Query Notice */}
+        {searchQuery.trim() && (
+          <div className="mb-4 flex items-center justify-between p-3 rounded-xl bg-[#FAF5EB] border border-[#E8DEC0] text-xs text-[#5C4A3E]">
             <span>
-              {isSearching
-                ? 'Searching...'
-                : `Matching \u201C${searchQuery}\u201D (${filteredProducts.length} pieces)`}
+              {t('نتائج البحث عن:', 'Showing search results for:')} <strong>«{searchQuery}»</strong> ({filteredProducts.length})
             </span>
             <button
               onClick={() => setSearchQuery('')}
-              className="font-medium text-[#B85D38] hover:underline"
+              className="text-[#A27B5C] font-bold hover:underline flex items-center gap-1"
             >
-              Clear search
+              <X className="w-3.5 h-3.5" />
+              <span>{t('إلغاء البحث', 'Clear')}</span>
             </button>
           </div>
         )}
 
-        {/* Products Grid: 2 columns on mobile, 3 columns on desktop */}
+        {/* Product Cards Grid: 2 cols on mobile, 4 cols on desktop */}
         {filteredProducts.length === 0 ? (
-          <div className="py-20 sm:py-24 text-center space-y-4">
-            <p className="text-base sm:text-lg text-[#1C1A19] font-medium">No design pieces found</p>
-            <p className="text-xs sm:text-sm text-[#736B63] max-w-sm mx-auto font-light">
-              Try adjusting your category or finish filters to explore our available objects.
+          <div className="py-24 text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-[#EFE9DF] text-[#8A796B] flex items-center justify-center mx-auto">
+              <Search className="w-7 h-7 text-[#A27B5C]" />
+            </div>
+            <p className="text-base font-bold text-[#251811]">
+              {t('لا توجد قطع مطابقة للبحث حالياً', 'No products found matching your criteria')}
+            </p>
+            <p className="text-xs text-[#8A796B]">
+              {t('جرب اختيار قسم آخر أو إلغاء فلتر البحث.', 'Try selecting another category or clearing search.')}
             </p>
             <button
               onClick={() => {
                 setActiveCategoryFilter('all');
-                setActiveFinishFilter('all');
+                setArawalOnlyFilter(false);
                 setSearchQuery('');
               }}
-              className="px-6 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-widest font-medium"
+              className="px-6 py-2.5 rounded-full bg-[#251811] text-white text-xs font-bold"
             >
-              Reset Filters
+              {t('عرض جميع السجاد', 'View All Carpets')}
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 lg:gap-8 pt-6 sm:pt-10">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {filteredProducts.map((product) => {
-              const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
-                `Hello Tocco House, I am interested in inquiring about the "${product.name}".`
-              )}`;
+              const isArawal =
+                product.isArawal || /أروال|arawal|رول/i.test(product.name);
 
               return (
                 <div
                   key={product.id}
-                  className="group flex flex-col bg-[#FAF8F5] rounded-xl sm:rounded-2xl overflow-hidden border border-[#EAE4DC] hover:shadow-[0_12px_40px_rgba(40,25,15,0.07)] transition-all duration-300"
+                  className="group flex flex-col bg-white rounded-2xl overflow-hidden border border-[#E8DEC0] hover:shadow-xl transition-all duration-300"
                 >
-                  {/* Image Presentation */}
+                  {/* Image with High Resolution and Consistent Aspect Ratio */}
                   <div
+                    className="relative aspect-[4/5] bg-[#EFE9DF] overflow-hidden cursor-pointer"
                     onClick={() => navigateTo('product', { productId: product.id })}
-                    className="relative aspect-[4/5] bg-[#EFEBE3] overflow-hidden cursor-pointer"
                   >
                     <Image
-                      src={product.images[0]}
+                      src={product.images[0] || 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85'}
                       alt={product.name}
                       fill
                       className="object-cover transition-transform duration-700 group-hover:scale-105"
                       referrerPolicy="no-referrer"
                     />
 
-                    {/* Top Badges */}
-                    <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex flex-col gap-1">
-                      <span className="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-white/90 backdrop-blur-sm text-[8px] sm:text-[10px] uppercase tracking-wider text-[#524B45] font-medium shadow-2xs">
-                        {product.deliveryDays ? `${product.deliveryDays} days` : product.leadTime}
-                      </span>
-                    </div>
-
+                    {/* ARAWAL Badge */}
+                    {isArawal && (
+                      <div className="absolute top-2.5 start-2.5 bg-[#251811]/90 backdrop-blur-xs text-[#EED8BE] text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                        <Ruler className="w-3 h-3 text-[#C49F74]" />
+                        <span>{t('أروال بالمتر', 'Custom Roll')}</span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Product Info Block */}
-                  <div className="p-3 sm:p-6 flex-1 flex flex-col justify-between space-y-2.5 sm:space-y-4">
-                    <div className="space-y-1 sm:space-y-2">
-                      {/* Available Colors Palette Swatches */}
-                      <div className="flex items-center gap-1">
-                        {product.colors.slice(0, 3).map((c) => (
-                          <span
-                            key={c.id}
-                            title={c.name}
-                            className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border border-black/15 shadow-2xs inline-block"
-                            style={{ backgroundColor: c.hex }}
-                          />
-                        ))}
-                        {product.colors.length > 3 && (
-                          <span className="text-[9px] sm:text-[10px] text-[#8F8880] font-mono">
-                            +{product.colors.length - 3}
-                          </span>
-                        )}
-                        <span className="text-[9px] sm:text-[11px] text-[#8F8880] ml-1 sm:ml-2 truncate">
-                          {product.finishes[0]}
-                        </span>
-                      </div>
+                  {/* Info Body */}
+                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                    <div>
+                      {/* Zero-Pill Quiet Category Label */}
+                      <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8A796B] block mb-1">
+                        {isArawal ? t('أروال وممرات', 'Runners') : t('سجاد فاخر', 'Luxury Carpet')}
+                      </span>
 
                       <h3
                         onClick={() => navigateTo('product', { productId: product.id })}
-                        className="text-xs sm:text-lg font-normal text-[#1C1A19] group-hover:text-[#643D26] transition-colors cursor-pointer line-clamp-1"
+                        className="text-xs sm:text-sm font-bold text-[#251811] group-hover:text-[#A27B5C] transition-colors cursor-pointer line-clamp-1"
                       >
                         {product.name}
                       </h3>
 
-                      <p className="text-[11px] sm:text-xs text-[#736B63] line-clamp-2 font-light leading-relaxed hidden sm:block">
-                        {product.description}
+                      <p className="text-[11px] text-[#7A6A5E] line-clamp-1 mt-1 font-normal">
+                        {product.description || (isArawal ? t('رول أروال بالمتر - عروض ٦٠، ٨٠، ١٠٠، ١٢٠ سم', 'Arawal roll by meter - 60, 80, 100, 120 cm') : t('خيوط تركية ناعمة مقاومة للانزلاق', 'Non-slip premium weave'))}
                       </p>
                     </div>
 
-                    {/* Pricing & CTA */}
-                    <div className="pt-2 sm:pt-4 border-t border-[#EAE4DC] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    {/* Price & Action Button */}
+                    <div className="pt-2 border-t border-[#F2EDE5] flex items-center justify-between">
                       <div>
-                        <div className="flex flex-col">
-                          <span className="text-xs sm:text-base font-semibold text-[#1C1A19]">
-                            {product.price?.toLocaleString()} EGP
+                        <span className="text-xs sm:text-sm font-extrabold text-[#251811]">
+                          {product.price?.toLocaleString()} {t('ج.م', 'EGP')}
+                        </span>
+                        {isArawal && (
+                          <span className="text-[10px] text-[#8A796B] block">
+                            {t('/ للمتر', '/ meter')}
                           </span>
-                          <span className="text-[8px] sm:text-[10px] text-[#8F8880]">
-                            Deposit: {Math.round((product.price || 0) * settings.depositPercentage / 100).toLocaleString()} EGP
-                          </span>
-                        </div>
+                        )}
                       </div>
 
                       <button
                         onClick={() => navigateTo('product', { productId: product.id })}
-                        className="w-full sm:w-auto text-center px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full border border-[#D8CEBF] text-[9px] sm:text-[11px] uppercase tracking-wider font-medium text-[#1C1A19] hover:bg-[#1C1A19] hover:text-white hover:border-[#1C1A19] transition-all"
+                        className="px-3 py-1.5 rounded-full bg-[#FAF5EB] hover:bg-[#251811] text-[#251811] hover:text-white border border-[#DED4C7] text-[11px] font-bold transition-all"
                       >
-                        View Piece
+                        {isArawal ? t('اختر الطول', 'Select Length') : t('التفاصيل', 'Details')}
                       </button>
                     </div>
                   </div>

@@ -1,5 +1,5 @@
 import { apiClient } from '../client';
-import { PaginatedResponse } from '../pagination';
+import { PaginatedResponse, unwrapResults } from '../pagination';
 import { BackendSpaceProject, SpaceProjectRequest } from '@/types/spaceProject';
 
 export const spaceProjectService = {
@@ -7,7 +7,7 @@ export const spaceProjectService = {
     const response = await apiClient.get<PaginatedResponse<BackendSpaceProject>>('/space-projects/', {
       params: { page_size: 100 },
     });
-    return response.results;
+    return unwrapResults<BackendSpaceProject>(response);
   },
 
   async createProject(data: SpaceProjectRequest): Promise<BackendSpaceProject> {

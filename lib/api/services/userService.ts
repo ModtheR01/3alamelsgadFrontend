@@ -1,5 +1,5 @@
 import { apiClient } from '../client';
-import { PaginatedResponse, SearchParams } from '../pagination';
+import { PaginatedResponse, SearchParams, unwrapResults } from '../pagination';
 import {
   ProfileResponse,
   ProfileUpdateRequest,
@@ -51,7 +51,7 @@ export const userService = {
     const response = await apiClient.get<PaginatedResponse<UserManagementUser>>('/user/users/', {
       params: { page_size: 100, ...params },
     });
-    return response.results;
+    return unwrapResults<UserManagementUser>(response);
   },
 
   /**
