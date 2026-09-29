@@ -104,6 +104,33 @@ const toDateTimeInputValue = (value: string | null) => (value ? value.slice(0, 1
 
 const toBackendDateTime = (value: string) => (value ? new Date(value).toISOString() : null);
 
+const createNewProductDraft = (categories: Category[]): Product => ({
+  id: `prod-${Date.now()}`,
+  name: '',
+  slug: `product-${Date.now()}`,
+  categoryId: categories[0]?.id || 'cat-tables',
+  subcategoryIds: [],
+  description: '',
+  price: 25000,
+  images: [
+    'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&w=1200&q=85',
+  ],
+  finishes: ['MATTE', 'GLOSSY'],
+  colors: [],
+  dimensions: '80 x 80 x 42 cm',
+  deliveryDays: 21,
+  height: '',
+  material: 'Reinforced marine-grade fiberglass with UV-stable gelcoat',
+  faq: [],
+  leadTime: '21 days',
+  shippingTime: '5–7 days white-glove delivery',
+  isFeatured: false,
+  isPublished: true,
+  inStock: true,
+  allowsCustomization: true,
+  createdAt: new Date().toISOString(),
+});
+
 export default function AdminDashboard() {
   const {
     products,
@@ -370,7 +397,7 @@ export default function AdminDashboard() {
     offer_type: offer?.offer_type || 'PERCENTAGE',
     percentage: offer?.percentage != null ? String(offer.percentage) : '',
     bundle_price: offer?.bundle_price != null ? String(offer.bundle_price) : '',
-    products: offer?.products.length
+    products: Array.isArray(offer?.products) && offer.products.length > 0
       ? offer.products.map((item) => ({
           product_id: String(item.product_id),
           quantity: String(item.quantity),
@@ -562,32 +589,7 @@ export default function AdminDashboard() {
 
   // Helper to open new product
   const handleNewProduct = () => {
-    setEditingProduct({
-      id: `prod-${Date.now()}`,
-      name: '',
-      slug: `product-${Date.now()}`,
-      categoryId: categories[0]?.id || 'cat-tables',
-      subcategoryIds: [],
-      description: '',
-      price: 25000,
-      images: [
-        'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&w=1200&q=85',
-      ],
-      finishes: ['MATTE', 'GLOSSY'],
-      colors: [],
-      dimensions: '80 x 80 x 42 cm',
-      deliveryDays: 21,
-      height: '',
-      material: 'Reinforced marine-grade fiberglass with UV-stable gelcoat',
-      faq: [],
-      leadTime: '21 days',
-      shippingTime: '5–7 days white-glove delivery',
-      isFeatured: false,
-      isPublished: true,
-      inStock: true,
-      allowsCustomization: true,
-      createdAt: new Date().toISOString(),
-    });
+    setEditingProduct(createNewProductDraft(categories));
     setIsProductModalOpen(true);
   };
 
@@ -1438,7 +1440,7 @@ export default function AdminDashboard() {
                         </div>
                         <h4 className="text-base font-semibold text-[#1C1A19]">{offer.name}</h4>
                         <p className="text-xs text-[#736B63]">
-                          {offer.products.length} product{offer.products.length === 1 ? '' : 's'} · {formatCurrency(offer.offer_price)} offer price
+                          {Array.isArray(offer.products) ? offer.products.length : 0} product{Array.isArray(offer.products) && offer.products.length === 1 ? '' : 's'} · {formatCurrency(offer.offer_price)} offer price
                         </p>
                       </div>
                       <div className="flex gap-1 shrink-0">
@@ -1836,15 +1838,59 @@ export default function AdminDashboard() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[#1C1A19] font-medium mb-1">Dimensions</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[#1C1A19] font-medium">Dimensions / Available Widths</label>
+                    </div>
                     <input
                       type="text"
+                      placeholder="e.g. 80 cm or 60, 80, 100, 120 cm"
                       value={editingProduct.dimensions}
-                      onChange={(e) =>
-                        setEditingProduct({ ...editingProduct, dimensions: e.target.value })
-                      }
-                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const nums = (val.match(/\d+(\.\d+)?/g) || []).map(Number).filter((n) => n >= 30 && n <= 500);
+                        const unique = Array.from(new Set(nums)).sort((a, b) => a - b);
+                        setEditingProduct({
+                          ...editingProduct,
+                          dimensions: val,
+                          availableWidths: unique.length > 0 ? unique : undefined,
+                        });
+                      }}
+                      className="w-full p-2.5 rounded-lg border border-[#D8CEBF] font-mono text-sm"
                     />
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      <span className="text-[10px] text-[#7A6E65]">Roll width (cm):</span>
+                      {[60, 80, 100, 120, 140, 160].map((preset) => {
+                        const curNums = (editingProduct.dimensions.match(/\d+(\.\d+)?/g) || []).map(Number);
+                        const isIncluded = curNums.includes(preset);
+                        return (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => {
+                              let nextNums: number[];
+                              if (isIncluded) {
+                                nextNums = curNums.filter((n) => n !== preset);
+                              } else {
+                                nextNums = [...curNums, preset].sort((a, b) => a - b);
+                              }
+                              const nextDims = nextNums.length > 0 ? nextNums.map((n) => `${n} سم`).join('، ') : '';
+                              setEditingProduct({
+                                ...editingProduct,
+                                dimensions: nextDims,
+                                availableWidths: nextNums.length > 0 ? nextNums : undefined,
+                              });
+                            }}
+                            className={`text-[10px] px-2 py-0.5 rounded-md border transition-all font-medium ${
+                              isIncluded
+                                ? 'bg-[#1C1A19] text-white border-[#1C1A19]'
+                                : 'bg-white text-[#524B45] border-[#D8CEBF] hover:border-[#1C1A19]'
+                            }`}
+                          >
+                            {isIncluded ? `✓ ${preset}` : `+ ${preset}`}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   <div>
@@ -2471,7 +2517,7 @@ export default function AdminDashboard() {
                           ...editingOffer,
                           products: editingOffer.products.filter((_, itemIndex) => itemIndex !== index),
                         })}
-                        disabled={editingOffer.products.length === 1}
+                        disabled={!Array.isArray(editingOffer.products) || editingOffer.products.length <= 1}
                         className="p-2 text-[#B85D38] disabled:text-[#C9C0B4]"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -2717,7 +2763,7 @@ export default function AdminDashboard() {
                       <option value="new_product">منتج جديد (New Piece / Product)</option>
                       <option value="special_offer">اوفر وعرض استثنائي (Special Privilege / Offer)</option>
                       <option value="upcoming_event">ايفنت ومعرض (Upcoming Event / Exhibition)</option>
-                      <option value="custom_service">تنفيذ وتفصيل خاص (Bespoke Commission)</option>
+                      <option value="custom_service">خدمات وتجهيز المشاريع (Projects & Commercial)</option>
                     </select>
                   </div>
 

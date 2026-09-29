@@ -1,2 +1,19 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+
+:root {
+  --font-cairo: 'Cairo', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  font-family: var(--font-cairo);
+}
+
+/* Hide scrollbar for clean horizontal chips */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

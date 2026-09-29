@@ -1,6 +1,6 @@
 {
-  "name": "Tocco House",
-  "description": "Contemporary Egyptian design house specializing in distinctive fiberglass furniture, sculptural pieces, and architectural design objects.",
+  "name": "عالم السجاد — Alamelsgad",
+  "description": "عالم السجاد: سجاد تركي فاخر، سجاد شرقي، بدائل سجاد، وأروال مخصصة بالمتر لتجميل منزلك بأرقى الألوان والمقاسات.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

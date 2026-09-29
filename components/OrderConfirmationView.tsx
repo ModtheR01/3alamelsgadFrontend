@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { useToccoStore } from '@/lib/store';
+import { useLanguage } from '@/lib/context/LanguageContext';
+import { BRAND_CONFIG } from '@/lib/brandConfig';
 import { toWhatsAppNumber } from '@/lib/utils';
 import {
   CheckCircle2,
@@ -9,27 +11,34 @@ import {
   ShieldCheck,
   MessageCircle,
   ArrowRight,
+  ArrowLeft,
   Copy,
   Check,
   Package,
+  Truck,
+  AlertCircle,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 
 export default function OrderConfirmationView() {
   const { lastCreatedOrder, submitPaymentProof, navigateTo, settings } = useToccoStore();
+  const { t, isRtl } = useLanguage();
 
   const [proofSubmitted, setProofSubmitted] = useState(false);
+  const [proofNote, setProofNote] = useState('');
   const [copiedOrder, setCopiedOrder] = useState(false);
 
   if (!lastCreatedOrder) {
     return (
-      <div className="pt-32 pb-24 text-center min-h-[60vh] flex flex-col items-center justify-center space-y-4">
-        <p className="text-lg text-[#1C1A19]">No recent order found</p>
+      <div className="pt-32 pb-24 text-center min-h-[60vh] flex flex-col items-center justify-center space-y-4 px-4">
+        <p className="text-lg text-[#251811] font-medium">
+          {t('لا يوجد طلب حديث لعرضه', 'No recent order found')}
+        </p>
         <button
           onClick={() => navigateTo('shop')}
-          className="px-6 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-widest"
+          className="px-6 py-2.5 rounded-full bg-[#251811] text-white text-xs font-bold uppercase tracking-widest hover:bg-[#3D291D] transition-colors"
         >
-          Return to Catalog
+          {t('العودة لتشكيلات السجاد', 'Return to Catalog')}
         </button>
       </div>
     );
@@ -41,39 +50,30 @@ export default function OrderConfirmationView() {
   const isBackend = 'order_number' in rawOrder;
   const orderNumber = isBackend ? rawOrder.order_number : rawOrder.orderNumber;
   const totalAmount = isBackend ? Number(rawOrder.total_price) : rawOrder.totalAmount;
-  const depositAmount = isBackend ? Number(rawOrder.deposit_amount) : rawOrder.depositAmount;
-  const depositPercentage = isBackend ? Number(rawOrder.deposit_percentage) : rawOrder.depositPercentage;
-  const paymentMethod = isBackend ? 'instapay' : rawOrder.paymentMethod;
-  const paymentStatus = isBackend
-    ? rawOrder.status === 'CONFIRMED'
-      ? 'payment_verified'
-      : 'pending_deposit'
-    : rawOrder.paymentStatus;
   const customerName = isBackend
-    ? rawOrder.shipping_address?.title || 'Esteemed Patron'
+    ? rawOrder.shipping_address?.title || 'عميلنا العزيز'
     : rawOrder.customer.fullName;
-  const customerStreet = isBackend
-    ? `${rawOrder.shipping_address?.building_number ? `Bldg ${rawOrder.shipping_address.building_number}, ` : ''}${rawOrder.shipping_address?.street || ''}`
-    : rawOrder.customer.street;
-  const customerCity = isBackend ? rawOrder.shipping_address?.city || 'Cairo' : rawOrder.customer.city;
-  const customerRegion = isBackend ? rawOrder.shipping_address?.country || 'Egypt' : rawOrder.customer.governorate;
+  const customerCity = isBackend ? rawOrder.shipping_address?.city || 'مصر' : rawOrder.customer.city;
+  const customerRegion = isBackend ? rawOrder.shipping_address?.country || 'مصر' : rawOrder.customer.governorate;
+
   const items = isBackend
     ? rawOrder.items.map((it) => ({
         id: it.id,
         productName: it.product_name,
         productImage:
-          'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=800&q=80',
-        selectedFinish: it.selected_finish || 'Not specified',
+          'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=800&q=80',
+        selectedFinish: it.selected_finish || '',
         selectedColor: it.color_name
-          ? { id: it.color_name, name: it.color_name, hex: it.color_hex_code || '#EBE3D5' }
+          ? { id: it.color_name, name: it.color_name, hex: it.color_hex_code || '#D2C1AF' }
           : undefined,
         quantity: it.quantity,
         unitPrice: Number(it.product_price),
       }))
     : rawOrder.items;
 
-  const handleProofSubmit = () => {
-    submitPaymentProof(String(rawOrder.id), '');
+  const handleProofSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitPaymentProof(String(rawOrder.id), proofNote);
     setProofSubmitted(true);
   };
 
@@ -84,206 +84,162 @@ export default function OrderConfirmationView() {
   };
 
   // WhatsApp prefilled proof-submission message
-  const proofWhatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
-    `Hello Tocco House,\nI have completed my ${depositPercentage}% deposit payment for Order #${orderNumber}. Attaching my payment screenshot/receipt below for verification.`
+  const proofWhatsappUrl = `https://wa.me/${toWhatsAppNumber(BRAND_CONFIG.whatsappNumber)}?text=${encodeURIComponent(
+    `مرحباً عالم السجاد، تم تسجيل الطلب رقم #${orderNumber} بإجمالي ${totalAmount.toLocaleString()} ج.م. مرفق إيصال التحويل للمراجعة والتأكيد.`
   )}`;
 
+  const ArrowIcon = isRtl ? ArrowLeft : ArrowRight;
 
   return (
-    <div id="order-confirmation-page" className="pt-20 sm:pt-28 pb-20 sm:pb-24 bg-[#FAF8F5] min-h-screen">
-      <div className="max-w-4xl mx-auto px-3.5 sm:px-6 lg:px-8 space-y-6 sm:space-y-10">
-        {/* Celebratory Header */}
-        <div className="text-center space-y-3 sm:space-y-4 py-4 sm:py-8">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#F5EFEB] text-[#643D26] flex items-center justify-center mx-auto shadow-sm">
-            <CheckCircle2 className="w-7 h-7 sm:w-8 sm:h-8" />
+    <div id="order-confirmation-page" className="pt-24 sm:pt-32 pb-24 sm:pb-32 bg-[#FAF8F5] min-h-screen">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-8">
+        {/* Header Ribbon */}
+        <div className="text-center space-y-4 py-4">
+          <div className="w-16 h-16 rounded-full bg-[#FAF5EB] text-[#A27B5C] border border-[#E8DEC0] flex items-center justify-center mx-auto shadow-xs">
+            <CheckCircle2 className="w-8 h-8" />
           </div>
 
-          <span className="text-[10px] sm:text-xs uppercase tracking-[0.3em] font-medium text-[#B85D38]">
-            Artisanal Commission Placed
+          <span className="text-xs uppercase tracking-widest font-bold text-[#A27B5C]">
+            {t('تم تسجيل طلبك بنجاح في عالم السجاد', 'Order Successfully Recorded')}
           </span>
 
-          <h1 className="text-2xl sm:text-4xl font-normal tracking-tight text-[#1C1A19]">
-            Thank you, {customerName}
+          <h1 className="text-2xl sm:text-4xl font-extrabold text-[#251811] tracking-tight">
+            {t('شكراً لك،', 'Thank you,')} {customerName}
           </h1>
 
-          <p className="text-xs sm:text-base text-[#736B63] max-w-lg mx-auto font-light leading-relaxed">
-            Your order has been recorded in our atelier schedule. Transfer the {depositPercentage}% handcrafted deposit
-            below to activate mould preparation and fiberglass casting.
+          <p className="text-xs sm:text-sm text-[#736357] max-w-lg mx-auto font-normal leading-relaxed">
+            {t(
+              'تم استلام طلبك وحفظه في النظام. يرجى إتمام تحويل دفعة الشحن/الطلب لتأكيد المعاينة وتجهيز الشحنة.',
+              'Your order has been recorded. Please complete your transfer to verify and dispatch your carpets.'
+            )}
           </p>
 
-          {/* Order Reference Pill */}
-          <div className="inline-flex items-center gap-2 sm:gap-3 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-[#F2EDE4] border border-[#D8CEBF] text-[11px] sm:text-xs font-mono">
-            <span className="text-[#736B63]">Order Reference:</span>
-            <span className="font-bold text-[#1C1A19]">{orderNumber}</span>
+          {/* Order Reference Number */}
+          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-white border border-[#DFD6C9] text-xs font-mono shadow-xs">
+            <span className="text-[#8A796B] font-sans font-medium">{t('رقم الطلب:', 'Order #:')}</span>
+            <span className="font-extrabold text-[#251811]">{orderNumber}</span>
             <button
               onClick={copyOrderNumber}
-              className="text-[#643D26] hover:text-[#1C1A19] flex items-center gap-1 ml-1"
+              className="text-[#A27B5C] hover:text-[#7A5437] transition-colors p-1"
+              title="Copy"
             >
-              {copiedOrder ? <Check className="w-3.5 h-3.5 text-[#25D366]" /> : <Copy className="w-3.5 h-3.5" />}
+              {copiedOrder ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
           </div>
         </div>
 
-        {/* Deposit Action Card */}
-        <div className="p-4 sm:p-8 rounded-xl sm:rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4 sm:space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 sm:pb-6 border-b border-[#EAE4DC] gap-3 sm:gap-4">
-            <div>
-              <span className="text-[11px] sm:text-xs uppercase tracking-wider font-semibold text-[#643D26] block">
-                Required {depositPercentage}% Handcrafted Deposit:
-              </span>
-              <span className="text-2xl sm:text-3xl font-normal text-[#1C1A19]">
-                {depositAmount.toLocaleString()} EGP
-              </span>
+        {/* Order Status Pipeline Card (MANDATORY REQUIREMENT) */}
+        <div className="p-5 sm:p-6 rounded-2xl bg-white border border-[#E8DEC0] shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[#B7791F]" />
+              <h3 className="text-sm font-bold text-[#251811]">
+                {t('حالة الطلب الحالية:', 'Current Order Status:')}
+              </h3>
             </div>
-
-            <div className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-[#FAF0E6] text-[#B85D38] text-[11px] sm:text-xs uppercase tracking-wider font-semibold self-start sm:self-auto">
-              {paymentStatus === 'payment_verified'
-                ? 'Deposit Verified'
-                : paymentStatus === 'proof_submitted'
-                ? 'Proof Received · Verifying'
-                : `Awaiting ${depositPercentage}% Deposit`}
-            </div>
+            <span className="px-3 py-1 rounded-full bg-[#FFF8E6] border border-[#F6E05E] text-[#B7791F] font-bold text-xs">
+              {t('غير مؤكد', 'Not Confirmed')}
+            </span>
           </div>
 
-          {/* Payment Method Details */}
-          <div className="space-y-2.5 sm:space-y-3 text-xs text-[#524B45]">
-            <h4 className="uppercase tracking-wider font-semibold text-[#1C1A19]">
-              Transfer Destination ({paymentMethod.replace('_', ' ').toUpperCase()}):
-            </h4>
-
-            {paymentMethod === 'instapay' && (
-              <div className="p-3.5 sm:p-4 rounded-xl bg-[#FAF8F5] border border-[#D8CEBF] flex justify-between items-center">
-                <div>
-                  <p className="text-[#736B63] text-[11px]">InstaPay IPA / Address:</p>
-                  <p className="font-mono text-xs sm:text-sm font-bold text-[#1C1A19]">
-                    {settings.paymentMethods.instapay.address}
-                  </p>
-                </div>
-                <span className="text-[10px] sm:text-[11px] text-[#643D26] font-medium">Instant Verification</span>
-              </div>
+          <p className="text-xs text-[#7A6A5E] leading-relaxed">
+            {t(
+              'تسجيل الطلب لا يعني التأكيد النهائي فوراً. يتم فحص المقاسات وإيصال التحويل من قِبل إدارة عالم السجاد ثم تحويل الحالة إلى (مؤكد).',
+              'Placing an order is not automatically confirmed. Measurements and deposit receipts are verified by our team before confirming.'
             )}
+          </p>
 
-            {paymentMethod === 'vodafone_cash' && (
-              <div className="p-3.5 sm:p-4 rounded-xl bg-[#FAF8F5] border border-[#D8CEBF] flex justify-between items-center">
-                <div>
-                  <p className="text-[#736B63] text-[11px]">Mobile Wallet Number:</p>
-                  <p className="font-mono text-xs sm:text-sm font-bold text-[#1C1A19]">
-                    {settings.paymentMethods.mobileWallet?.number || settings.contact.phone}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {paymentMethod === 'bank_transfer' && (
-              <div className="p-3.5 sm:p-4 rounded-xl bg-[#FAF8F5] border border-[#D8CEBF] space-y-1 font-mono text-[11px] sm:text-xs">
-                <p>Bank: {settings.paymentMethods.bankTransfer.bankName}</p>
-                <p>Account: {settings.paymentMethods.bankTransfer.accountHolder || settings.paymentMethods.bankTransfer.accountName}</p>
-                <p className="break-all">IBAN: {settings.paymentMethods.bankTransfer.iban}</p>
-              </div>
-            )}
+          {/* Stepper Visualization */}
+          <div className="pt-2 grid grid-cols-5 gap-1 text-center text-[10px] sm:text-xs">
+            <div className="p-2 rounded-lg bg-[#FAF5EB] border border-[#A27B5C] text-[#A27B5C] font-bold">
+              1. {t('غير مؤكد', 'Not Confirmed')}
+            </div>
+            <div className="p-2 rounded-lg bg-[#F9F7F4] text-[#9C8A7C]">
+              2. {t('مؤكد', 'Confirmed')}
+            </div>
+            <div className="p-2 rounded-lg bg-[#F9F7F4] text-[#9C8A7C]">
+              3. {t('جاري التجهيز', 'Preparing')}
+            </div>
+            <div className="p-2 rounded-lg bg-[#F9F7F4] text-[#9C8A7C]">
+              4. {t('تم الشحن', 'Shipped')}
+            </div>
+            <div className="p-2 rounded-lg bg-[#F9F7F4] text-[#9C8A7C]">
+              5. {t('تم التسليم', 'Delivered')}
+            </div>
           </div>
-
-          {/* Proof Submission Form or Confirmation */}
-          {proofSubmitted || paymentStatus !== 'pending_deposit' ? (
-            <div className="p-3.5 sm:p-4 rounded-xl bg-[#F5F9F5] border border-[#D1E7DD] flex items-center gap-3 text-xs text-[#0F5132]">
-              <CheckCircle2 className="w-5 h-5 text-[#25D366] shrink-0" />
-              <div>
-                <p className="font-semibold">Deposit notification received!</p>
-                <p className="text-[11px] text-[#146C43]">
-                  Our finance atelier will verify the funds within 2 business hours and update your
-                  order status to &ldquo;In Production&rdquo;.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="pt-1">
-              <a
-                href={proofWhatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={handleProofSubmit}
-                className="w-full py-3.5 sm:py-4 rounded-lg bg-[#1C1A19] text-white text-[11px] sm:text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D] flex items-center justify-center gap-2"
-              >
-                <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                <span>Submit Proof on WhatsApp</span>
-              </a>
-            </div>
-          )}
         </div>
 
-        {/* Order Details & Summary Card */}
-        <div className="p-4 sm:p-8 rounded-xl sm:rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-4 sm:space-y-6">
-          <h3 className="text-xs uppercase tracking-[0.2em] font-semibold text-[#1C1A19]">
-            Pieces in this Commission
+        {/* Transfer Instructions & Direct WhatsApp Confirmation */}
+        <div className="p-5 sm:p-6 rounded-2xl bg-[#FAF6F0] border border-[#E8DEC0] shadow-xs space-y-4">
+          <h3 className="text-sm font-bold text-[#251811]">
+            {t('بيانات تحويل الدفعة أو مصاريف الشحن:', 'Transfer & Deposit Details:')}
           </h3>
 
-          <div className="space-y-3 sm:space-y-4">
-            {items.map((item) => (
-              <div key={item.id} className="flex gap-3 sm:gap-4 pb-3 sm:pb-4 border-b border-[#EAE4DC]">
-                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-[#EFEBE3] shrink-0 border border-[#E0D8CB]">
-                  <Image
-                    src={item.productImage}
-                    alt={item.productName}
-                    fill
-                    className="object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="p-3.5 rounded-xl bg-white border border-[#DFD6C9] space-y-1">
+              <span className="text-[#8A796B] block">{t('إنستاباي (InstaPay):', 'InstaPay:')}</span>
+              <span className="font-mono font-bold text-sm text-[#251811] block">alamelsgad@instapay</span>
+              <span className="text-[11px] text-[#A27B5C]">{t('باسم: عالم السجاد', 'Account: Alamelsgad')}</span>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-white border border-[#DFD6C9] space-y-1">
+              <span className="text-[#8A796B] block">{t('فودافون كاش / محفظة:', 'Vodafone Cash / Wallet:')}</span>
+              <span className="font-mono font-bold text-sm text-[#251811] block">01010750072</span>
+              <span className="text-[11px] text-[#A27B5C]">{t('تحويل مباشر لرقم الإدارة', 'Direct official number')}</span>
+            </div>
+          </div>
+
+          {/* Direct WhatsApp Share CTA */}
+          <div className="pt-2">
+            <a
+              href={proofWhatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3.5 px-6 rounded-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm"
+            >
+              <MessageCircle className="w-5 h-5" />
+              <span>{t('إرسال إيصال التحويل عبر واتساب لتسريع التأكيد', 'Send Receipt via WhatsApp to Expedite')}</span>
+            </a>
+          </div>
+        </div>
+
+        {/* Items Summary */}
+        <div className="p-5 sm:p-6 rounded-2xl bg-white border border-[#E8DEC0] shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#F0E8DC]">
+            <h3 className="text-sm font-bold text-[#251811]">{t('محتويات الطلب', 'Purchased Items')}</h3>
+            <span className="text-sm font-extrabold text-[#A27B5C]">
+              {totalAmount.toLocaleString()} {t('ج.م', 'EGP')}
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {items.map((it, idx) => (
+              <div key={idx} className="flex justify-between items-center text-xs py-1">
+                <div>
+                  <span className="font-bold text-[#251811]">{it.productName}</span>
+                  <span className="text-[#8A796B] ms-2">× {it.quantity}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs sm:text-sm font-medium text-[#1C1A19]">{item.productName}</h4>
-                  <p className="text-[11px] sm:text-xs text-[#736B63] mt-0.5">
-                    Finish: {item.selectedFinish}{item.selectedColor ? ` · Color: ${item.selectedColor.name}` : ''} · Qty: {item.quantity}
-                  </p>
-                </div>
-                <div className="text-sm font-semibold text-[#1C1A19]">
-                  {(item.unitPrice * item.quantity).toLocaleString()} EGP
-                </div>
+                <span className="font-bold text-[#251811]">
+                  {(it.unitPrice * it.quantity).toLocaleString()} {t('ج.م', 'EGP')}
+                </span>
               </div>
             ))}
           </div>
 
-          {/* Delivery Destination summary */}
-          <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-[#524B45]">
-            <div>
-              <span className="font-semibold text-[#1C1A19] block uppercase tracking-wider mb-1">
-                Delivery Address:
-              </span>
-              <p>{customerStreet}</p>
-              <p>{customerCity}, {customerRegion}</p>
-              {!isBackend && (rawOrder as any).customer.buildingDetails && (
-                <p className="text-[#736B63]">{(rawOrder as any).customer.buildingDetails}</p>
-              )}
-            </div>
-            <div>
-              <span className="font-semibold text-[#1C1A19] block uppercase tracking-wider mb-1">
-                Commission For:
-              </span>
-              <p className="font-medium text-[#1C1A19]">{customerName}</p>
-              {!isBackend && (
-                <>
-                  <p className="font-mono">{(rawOrder as any).customer.phone}</p>
-                  <p className="text-[#736B63]">{(rawOrder as any).customer.email}</p>
-                </>
-              )}
-            </div>
+          <div className="pt-3 border-t border-[#F0E8DC] flex items-center justify-between text-xs text-[#7A6A5E]">
+            <span>{t('عنوان التسليم:', 'Delivery Area:')}</span>
+            <span className="font-bold text-[#251811]">{customerCity} - {customerRegion}</span>
           </div>
         </div>
 
-        {/* Footer Navigation */}
-        <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <button
-            onClick={() => navigateTo('account')}
-            className="w-full sm:w-auto px-6 py-3 rounded-full border border-[#D8CEBF] text-xs uppercase tracking-wider text-[#1C1A19] hover:bg-[#1C1A19] hover:text-white transition-all flex items-center justify-center gap-2"
-          >
-            <Package className="w-4 h-4" />
-            <span>Track in Customer Portal</span>
-          </button>
-
+        {/* Return Button */}
+        <div className="text-center pt-2">
           <button
             onClick={() => navigateTo('shop')}
-            className="w-full sm:w-auto px-6 py-3 rounded-full bg-[#FAF8F5] border border-[#D8CEBF] text-xs uppercase tracking-wider text-[#1C1A19] hover:bg-white transition-all"
+            className="inline-flex items-center gap-2 text-xs font-bold text-[#251811] hover:text-[#A27B5C] transition-colors"
           >
-            Continue Browsing
+            <span>{t('متابعة التسوق واستكشاف المزيد', 'Continue Shopping & Browse More')}</span>
+            <ArrowIcon className="w-4 h-4" />
           </button>
         </div>
       </div>

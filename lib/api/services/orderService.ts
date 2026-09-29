@@ -1,5 +1,5 @@
 import { apiClient } from '../client';
-import { PaginatedResponse, SearchParams } from '../pagination';
+import { PaginatedResponse, SearchParams, unwrapResults } from '../pagination';
 import {
   BackendOrder,
   CreateOrderRequest,
@@ -20,7 +20,7 @@ export const orderService = {
     const response = await apiClient.get<PaginatedResponse<BackendOrder>>('/orders/my-orders/', {
       params: { page_size: 100 },
     });
-    return response.results;
+    return unwrapResults<BackendOrder>(response);
   },
 
   /**
@@ -33,7 +33,7 @@ export const orderService = {
     const response = await apiClient.get<PaginatedResponse<BackendOrder>>('/orders/', {
       params: { page_size: 100, ...params },
     });
-    return response.results;
+    return unwrapResults<BackendOrder>(response);
   },
 
   /**

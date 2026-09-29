@@ -1,5 +1,5 @@
 import { apiClient } from '../client';
-import { PaginatedResponse, SearchParams } from '../pagination';
+import { PaginatedResponse, SearchParams, unwrapResults } from '../pagination';
 import {
   CustomDesignImage,
   CustomDesignImageCreate,
@@ -20,7 +20,7 @@ export const customDesignService = {
     const response = await apiClient.get<PaginatedResponse<CustomDesignRequest>>('/custom-designs/', {
       params: { page_size: 100, ...params },
     });
-    return response.results;
+    return unwrapResults<CustomDesignRequest>(response);
   },
 
   async deleteRequest(id: number): Promise<void> {

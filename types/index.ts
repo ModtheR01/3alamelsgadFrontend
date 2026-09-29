@@ -1,3 +1,5 @@
+import { ArawalSelection } from '@/lib/brandConfig';
+
 export type ProductFinish = 'MATTE' | 'GLOSSY';
 
 export interface ProductColor {
@@ -44,6 +46,9 @@ export interface Product {
   isPublished: boolean;
   inStock: boolean;
   allowsCustomization: boolean;
+  isArawal?: boolean;
+  arawalUnitPricePerMeter?: number;
+  availableWidths?: number[];
   createdAt: string;
   seoTitle?: string;
   seoDescription?: string;
@@ -70,6 +75,7 @@ export interface CartItem {
   selectedFinish: ProductFinish;
   selectedColor: ProductColor;
   selectedSize?: ProductSize;
+  arawalConfig?: ArawalSelection;
   quantity: number;
   // Backend-computed pricing (from active offers), when available
   subtotal?: number;

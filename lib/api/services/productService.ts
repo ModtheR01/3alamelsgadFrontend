@@ -1,5 +1,5 @@
 import { apiClient } from '../client';
-import { PaginatedResponse, SearchParams } from '../pagination';
+import { PaginatedResponse, SearchParams, unwrapResults } from '../pagination';
 import {
   BackendProduct,
   ProductCreateRequest,
@@ -15,7 +15,7 @@ export const productService = {
     const response = await apiClient.get<PaginatedResponse<BackendProduct>>('/products/', {
       params: { page_size: 100, ...params },
     });
-    return response.results;
+    return unwrapResults<BackendProduct>(response);
   },
 
   /**
@@ -81,6 +81,6 @@ export const productService = {
     const response = await apiClient.get<PaginatedResponse<BackendProduct>>('/products/deleted/', {
       params: { page_size: 100 },
     });
-    return response.results;
+    return unwrapResults<BackendProduct>(response);
   },
 };

@@ -2,127 +2,171 @@
 
 import React from 'react';
 import { useToccoStore, AppView } from '@/lib/store';
-import { toWhatsAppNumber } from '@/lib/utils';
-import ToccoLogo, { ToccoMark } from './ToccoLogo';
-import { MessageCircle, Instagram, Mail, Phone, MapPin, ArrowUpRight } from 'lucide-react';
+import { useLanguage } from '@/lib/context/LanguageContext';
+import { BRAND_CONFIG } from '@/lib/brandConfig';
+import AlamelsgadLogo from './AlamelsgadLogo';
+import {
+  MessageCircle,
+  Instagram,
+  MapPin,
+  Phone,
+  Clock,
+  ArrowUpRight,
+} from 'lucide-react';
 
 export default function Footer() {
-  const { navigateTo, settings } = useToccoStore();
+  const { navigateTo } = useToccoStore();
+  const { t } = useLanguage();
 
   const handleLink = (view: AppView) => {
     navigateTo(view);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
-    'Hello Tocco House, I would like to enquire about your design pieces.'
-  )}`;
-
   return (
-    <footer id="main-site-footer" className="bg-[#1C1A19] text-[#FAF8F5] pt-16 sm:pt-20 pb-24 sm:pb-12 border-t border-[#2E2B29]">
+    <footer
+      id="main-site-footer"
+      className="bg-[#1F150F] text-[#EDE6DC] pt-14 sm:pt-16 pb-20 sm:pb-14 border-t border-[#33241A]"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Top Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8 sm:gap-12 pb-12 sm:pb-16 border-b border-[#2E2B29]">
-          {/* Brand Column (5 cols) */}
-          <div className="sm:col-span-2 lg:col-span-5 space-y-4 sm:space-y-6">
-            <div className="flex items-center gap-3">
-              <ToccoMark size={40} fillColor="#FFFFFF" circleBg="#4A2E1C" />
-              <div className="flex flex-col leading-tight">
-                <span className="text-lg sm:text-xl font-medium tracking-[0.25em] uppercase text-white">
-                  TOCCO HOUSE
-                </span>
-                <span className="text-[9px] sm:text-[10px] tracking-[0.25em] uppercase text-[#B8AFA6]">
-                  The Touch That Elevates
-                </span>
-              </div>
-            </div>
+        {/* Main Footer Links & Info Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 sm:gap-12 pb-12 sm:pb-16 border-b border-[#35251B]">
+          {/* Brand Presentation (5 cols) */}
+          <div className="lg:col-span-5 space-y-5">
+            <AlamelsgadLogo size="md" variant="horizontal" theme="light" showTagline={true} />
 
-            <p className="text-[#A8A199] text-xs sm:text-sm leading-relaxed max-w-md">
-              A contemporary Egyptian design house creating distinctive fiberglass furniture,
-              architectural objects, and sculptural focal pieces. Designed to be noticed. Made to be
-              lived with.
+            <p className="text-[#B5A596] text-xs sm:text-sm leading-relaxed max-w-md">
+              {t(
+                'عالم السجاد: العلامة المصرية المتخصصة في تقديم أرقى تشكيلات السجاد التركي، السجاد الشرقي، بدائل السجاد، والأروال بالمتر. نحرص على تقديم الجودة والفخامة واللمسة الدافئة التي تليق بكل ركن في بيتك.',
+                'Alamelsgad: The premier Egyptian brand specializing in luxurious Turkish carpets, oriental rugs, carpet alternatives, and custom runner rolls by the meter. Bringing elegance, warmth, and quiet luxury to your home.'
+              )}
             </p>
 
-            <div className="pt-1 flex flex-wrap items-center gap-2 sm:gap-4 text-[11px] sm:text-xs tracking-wider uppercase text-[#C4BCB3]">
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#B85D38]" />
-                Cairo Atelier
-              </span>
-              <span>·</span>
-              <span>Mediterranean Living</span>
-              <span>·</span>
-              <span>Worldwide Crating</span>
+            {/* Social Media Links */}
+            <div className="flex items-center gap-3 pt-2">
+              {/* WhatsApp */}
+              <a
+                href={BRAND_CONFIG.whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-full bg-[#2B1D15] hover:bg-[#25D366] text-[#D8C7B5] hover:text-white flex items-center justify-center transition-all"
+                title="WhatsApp"
+                aria-label="WhatsApp"
+              >
+                <MessageCircle className="w-4 h-4" />
+              </a>
+
+              {/* Instagram */}
+              <a
+                href={BRAND_CONFIG.instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-full bg-[#2B1D15] hover:bg-[#E1306C] text-[#D8C7B5] hover:text-white flex items-center justify-center transition-all"
+                title="Instagram"
+                aria-label="Instagram"
+              >
+                <Instagram className="w-4 h-4" />
+              </a>
+
+              {/* Facebook */}
+              <a
+                href={BRAND_CONFIG.facebookUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-full bg-[#2B1D15] hover:bg-[#1877F2] text-[#D8C7B5] hover:text-white flex items-center justify-center transition-all"
+                title="Facebook"
+                aria-label="Facebook"
+              >
+                <span className="font-bold text-xs">f</span>
+              </a>
+
+              {/* TikTok */}
+              <a
+                href={BRAND_CONFIG.tiktokUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-full bg-[#2B1D15] hover:bg-black text-[#D8C7B5] hover:text-white flex items-center justify-center transition-all"
+                title="TikTok"
+                aria-label="TikTok"
+              >
+                <span className="font-bold text-[11px]">TT</span>
+              </a>
+
+              {/* Google Maps Showroom */}
+              <a
+                href={BRAND_CONFIG.googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-full bg-[#2B1D15] hover:bg-[#C49F74] text-[#D8C7B5] hover:text-white flex items-center justify-center transition-all"
+                title="Google Maps Location"
+                aria-label="Google Maps"
+              >
+                <MapPin className="w-4 h-4" />
+              </a>
             </div>
           </div>
 
-          {/* Explore Links (2 cols) */}
-          <div className="space-y-3 sm:space-y-4 lg:col-span-2">
-            <h4 className="text-[11px] sm:text-xs uppercase tracking-[0.25em] text-[#8F8880] font-semibold">
-              Explore
+          {/* Quick Links (3 cols) */}
+          <div className="lg:col-span-3 space-y-4">
+            <h4 className="text-xs uppercase tracking-widest text-[#C49F74] font-bold">
+              {t('أقسام السجاد', 'Carpet Collections')}
             </h4>
-            <ul className="space-y-2 sm:space-y-2.5 text-xs sm:text-sm text-[#D1CBC3]">
+            <ul className="space-y-2.5 text-xs sm:text-sm text-[#C8BCB0]">
               <li>
                 <button
                   onClick={() => handleLink('shop')}
                   className="hover:text-white transition-colors"
                 >
-                  Shop Catalog
+                  {t('جميع التشكيلات والمجموعات', 'All Collections')}
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => handleLink('our-story')}
+                  onClick={() => handleLink('shop')}
                   className="hover:text-white transition-colors"
                 >
-                  Our Story & Atelier
+                  {t('السجاد التركي الفاخر', 'Luxury Turkish Carpets')}
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => handleLink('custom-design')}
+                  onClick={() => handleLink('shop')}
                   className="hover:text-white transition-colors"
                 >
-                  Custom Design
+                  {t('السجاد الشرقي والكلاسيك', 'Oriental & Classic Rugs')}
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => handleLink('b2b')}
+                  onClick={() => handleLink('shop')}
                   className="hover:text-white transition-colors"
                 >
-                  For Business
+                  {t('بدائل السجاد العصرية', 'Modern Carpet Alternatives')}
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => handleLink('events')}
-                  className="hover:text-white transition-colors"
+                  onClick={() => handleLink('shop')}
+                  className="hover:text-white transition-colors font-medium text-[#C49F74]"
                 >
-                  Exhibitions & Events
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => handleLink('projects')}
-                  className="hover:text-white transition-colors"
-                >
-                  In Their Space (Projects)
+                  {t('الأروال والمشايات بالمتر', 'Custom Arawal Runners')}
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* Customer Care (2 cols) */}
-          <div className="space-y-3 sm:space-y-4 lg:col-span-2">
-            <h4 className="text-[11px] sm:text-xs uppercase tracking-[0.25em] text-[#8F8880] font-semibold">
-              Customer Care
+          {/* Customer Service & Policies (2 cols) */}
+          <div className="lg:col-span-2 space-y-4">
+            <h4 className="text-xs uppercase tracking-widest text-[#C49F74] font-bold">
+              {t('خدمة العملاء', 'Customer Service')}
             </h4>
-            <ul className="space-y-2 sm:space-y-2.5 text-xs sm:text-sm text-[#D1CBC3]">
+            <ul className="space-y-2.5 text-xs sm:text-sm text-[#C8BCB0]">
               <li>
                 <button
                   onClick={() => handleLink('shipping')}
                   className="hover:text-white transition-colors"
                 >
-                  Shipping & Delivery
+                  {t('الشحن والمحافظات', 'Shipping & Delivery')}
                 </button>
               </li>
               <li>
@@ -130,7 +174,7 @@ export default function Footer() {
                   onClick={() => handleLink('returns')}
                   className="hover:text-white transition-colors"
                 >
-                  Returns & Guarantee
+                  {t('سياسة الاستبدال', 'Returns Policy')}
                 </button>
               </li>
               <li>
@@ -138,90 +182,81 @@ export default function Footer() {
                   onClick={() => handleLink('faq')}
                   className="hover:text-white transition-colors"
                 >
-                  Frequently Asked Questions
+                  {t('الأسئلة الشائعة', 'FAQs')}
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => handleLink('contact')}
+                  className="hover:text-white transition-colors"
+                >
+                  {t('تواصل معنا', 'Contact Us')}
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => handleLink('account')}
+                  className="hover:text-white transition-colors"
+                >
+                  {t('تتبع الطلبات', 'Track Order')}
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* Contact & WhatsApp (3 cols) */}
-          <div className="space-y-3 sm:space-y-4 sm:col-span-2 lg:col-span-3">
-            <h4 className="text-[11px] sm:text-xs uppercase tracking-[0.25em] text-[#8F8880] font-semibold">
-              Atelier & Contact
+          {/* Showroom & Contact (2 cols) */}
+          <div className="lg:col-span-2 space-y-4">
+            <h4 className="text-xs uppercase tracking-widest text-[#C49F74] font-bold">
+              {t('معرضنا', 'Showroom')}
             </h4>
-            <div className="space-y-2.5 sm:space-y-3 text-xs sm:text-sm text-[#D1CBC3]">
-              <div className="flex items-start gap-2.5">
-                <MapPin className="w-4 h-4 text-[#B85D38] shrink-0 mt-0.5" />
+            <div className="space-y-3 text-xs text-[#B5A596]">
+              <div className="flex items-start gap-2">
+                <MapPin className="w-4 h-4 text-[#C49F74] shrink-0 mt-0.5" />
                 <a
-                  href={settings.contact.mapUrl}
+                  href={BRAND_CONFIG.googleMapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs leading-relaxed hover:text-white"
+                  className="hover:text-white transition-colors leading-relaxed"
                 >
-                  {settings.contact.atelierAddress}
+                  {t(BRAND_CONFIG.addressAr, BRAND_CONFIG.addressEn)}
+                  <ArrowUpRight className="w-3 h-3 inline ms-1 text-[#C49F74]" />
                 </a>
               </div>
-              <div className="flex items-center gap-2.5">
-                <Phone className="w-4 h-4 text-[#B85D38] shrink-0" />
-                <a href={`tel:${settings.contact.phone}`} className="text-xs font-mono hover:text-white">
-                  {settings.contact.phone}
-                </a>
-              </div>
-              {settings.contact.email && (
-                <div className="flex items-center gap-2.5">
-                  <Mail className="w-4 h-4 text-[#B85D38] shrink-0" />
-                  <span className="text-xs font-mono">{settings.contact.email}</span>
-                </div>
-              )}
 
-              {/* Direct WhatsApp Concierge CTA */}
-              <div className="pt-2">
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-[#C49F74] shrink-0" />
                 <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#2A2624] hover:bg-[#383330] text-xs uppercase tracking-wider text-white border border-[#403A36] transition-all"
+                  href={`tel:${BRAND_CONFIG.phone}`}
+                  className="hover:text-white transition-colors font-medium"
                 >
-                  <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
-                  <span>WhatsApp Concierge</span>
-                  <ArrowUpRight className="w-3 h-3 text-[#A8A199]" />
+                  {BRAND_CONFIG.phoneDisplay}
                 </a>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <Clock className="w-4 h-4 text-[#C49F74] shrink-0 mt-0.5" />
+                <span>{t(BRAND_CONFIG.hoursAr, BRAND_CONFIG.hoursEn)}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom Bar: Copyright & Legal */}
-        <div className="pt-6 sm:pt-8 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 text-[11px] sm:text-xs text-[#8F8880] text-center sm:text-left">
-          <p>© {new Date().getFullYear()} Tocco House LLC. All rights reserved. Handcrafted in Egypt.</p>
+        {/* Bottom Bar: Copyright & Tagline */}
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#8A796B]">
+          <div className="flex items-center gap-2">
+            <span>© {new Date().getFullYear()} {t('عالم السجاد. جميع الحقوق محفوظة.', 'Alamelsgad. All rights reserved.')}</span>
+            <span>·</span>
+            <span className="text-[#C49F74]">{t(BRAND_CONFIG.taglineAr, BRAND_CONFIG.taglineEn)}</span>
+          </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
-            <button
-              onClick={() => handleLink('privacy')}
-              className="hover:text-[#D1CBC3] transition-colors"
-            >
-              Privacy Policy
+          <div className="flex items-center gap-4 text-[11px]">
+            <button onClick={() => handleLink('privacy')} className="hover:text-white transition-colors">
+              {t('سياسة الخصوصية', 'Privacy Policy')}
             </button>
             <span>·</span>
-            <button
-              onClick={() => handleLink('terms')}
-              className="hover:text-[#D1CBC3] transition-colors"
-            >
-              Terms & Conditions
+            <button onClick={() => handleLink('terms')} className="hover:text-white transition-colors">
+              {t('الشروط والأحكام', 'Terms & Conditions')}
             </button>
-            <span>·</span>
-            {settings.contact.instagramHandles.map((handle) => (
-              <a
-                key={handle}
-                href={`https://instagram.com/${handle.replace('@', '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 hover:text-[#D1CBC3] transition-colors"
-              >
-                <Instagram className="w-3.5 h-3.5" />
-                <span>{handle}</span>
-              </a>
-            ))}
           </div>
         </div>
       </div>

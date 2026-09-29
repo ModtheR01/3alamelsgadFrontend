@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useToccoStore } from '@/lib/store';
-import { toWhatsAppNumber } from '@/lib/utils';
+import { useLanguage } from '@/lib/context/LanguageContext';
+import { BRAND_CONFIG } from '@/lib/brandConfig';
 import {
   Truck,
   ShieldCheck,
@@ -16,55 +16,74 @@ import {
   Clock,
   Send,
   CheckCircle2,
+  Ruler,
+  Instagram,
+  ArrowUpRight,
 } from 'lucide-react';
 
 export function ShippingView() {
-  const { settings } = useToccoStore();
+  const { t } = useLanguage();
 
   return (
-    <div id="shipping-page" className="pt-28 pb-24 bg-[#FAF8F5] min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        <div className="py-12 border-b border-[#EAE4DC] space-y-3">
-          <span className="text-xs uppercase tracking-[0.3em] font-medium text-[#B85D38]">
-            Customer Care
+    <div id="shipping-page" className="pt-24 sm:pt-32 pb-24 sm:pb-32 bg-[#FAF8F5] min-h-screen">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+        <div className="py-8 sm:py-12 border-b border-[#EAE3D8] space-y-2">
+          <span className="text-xs uppercase tracking-widest font-bold text-[#A27B5C]">
+            {t('خدمة التوصيل والشحن', 'Shipping & Delivery')}
           </span>
-          <h1 className="text-4xl sm:text-5xl font-normal tracking-tight text-[#1C1A19]">
-            Shipping & White-Glove Delivery
+          <h1 className="text-3xl sm:text-5xl font-extrabold text-[#251811] tracking-tight">
+            {t('الشحن والتوصيل لجميع محافظات مصر', 'Nationwide Egyptian Delivery')}
           </h1>
-          <p className="text-base text-[#736B63] font-light">
-            Every Tocco House object is a sculpted work of art. We ensure it reaches your home in
-            immaculate condition.
+          <p className="text-xs sm:text-base text-[#736357] font-normal leading-relaxed">
+            {t(
+              'نوفر شحناً آمناً وسريعاً لكافة المحافظات المصرية عبر شركات شحن موثوقة ومندوبين متخصصين.',
+              'Reliable and safe door-to-door delivery across all Egyptian governorates.'
+            )}
           </p>
         </div>
 
-        <div className="space-y-8 text-sm text-[#524B45] font-light leading-relaxed">
-          <section className="space-y-3">
-            <h3 className="text-lg font-medium text-[#1C1A19]">1. Handcrafted Production Timelines</h3>
+        <div className="space-y-8 text-xs sm:text-sm text-[#5C4A3E] leading-relaxed">
+          <section className="space-y-2.5">
+            <h3 className="text-base sm:text-lg font-bold text-[#251811]">
+              {t('١. مدة التجهيز والتوصيل', '1. Dispatch & Delivery Timelines')}
+            </h3>
             <p>
-              Because we do not mass-produce, casting commences upon receipt of your {settings.depositPercentage}% deposit.
-              Standard pieces require <strong className="text-[#1C1A19]">2 to 3 weeks</strong> of
-              workshop moulding, lamination, and curing. Bespoke commissions or complex multi-piece
-              sets require <strong className="text-[#1C1A19]">3 to 4 weeks</strong>.
+              {t(
+                'يتم تجهيز طلبات السجاد الجاهز وشحنها خلال ٢ إلى ٤ أيام عمل. بالنسبة للأروال بالمتر التي تتطلب قصاً وسرفلة خاصة، يستغرق التجهيز من ٣ إلى ٥ أيام عمل لضمان دقة الأطراف وجودة الإنهاء.',
+                'In-stock carpets are dispatched within 2 to 4 business days. Custom-cut Arawal runners requiring precision edging are prepared in 3 to 5 business days.'
+              )}
             </p>
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-lg font-medium text-[#1C1A19]">2. White-Glove Delivery Destinations</h3>
-            <p>We provide direct, dedicated white-glove transport to the following areas across Egypt:</p>
-            <ul className="list-disc pl-5 space-y-1 text-xs text-[#1C1A19] font-mono">
-              <li>Greater Cairo (New Cairo, Zamalek, Maadi, Sheikh Zayed, 6th of October)</li>
-              <li>North Coast / Sahel (Marassi, Hacienda, Almaza Bay, Sidi Heneish, Ras El Hekma)</li>
-              <li>Red Sea & El Gouna (Private villas, lagoons, and boutique hotels)</li>
-              <li>Alexandria & Mediterranean Coast</li>
-            </ul>
+            <h3 className="text-base sm:text-lg font-bold text-[#251811]">
+              {t('٢. مصاريف الشحن حسب المحافظة', '2. Delivery Rates by Governorate')}
+            </h3>
+            <p>
+              {t(
+                'تختلف قيمة الشحن وفقاً للمحافظة المسجلة عند إتمام الطلب، وتتراوح عادة بين ٦٠ إلى ٢٢٠ جنيهاً مصرياً حسب بعد المسافة.',
+                'Shipping costs vary between 60 and 220 EGP based on the selected Egyptian governorate.'
+              )}
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2">
+              {BRAND_CONFIG.governorates.slice(0, 9).map((gov) => (
+                <div key={gov.id} className="p-3 rounded-xl bg-white border border-[#E8DEC0] flex justify-between items-center text-xs">
+                  <span className="font-bold text-[#251811]">{gov.nameAr}</span>
+                  <span className="text-[#A27B5C] font-extrabold">{gov.shippingCost} ج.م</span>
+                </div>
+              ))}
+            </div>
           </section>
 
-          <section className="space-y-3">
-            <h3 className="text-lg font-medium text-[#1C1A19]">3. Inspection & Final {100 - settings.depositPercentage}% Settlement</h3>
+          <section className="space-y-2.5">
+            <h3 className="text-base sm:text-lg font-bold text-[#251811]">
+              {t('٣. المعاينة عند الاستلام', '3. Inspection on Delivery')}
+            </h3>
             <p>
-              Upon delivery, please inspect the piece and confirm its surface finish and structural
-              integrity before accepting it and settling the remaining {100 - settings.depositPercentage}% balance via InstaPay or the
-              agreed payment method. Any concerns must be reported at the time of delivery.
+              {t(
+                'يحق للعميل فتح الشحنة ومعاينة السجاد والتأكد من المقاس وجودة الخيوط والألوان بحضور مندوب الشحن قبل سداد باقي قيمة الطلب نقداً.',
+                'Customers are entitled to inspect the carpets and verify measurements and color fidelity upon arrival prior to settling the balance.'
+              )}
             </p>
           </section>
         </div>
@@ -74,40 +93,46 @@ export function ShippingView() {
 }
 
 export function ReturnsView() {
+  const { t } = useLanguage();
+
   return (
-    <div id="returns-page" className="pt-28 pb-24 bg-[#FAF8F5] min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        <div className="py-12 border-b border-[#EAE4DC] space-y-3">
-          <span className="text-xs uppercase tracking-[0.3em] font-medium text-[#B85D38]">
-            Customer Care
+    <div id="returns-page" className="pt-24 sm:pt-32 pb-24 sm:pb-32 bg-[#FAF8F5] min-h-screen">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+        <div className="py-8 sm:py-12 border-b border-[#EAE3D8] space-y-2">
+          <span className="text-xs uppercase tracking-widest font-bold text-[#A27B5C]">
+            {t('خدمة العملاء', 'Customer Service')}
           </span>
-          <h1 className="text-4xl sm:text-5xl font-normal tracking-tight text-[#1C1A19]">
-            Returns & Replacement Policy
+          <h1 className="text-3xl sm:text-5xl font-extrabold text-[#251811] tracking-tight">
+            {t('سياسة الاستبدال والاسترجاع', 'Returns & Exchange Policy')}
           </h1>
-          <p className="text-base text-[#736B63] font-light">
-            Returns and replacements are available only for pieces that arrive damaged.
+          <p className="text-xs sm:text-base text-[#736357] font-normal leading-relaxed">
+            {t('حرصاً منا على رضاكم التام عن كل قطعة سجاد تقتنونها من عالم السجاد.', 'Dedicated to your complete satisfaction with every rug.')}
           </p>
         </div>
 
-        <div className="space-y-8 text-sm text-[#524B45] font-light leading-relaxed">
-          <section className="space-y-3">
-            <h3 className="text-lg font-medium text-[#1C1A19]">1. Damaged Products Only</h3>
+        <div className="space-y-8 text-xs sm:text-sm text-[#5C4A3E] leading-relaxed">
+          <section className="space-y-2.5">
+            <h3 className="text-base sm:text-lg font-bold text-[#251811]">
+              {t('١. فحص الشحنة فور الاستلام', '1. Inspection at Delivery')}
+            </h3>
             <p>
-              Returns or replacements are accepted only when a piece arrives damaged. The damage must be
-              reported to our team during delivery inspection, with clear photos or video showing the
-              condition of the product.
+              {t(
+                'نوصي دائماً بفحص السجادة والتأكد من سلامتها ومطابقتها للمواصفات المطلوبة فور وصول المندوب. في حال وجود أي عيب مصنعي أو اختلاف في المقاس، يتم الاستبدال فوراً دون أي تكلفة إضافية على العميل.',
+                'Please examine your carpet upon receipt. Any manufacturing defect or sizing discrepancy will be replaced immediately with zero additional cost.'
+              )}
             </p>
           </section>
 
-          <section className="space-y-3">
-            <h3 className="text-lg font-medium text-[#1C1A19]">2. Available Resolution</h3>
+          <section className="space-y-2.5">
+            <h3 className="text-base sm:text-lg font-bold text-[#251811]">
+              {t('٢. سياسة الأروال بالمتر (القص الخاص)', '2. Custom-Cut Arawal Runners')}
+            </h3>
             <p>
-              If the damage is confirmed, you may choose one of the following resolutions:
+              {t(
+                'الأروال التي يتم قصها وسرفلتها خصيصاً وفقاً لأبعاد ومقاسات طلبها العميل (عروض 60، 80، 100، 120 سم مع طول محدد) لا يمكن إرجاعها إلا في حال وجود عيب في النسيج أو خطأ في المقاس من جانبنا.',
+                'Runner rolls cut and customized specifically to client-requested dimensions are eligible for return only in cases of manufacturing flaws or measurement errors.'
+              )}
             </p>
-            <ul className="list-disc pl-5 space-y-1 text-xs">
-              <li>A newly manufactured replacement piece at no additional cost</li>
-              <li>A refund of the paid deposit</li>
-            </ul>
           </section>
         </div>
       </div>
@@ -116,44 +141,54 @@ export function ReturnsView() {
 }
 
 export function FaqView() {
+  const { t } = useLanguage();
   const [openIdx, setOpenIdx] = useState<number | null>(0);
-  const { settings } = useToccoStore();
 
   const faqs = [
     {
-      q: `Why is a ${settings.depositPercentage}% handcrafted deposit required to place an order?`,
-      a: `Tocco House operates as an artisanal design house rather than a warehouse retailer. Every order initiates custom mould preparation, fiberglass lamination, and artisan hand-sanding in our Cairo workshop. The ${settings.depositPercentage}% deposit commissions these dedicated materials and hours of craftsmanship.`,
+      qAr: 'ما هي عروض الأروال والمشايات المتاحة لديكم؟',
+      qEn: 'What are the available Arawal runner roll widths?',
+      aAr: 'الأروال متاحة حصرياً بأربعة عروض قياسية محددة: 60 سم، 80 سم، 100 سم، و120 سم. ويمكنك تحديد أي طول تريده بالمتر، ويتم الحساب بضرب سعر المتر في الطول المطلوب.',
+      aEn: 'Arawal runner rolls are available strictly in 4 widths: 60, 80, 100, and 120 cm. You may select any length in meters, priced as Unit Price × Length.',
     },
     {
-      q: 'Can I request custom dimensions, colors, or RAL paint codes?',
-      a: 'Absolutely. We collaborate directly with private homeowners, interior architects, and hospitality groups. You can specify custom table lengths, bench radii, or exact RAL paint codes through our Custom Design page or directly on WhatsApp.',
+      qAr: 'كيف يتم تأكيد الطلب بعد تسجيله على الموقع؟',
+      qEn: 'How is an order confirmed after submission?',
+      aAr: 'تسجيل الطلب ينشئه بحالة "غير مؤكد". يقوم فريق مبيعات عالم السجاد بالتحقق من تحويل الدفعة أو مصاريف الشحن عبر إنستاباي أو فودافون كاش، ثم يتم تحويل حالة الطلب إلى "مؤكد" والبدء في التجهيز.',
+      aEn: 'Orders are initially recorded as "Not Confirmed". Our team reviews payment proofs (InstaPay or Mobile Wallet) before updating status to "Confirmed".',
     },
     {
-      q: 'What is the difference between Matte and Glossy finishes?',
-      a: 'Matte offers a soft, non-reflective finish ideal for indoor living salons. Glossy features a smooth, reflective shine that brings out the color and character of each piece.',
+      qAr: 'ما هي طرق الدفع المتاحة؟',
+      qEn: 'What payment options are available?',
+      aAr: 'نوفر الدفع عبر تطبيق إنستاباي (alamelsgad@instapay)، فودافون كاش ومحافظ الهواتف (01010750072)، أو الدفع عند الاستلام مع تحويل مصاريف الشحن مسبقاً لضمان جدية الشحن.',
+      aEn: 'We accept InstaPay (alamelsgad@instapay), Vodafone Cash (01010750072), or Cash on Delivery (with shipping fee transferred upfront).',
     },
     {
-      q: 'How do I clean and maintain my Tocco House pieces?',
-      a: 'Daily care requires only a soft microfiber cloth and mild warm soapy water. Avoid abrasive metal scourers. High-gloss pieces can be buffed occasionally with automotive carnauba wax to maintain a brilliant showroom reflection.',
+      qAr: 'هل يمكنني معاينة السجاد في المعرض؟',
+      qEn: 'Can I inspect the carpets in a showroom?',
+      aAr: 'نعم، يشرفنا استقبالكم في معرض عالم السجاد بالمنصورة يومياً من الساعة 10 صباحاً حتى 11 مساءً لتجربة الملمس ومشاهدة الألوان على الطبيعة.',
+      aEn: 'Yes! You are welcome to visit our showroom in Mansoura daily from 10:00 AM to 11:00 PM to experience textures and colorways in person.',
     },
     {
-      q: 'Can pieces remain outdoors during winter rain?',
-      a: 'Yes. Our fiberglass forms are 100% waterproof and non-porous. Water simply beads off the surface.',
+      qAr: 'كيف أقوم بتنظيف السجاد وبدائل السجاد؟',
+      qEn: 'How should I clean and maintain my carpets?',
+      aAr: 'يُنصح بالكنس الدوري بالمكنسة الكهربائية، وتنظيف البقع فور حدوثها بقطعة قماش مبللة مع منظف لطيف بدون فرك قاسي. بدائل السجاد خفيفة الوزن يمكن غسلها بسهولة وسريعة الجفاف.',
+      aEn: 'Regular vacuuming and spot cleaning with mild detergent is recommended. Lightweight carpet alternatives are machine-washable and quick-drying.',
     },
   ];
 
   return (
-    <div id="faq-page" className="pt-28 pb-24 bg-[#FAF8F5] min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        <div className="py-12 border-b border-[#EAE4DC] space-y-3">
-          <span className="text-xs uppercase tracking-[0.3em] font-medium text-[#B85D38]">
-            Inquiries
+    <div id="faq-page" className="pt-24 sm:pt-32 pb-24 sm:pb-32 bg-[#FAF8F5] min-h-screen">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+        <div className="py-8 sm:py-12 border-b border-[#EAE3D8] space-y-2">
+          <span className="text-xs uppercase tracking-widest font-bold text-[#A27B5C]">
+            {t('إجابات شاملة', 'Help Center')}
           </span>
-          <h1 className="text-4xl sm:text-5xl font-normal tracking-tight text-[#1C1A19]">
-            Frequently Asked Questions
+          <h1 className="text-3xl sm:text-5xl font-extrabold text-[#251811] tracking-tight">
+            {t('الأسئلة الشائعة حول السجاد والأروال', 'Frequently Asked Questions')}
           </h1>
-          <p className="text-base text-[#736B63] font-light">
-            Everything you need to know about our materials, {settings.depositPercentage}% deposit process, and atelier care.
+          <p className="text-xs sm:text-base text-[#736357] font-normal leading-relaxed">
+            {t('كل ما يهمك معرفته عن المقاسات، الدفع، التوصيل، وجودة الخامات.', 'Everything you need to know about dimensions, payments, and carpet care.')}
           </p>
         </div>
 
@@ -163,22 +198,18 @@ export function FaqView() {
             return (
               <div
                 key={idx}
-                className="border border-[#EAE4DC] rounded-2xl bg-white overflow-hidden transition-all"
+                className="rounded-2xl bg-white border border-[#E8DEC0] overflow-hidden shadow-xs transition-all"
               >
                 <button
                   onClick={() => setOpenIdx(isOpen ? null : idx)}
-                  className="w-full p-6 text-left flex items-center justify-between gap-4 font-normal text-base sm:text-lg text-[#1C1A19]"
+                  className="w-full p-5 text-start flex items-center justify-between gap-4 font-bold text-sm text-[#251811] hover:text-[#A27B5C]"
                 >
-                  <span>{faq.q}</span>
-                  {isOpen ? (
-                    <ChevronUp className="w-5 h-5 text-[#643D26] shrink-0" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-[#8F8880] shrink-0" />
-                  )}
+                  <span>{t(faq.qAr, faq.qEn)}</span>
+                  {isOpen ? <ChevronUp className="w-5 h-5 text-[#A27B5C] shrink-0" /> : <ChevronDown className="w-5 h-5 text-[#9C8A7C] shrink-0" />}
                 </button>
                 {isOpen && (
-                  <div className="px-6 pb-6 pt-1 text-sm text-[#524B45] font-light leading-relaxed border-t border-[#F2EDE4]">
-                    {faq.a}
+                  <div className="px-5 pb-5 pt-1 text-xs sm:text-sm text-[#5C4A3E] leading-relaxed border-t border-[#F2EDE5]">
+                    {t(faq.aAr, faq.aEn)}
                   </div>
                 )}
               </div>
@@ -191,7 +222,7 @@ export function FaqView() {
 }
 
 export function ContactView() {
-  const { settings } = useToccoStore();
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
@@ -199,164 +230,133 @@ export function ContactView() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const url = `https://wa.me/${BRAND_CONFIG.whatsappNumber}?text=${encodeURIComponent(
+      `رسالة من الموقع:\nالاسم: ${name}\nالهاتف: ${phone}\nالرسالة: ${message}`
+    )}`;
+    window.open(url, '_blank');
     setSent(true);
   };
 
-  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
-    'Hello Tocco House, I would like to arrange an atelier appointment or inquire about your pieces.'
-  )}`;
-
   return (
-    <div id="contact-page" className="pt-28 pb-24 bg-[#FAF8F5] min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        <div className="py-12 border-b border-[#EAE4DC] max-w-3xl space-y-3">
-          <span className="text-xs uppercase tracking-[0.3em] font-medium text-[#B85D38]">
-            Atelier Concierge
+    <div id="contact-page" className="pt-24 sm:pt-32 pb-24 sm:pb-32 bg-[#FAF8F5] min-h-screen">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        <div className="py-8 sm:py-12 border-b border-[#EAE3D8] space-y-2">
+          <span className="text-xs uppercase tracking-widest font-bold text-[#A27B5C]">
+            {t('تواصل مباشر', 'Direct Contact')}
           </span>
-          <h1 className="text-4xl sm:text-5xl font-normal tracking-tight text-[#1C1A19]">
-            Connect with Tocco House
+          <h1 className="text-3xl sm:text-5xl font-extrabold text-[#251811] tracking-tight">
+            {t('تواصل مع فريق عالم السجاد', 'Get in Touch with Alamelsgad')}
           </h1>
-          <p className="text-base text-[#736B63] font-light">
-            We welcome architects, interior curators, and design collectors for private viewings and
-            bespoke commissions.
+          <p className="text-xs sm:text-base text-[#736357] font-normal leading-relaxed">
+            {t('نسعد باستفساراتكم حول المقاسات، الأسعار، وتجهيز الشحنات لجميع المحافظات.', 'We are delighted to assist with custom sizes, pricing, and orders.')}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {/* Contact Details (5 cols) */}
-          <div className="lg:col-span-5 space-y-8">
-            <div className="p-8 rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14">
+          {/* Contact Details & Showroom (5 cols) */}
+          <div className="lg:col-span-5 space-y-6">
+            <div className="p-6 rounded-2xl bg-white border border-[#E8DEC0] shadow-xs space-y-5 text-xs text-[#5C4A3E]">
+              <h3 className="text-base font-bold text-[#251811] pb-3 border-b border-[#F0E8DC]">
+                {t('معلومات المعرض والاتصال', 'Showroom & Contact Details')}
+              </h3>
+
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-[#B85D38] shrink-0 mt-1" />
+                  <MapPin className="w-5 h-5 text-[#A27B5C] shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
-                      Cairo Atelier & Showroom
-                    </h4>
-                    <a
-                      href={settings.contact.mapUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-[#524B45] leading-relaxed mt-1 underline decoration-[#D8CEBF] underline-offset-2 hover:text-[#643D26]"
-                    >
-                      {settings.contact.atelierAddress}
+                    <span className="font-bold text-[#251811] block mb-0.5">{t('المعرض الرئيسي:', 'Main Showroom:')}</span>
+                    <a href={BRAND_CONFIG.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="hover:text-[#A27B5C] underline">
+                      {t(BRAND_CONFIG.addressAr, BRAND_CONFIG.addressEn)}
+                      <ArrowUpRight className="w-3.5 h-3.5 inline ms-1" />
                     </a>
-                    <p className="text-[11px] text-[#8F8880] mt-1">
-                      Viewings by private appointment: Sun – Thu, 10 AM – 6 PM
-                    </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Phone className="w-5 h-5 text-[#B85D38] shrink-0" />
+                  <Phone className="w-5 h-5 text-[#A27B5C] shrink-0" />
                   <div>
-                    <h4 className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
-                      Direct Telephone
-                    </h4>
-                    <a
-                      href={`tel:${settings.contact.phone}`}
-                      className="text-xs font-mono text-[#524B45] mt-0.5 hover:text-[#643D26]"
-                    >
-                      {settings.contact.phone}
+                    <span className="font-bold text-[#251811] block mb-0.5">{t('الهاتف والواتساب:', 'Phone & WhatsApp:')}</span>
+                    <a href={`tel:${BRAND_CONFIG.phone}`} className="font-mono text-sm font-bold text-[#251811]">
+                      {BRAND_CONFIG.phoneDisplay}
                     </a>
                   </div>
                 </div>
 
-                {settings.contact.email && (
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-5 h-5 text-[#B85D38] shrink-0" />
-                    <div>
-                      <h4 className="text-xs uppercase tracking-wider font-semibold text-[#1C1A19]">
-                        Email Enquiries
-                      </h4>
-                      <p className="text-xs font-mono text-[#524B45] mt-0.5">{settings.contact.email}</p>
-                    </div>
+                <div className="flex items-start gap-3">
+                  <Clock className="w-5 h-5 text-[#A27B5C] shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-[#251811] block mb-0.5">{t('مواعيد العمل:', 'Working Hours:')}</span>
+                    <span>{t(BRAND_CONFIG.hoursAr, BRAND_CONFIG.hoursEn)}</span>
                   </div>
-                )}
+                </div>
               </div>
 
-              {/* Direct WhatsApp CTA */}
-              <div className="pt-4 border-t border-[#EAE4DC]">
+              {/* Direct WhatsApp Action */}
+              <div className="pt-2">
                 <a
-                  href={whatsappUrl}
+                  href={BRAND_CONFIG.whatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-3.5 rounded-full bg-[#2A2624] hover:bg-[#383330] text-white text-xs uppercase tracking-wider font-medium flex items-center justify-center gap-2 transition-all shadow-sm"
+                  className="w-full py-3 px-4 rounded-xl bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
                 >
-                  <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                  <span>Start WhatsApp Conversation</span>
+                  <MessageCircle className="w-4 h-4" />
+                  <span>{t('محادثة واتساب مباشرة', 'Instant WhatsApp Chat')}</span>
                 </a>
               </div>
             </div>
           </div>
 
-          {/* Interactive Inquiry Form (7 cols) */}
-          <div className="lg:col-span-7 bg-white p-8 sm:p-10 rounded-2xl border border-[#EAE4DC] shadow-sm">
-            {sent ? (
-              <div className="py-12 text-center space-y-4">
-                <CheckCircle2 className="w-12 h-12 text-[#643D26] mx-auto" />
-                <h3 className="text-xl font-normal text-[#1C1A19]">Message Sent</h3>
-                <p className="text-xs text-[#736B63] max-w-sm mx-auto">
-                  Thank you for reaching out. A design representative will be in touch with you shortly.
-                </p>
-                <button
-                  onClick={() => setSent(false)}
-                  className="mt-2 px-6 py-2 rounded-full border border-[#D8CEBF] text-xs uppercase tracking-wider"
-                >
-                  Send another message
-                </button>
+          {/* Contact Form (7 cols) */}
+          <div className="lg:col-span-7">
+            <form onSubmit={handleSubmit} className="p-6 sm:p-8 rounded-2xl bg-white border border-[#E8DEC0] shadow-xs space-y-4">
+              <h3 className="text-base font-bold text-[#251811] pb-2">
+                {t('أرسل لنا استفسارك أو طلبك المخصص', 'Send an Inquiry or Custom Request')}
+              </h3>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#251811]">{t('الاسم الكريم:', 'Your Name:')}</label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={t('أدخل اسمك بالكامل', 'Full Name')}
+                  className="w-full p-2.5 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
+                />
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <h3 className="text-lg font-normal text-[#1C1A19]">Leave an Atelier Note</h3>
-                <div>
-                  <label className="block text-xs uppercase tracking-wider text-[#1C1A19] font-medium mb-1">
-                    Your Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Laila Hassanein"
-                    className="w-full text-xs p-3 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs uppercase tracking-wider text-[#1C1A19] font-medium mb-1">
-                    Phone / WhatsApp Number
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+20 100 000 0000"
-                    className="w-full text-xs p-3 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs uppercase tracking-wider text-[#1C1A19] font-medium mb-1">
-                    Message
-                  </label>
-                  <textarea
-                    rows={4}
-                    required
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Inquiry regarding design pieces, visit appointment, or hospitality procurement..."
-                    className="w-full text-xs p-3 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5] focus:outline-none"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full py-3.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D] flex items-center justify-center gap-2"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Send Inquiry</span>
-                </button>
-              </form>
-            )}
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#251811]">{t('رقم الهاتف / الواتساب:', 'Phone Number:')}</label>
+                <input
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="01010750072"
+                  className="w-full p-2.5 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#251811]">{t('تفاصيل الاستفسار أو المقاسات المطلوبة:', 'Your Message or Sizing Request:')}</label>
+                <textarea
+                  rows={4}
+                  required
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder={t('اكتب استفسارك عن نوع السجاد أو مقاسات الأروال المطلوبة...', 'Tell us about your carpet requirements...')}
+                  className="w-full p-2.5 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3.5 rounded-full bg-[#251811] hover:bg-[#3D291D] text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md"
+              >
+                <Send className="w-4 h-4 text-[#C49F74]" />
+                <span>{t('إرسال الاستفسار عبر واتساب', 'Send via WhatsApp')}</span>
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -365,23 +365,19 @@ export function ContactView() {
 }
 
 export function PrivacyView() {
-  return (
-    <div id="privacy-page" className="pt-28 pb-24 bg-[#FAF8F5] min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 text-sm text-[#524B45] font-light leading-relaxed">
-        <div className="py-8 border-b border-[#EAE4DC] space-y-2">
-          <span className="text-xs uppercase tracking-[0.3em] font-medium text-[#B85D38]">Legal</span>
-          <h1 className="text-3xl font-normal text-[#1C1A19]">Privacy Policy</h1>
-          <p className="text-xs text-[#736B63]">Last updated March 2026</p>
-        </div>
+  const { t } = useLanguage();
 
+  return (
+    <div id="privacy-page" className="pt-24 sm:pt-32 pb-24 sm:pb-32 bg-[#FAF8F5] min-h-screen">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 text-xs sm:text-sm text-[#5C4A3E] leading-relaxed">
+        <h1 className="text-3xl font-extrabold text-[#251811] border-b border-[#EAE3D8] pb-4">
+          {t('سياسة الخصوصية — عالم السجاد', 'Privacy Policy — Alamelsgad')}
+        </h1>
         <p>
-          At Tocco House, we respect the privacy of our clients and collectors. We only gather contact
-          and delivery destination details necessary to execute your commissioned pieces and deliver
-          them via our dedicated white-glove transport.
-        </p>
-        <p>
-          We do not sell, rent, or lease your personal information to third parties. All transaction
-          records and proof of deposits are stored in accordance with Egyptian commercial standards.
+          {t(
+            'نلتزم في عالم السجاد بحماية خصوصية عملائنا الكرام. لا نستخدم بيانات الاتصال أو العناوين إلا لغرض إتمام طلبات السجاد والتوصيل وتحديثكم بحالة الشحنات.',
+            'We respect your privacy. Contact details and addresses are used solely to process carpet orders and coordinate shipments.'
+          )}
         </p>
       </div>
     </div>
@@ -389,29 +385,19 @@ export function PrivacyView() {
 }
 
 export function TermsView() {
-  const { settings } = useToccoStore();
+  const { t } = useLanguage();
 
   return (
-    <div id="terms-page" className="pt-28 pb-24 bg-[#FAF8F5] min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 text-sm text-[#524B45] font-light leading-relaxed">
-        <div className="py-8 border-b border-[#EAE4DC] space-y-2">
-          <span className="text-xs uppercase tracking-[0.3em] font-medium text-[#B85D38]">Legal</span>
-          <h1 className="text-3xl font-normal text-[#1C1A19]">Terms & Conditions</h1>
-          <p className="text-xs text-[#736B63]">Tocco House LLC · Handcrafted in Egypt</p>
-        </div>
-
+    <div id="terms-page" className="pt-24 sm:pt-32 pb-24 sm:pb-32 bg-[#FAF8F5] min-h-screen">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 text-xs sm:text-sm text-[#5C4A3E] leading-relaxed">
+        <h1 className="text-3xl font-extrabold text-[#251811] border-b border-[#EAE3D8] pb-4">
+          {t('الشروط والأحكام — عالم السجاد', 'Terms & Conditions — Alamelsgad')}
+        </h1>
         <p>
-          <strong>1. Deposit & Commissioning:</strong> Orders are confirmed upon receipt of a {settings.depositPercentage}%
-          deposit. Once raw materials are allocated and casting initiates, deposits are non-refundable.
-        </p>
-        <p>
-          <strong>2. Handcrafted Tolerances:</strong> Minor textural nuances, mineral pigment variations,
-          and micro-variations in glaze are natural hallmarks of hand-finished fiberglass and are not
-          considered defects.
-        </p>
-        <p>
-          <strong>3. Final Balance:</strong> The remaining {100 - settings.depositPercentage}% order balance is strictly due upon arrival
-          of our delivery team before handover.
+          {t(
+            'إنشاء الطلب عبر الموقع يسجله بحالة "غير مؤكد"، وتتم مراجعة المقاسات والدفع من قبل إدارة عالم السجاد قبل التأكيد النهائي والشحن.',
+            'Orders placed online are initially "Not Confirmed" and are confirmed upon administrative verification of measurements and payment receipts.'
+          )}
         </p>
       </div>
     </div>

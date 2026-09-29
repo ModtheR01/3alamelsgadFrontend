@@ -1,5 +1,5 @@
 import { apiClient } from '../client';
-import { PaginatedResponse } from '../pagination';
+import { PaginatedResponse, unwrapResults } from '../pagination';
 import {
   BackendColor,
   ColorCreateRequest,
@@ -15,7 +15,7 @@ export const colorService = {
     const response = await apiClient.get<PaginatedResponse<BackendColor>>('/products/colors/', {
       params: { page_size: 100 },
     });
-    return response.results;
+    return unwrapResults<BackendColor>(response);
   },
 
   /**

@@ -10,9 +10,20 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
+/** Safely extracts an array from either a PaginatedResponse envelope or a bare array */
+export function unwrapResults<T>(response: unknown): T[] {
+  if (!response) return [];
+  if (Array.isArray(response)) return response;
+  if (typeof response === 'object' && response !== null && 'results' in response && Array.isArray((response as any).results)) {
+    return (response as any).results;
+  }
+  return [];
+}
+
 /** Common query params accepted by search-enabled list endpoints. */
 export interface SearchParams {
   search?: string;
   page?: number;
   page_size?: number;
 }
+

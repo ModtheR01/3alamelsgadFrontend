@@ -2,21 +2,17 @@
 
 import React, { useEffect } from 'react';
 import { StoreProvider, useToccoStore } from '@/lib/store';
-import { toWhatsAppNumber } from '@/lib/utils';
-import { AuthProvider } from '@/lib/context/AuthContext';
-import { useAuth } from '@/lib/context/AuthContext';
+import { AuthProvider, useAuth } from '@/lib/context/AuthContext';
+import { useLanguage } from '@/lib/context/LanguageContext';
+import { BRAND_CONFIG } from '@/lib/brandConfig';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import CartDrawer from '@/components/CartDrawer';
-import BannersSection from '@/components/BannersSection';
 import {
   HomeHero,
-  SignaturePiecesSection,
-  StoryTeaserSection,
   CategoriesShowcase,
-  CollaborationsSection,
-  CustomDesignTeaser,
-  ProjectsAndInstagramSection,
+  StoryTeaserSection,
+  CustomersReviewsSection,
 } from '@/components/HomeSections';
 import ShopCatalog from '@/components/ShopCatalog';
 import ProductDetailView from '@/components/ProductDetailView';
@@ -39,11 +35,12 @@ import {
 } from '@/components/ContentPages';
 import { MessageCircle } from 'lucide-react';
 
-function ToccoApp() {
-  const { activeView, navigateTo, settings, syncGuestCart } = useToccoStore();
+function AlamelsgadApp() {
+  const { activeView, navigateTo, syncGuestCart } = useToccoStore();
   const { user, isLoading } = useAuth();
+  const { t, isRtl } = useLanguage();
 
-  // Push any locally-held guest cart items into the real backend cart once a user signs in.
+  // Push locally-held guest cart items into backend cart once a user signs in
   const wasAuthenticated = React.useRef(false);
   useEffect(() => {
     if (user && !wasAuthenticated.current) {
@@ -80,12 +77,8 @@ function ToccoApp() {
     }
   }, [navigateTo]);
 
-  const whatsappConciergeUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
-    'Hello Tocco House, I am inquiring about your handcrafted fiberglass design pieces.'
-  )}`;
-
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF8F5] text-[#1C1A19]">
+    <div className="min-h-screen flex flex-col bg-[#FBF9F5] text-[#21160F]">
       {/* Navigation */}
       <Navbar />
 
@@ -94,13 +87,9 @@ function ToccoApp() {
         {activeView === 'home' && (
           <div>
             <HomeHero />
-            <BannersSection />
-            <SignaturePiecesSection />
-            <StoryTeaserSection />
             <CategoriesShowcase />
-            <CustomDesignTeaser />
-            <CollaborationsSection />
-            <ProjectsAndInstagramSection />
+            <StoryTeaserSection />
+            <CustomersReviewsSection />
           </div>
         )}
 
@@ -139,32 +128,34 @@ function ToccoApp() {
         {activeView === 'terms' && <TermsView />}
       </main>
 
-      {/* Footer (hidden in admin to keep CMS focused) */}
+      {/* Footer */}
       {activeView !== 'admin' && <Footer />}
 
-      {/* Slide-over Bag Drawer */}
+      {/* Slide-over Shopping Bag Drawer */}
       <CartDrawer />
 
-      {/* Floating Atelier WhatsApp Concierge (visible everywhere except Admin) */}
+      {/* Floating Official Alamelsgad WhatsApp Concierge Button */}
       {activeView !== 'admin' && (
         <aside
-          aria-label="Atelier Concierge"
-          className="fixed bottom-6 right-6 z-40"
+          aria-label="خدمة عملاء عالم السجاد"
+          className={`fixed bottom-6 ${isRtl ? 'left-6' : 'right-6'} z-40`}
         >
           <a
             id="floating-whatsapp-concierge"
-            href={whatsappConciergeUrl}
+            href={BRAND_CONFIG.whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Chat with Tocco House Atelier Concierge on WhatsApp"
-            className="group flex items-center justify-center p-3 rounded-full bg-[#1C1A19] text-white shadow-xl hover:bg-[#332F2D] active:scale-95 transition-all border border-white/10"
-            title="Chat with Tocco House Atelier Concierge"
+            aria-label="تواصل مع عالم السجاد عبر واتساب"
+            className="group flex items-center gap-2 p-3.5 rounded-full bg-[#25D366] text-white shadow-2xl hover:bg-[#20BA5A] active:scale-95 transition-all border border-white/20"
+            title="تواصل معنا عبر واتساب"
           >
-            <MessageCircle className="w-5 h-5 text-[#25D366]" aria-hidden="true" />
+            <MessageCircle className="w-5 h-5" aria-hidden="true" />
+            <span className="hidden sm:inline text-xs font-bold font-sans">
+              {t('محادثة واتساب', 'WhatsApp')}
+            </span>
           </a>
         </aside>
       )}
-
     </div>
   );
 }
@@ -173,7 +164,7 @@ export default function Page() {
   return (
     <StoreProvider>
       <AuthProvider>
-        <ToccoApp />
+        <AlamelsgadApp />
       </AuthProvider>
     </StoreProvider>
   );

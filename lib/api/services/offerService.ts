@@ -1,5 +1,5 @@
 import { apiClient } from '../client';
-import { PaginatedResponse } from '../pagination';
+import { PaginatedResponse, unwrapResults } from '../pagination';
 import {
   BackendOffer,
   OfferCreateRequest,
@@ -11,7 +11,7 @@ export const offerService = {
     const response = await apiClient.get<PaginatedResponse<BackendOffer>>('/offers/', {
       params: { page_size: 100 },
     });
-    return response.results;
+    return unwrapResults<BackendOffer>(response);
   },
 
   async getOffer(id: number): Promise<BackendOffer> {
