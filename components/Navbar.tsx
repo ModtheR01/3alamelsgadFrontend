@@ -79,35 +79,6 @@ export default function Navbar() {
           : 'bg-[#FBF9F5]/95 backdrop-blur-md border-b border-[#EAE3D8] shadow-[0_2px_12px_rgba(35,23,15,0.04)]'
       }`}
     >
-      {/* Top micro announcement bar (Luxury e-commerce banner) */}
-      <div className="bg-[#1C120B] text-[#EDE6DC] text-[11px] sm:text-xs py-1.5 px-4 border-b border-[#2C1D13]">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[#D2C3B4]">
-            <Truck className="w-3.5 h-3.5 text-[#C49F74] shrink-0" />
-            <span className="hidden sm:inline font-medium">
-              {t('شحن وتوصيل لجميع المحافظات · معاينة السجاد قبل الاستلام', 'Fast shipping to all Egyptian governorates · Inspection upon delivery')}
-            </span>
-            <span className="sm:hidden font-medium">
-              {t('شحن ومعاينة لكافة المحافظات', 'Shipping across Egypt')}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 text-[11px]">
-            <span className="hidden md:inline text-[#C49F74]">
-              {t('معرض المنصورة: يومياً من ١٠ ص حتى ١١ م', 'Mansoura Showroom: Daily 10 AM - 11 PM')}
-            </span>
-            <a
-              href={BRAND_CONFIG.whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[#EFEBE4] hover:text-[#25D366] transition-colors font-medium"
-            >
-              <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
-              <span className="font-mono">{BRAND_CONFIG.phoneDisplay}</span>
-            </a>
-          </div>
-        </div>
-      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
         {/* Brand Identity / Logo */}

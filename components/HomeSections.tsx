@@ -130,11 +130,6 @@ export function HomeHero() {
 
       {/* Main Slide Content */}
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white flex flex-col items-center pt-24 sm:pt-28 pb-16">
-        {/* Subtle Slide Category Pill */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-[#E5D2B8] text-[11px] sm:text-xs font-semibold tracking-wide uppercase mb-4 animate-in fade-in duration-500">
-          <Sparkles className="w-3.5 h-3.5 text-[#C49F74]" />
-          <span>{t(activeSlide.badgeAr, activeSlide.badgeEn)}</span>
-        </div>
 
         {/* Headline */}
         <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.18] sm:leading-[1.14] text-white max-w-4xl drop-shadow-sm transition-all duration-700">
@@ -156,20 +151,6 @@ export function HomeHero() {
             <ArrowRight className={`w-4 h-4 text-[#A27B5C] transition-transform duration-200 ${isRtl ? 'group-hover:-translate-x-1' : 'group-hover:translate-x-1'}`} />
           </button>
 
-          <button
-            onClick={() => {
-              if (currentSlide === 1) {
-                navigateTo('shop');
-              } else if (currentSlide === 2) {
-                navigateTo('contact');
-              } else {
-                navigateTo('shop');
-              }
-            }}
-            className="w-full sm:w-auto px-7 py-3.5 sm:py-4 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/25 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all duration-200 backdrop-blur-xs flex items-center justify-center gap-2 active:scale-95"
-          >
-            <span>{t(activeSlide.ctaSecondaryAr, activeSlide.ctaSecondaryEn)}</span>
-          </button>
         </div>
       </div>
 

@@ -375,51 +375,7 @@ export default function AccountView() {
   return (
     <div id="account-portal-page" className="pt-20 sm:pt-28 pb-20 sm:pb-24 bg-[#FAF8F5] min-h-screen">
       <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
-        {/* Portal Header */}
-        <div className="py-6 sm:py-10 border-b border-[#EAE4DC] flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6">
-          <div className="space-y-1.5 sm:space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] sm:text-xs uppercase tracking-[0.3em] font-medium text-[#B85D38]">
-                Client Portal
-              </span>
-              {user && (
-                <span
-                  className={`text-[9px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full ${
-                    user.role === 'ADMIN'
-                      ? 'bg-[#1C1A19] text-white'
-                      : user.role === 'MODERATOR'
-                      ? 'bg-[#643D26] text-white'
-                      : 'bg-[#EAE4DC] text-[#524B45]'
-                  }`}
-                >
-                  {user.role}
-                </span>
-              )}
-            </div>
-            <h1 className="text-2xl sm:text-4xl font-normal tracking-tight text-[#1C1A19]">
-              {user ? `${user.first_name} ${user.last_name}` : 'Atelier Client Account'}
-            </h1>
-            <p className="text-xs sm:text-sm text-[#736B63] font-light leading-relaxed max-w-2xl">
-              Track handcrafted architectural commissions, manage white-glove residences, update client credentials, and access verified atelier records.
-            </p>
-          </div>
 
-          {user && (
-            <div className="flex flex-col items-start gap-2 self-start md:self-auto">
-              <button
-                type="button"
-                onClick={() => void handleLogout()}
-                disabled={isLoggingOut}
-                className="px-4 py-2 rounded-full border border-[#D8CEBF] text-xs uppercase tracking-wider text-[#B85D38] hover:bg-[#FAF3F0] transition-colors disabled:cursor-wait disabled:opacity-60"
-              >
-                {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
-              </button>
-              {authError && (
-                <p role="alert" className="max-w-xs text-[11px] text-rose-700">{authError}</p>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* LOADING STATE */}
         {isAuthLoading ? (

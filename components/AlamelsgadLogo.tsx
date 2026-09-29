@@ -201,7 +201,7 @@ export default function AlamelsgadLogo({
   theme = 'dark',
   showTagline = true,
 }: AlamelsgadLogoProps) {
-  const { isRtl } = useLanguage();
+  const { language  } = useLanguage();
 
   const sizeMap = {
     xs: { mark: 30, title: 'text-sm', tag: 'text-[9px]', gap: 'gap-2' },
@@ -241,7 +241,7 @@ export default function AlamelsgadLogo({
       <div className={`inline-flex items-center ${s.gap} ${className}`}>
         <AlamelsgadMark size={s.mark} />
         <span className={`font-bold tracking-tight ${s.title} ${textColor}`}>
-          عالم السجاد
+          {language === 'ar' ? 'عالم السجاد' : 'Alamelsgad'}
         </span>
       </div>
     );
@@ -252,15 +252,15 @@ export default function AlamelsgadLogo({
       <div className={`flex flex-col leading-tight ${className}`}>
         <div className="flex items-baseline gap-2">
           <span className={`font-extrabold tracking-tight ${s.title} ${textColor}`}>
-            عالم السجاد
-          </span>
-          <span className="text-[10px] tracking-wider uppercase text-[#A27B5C] font-semibold">
-            ALAMELSGAD
+            {language === 'ar' ? 'عالم السجاد' : 'Alamelsgad'}
           </span>
         </div>
+
         {showTagline && (
           <span className={`font-normal ${s.tag} ${subTextColor} mt-0.5`}>
-            لمسة تغيّر شكل بيتك
+            {language === 'ar'
+              ? 'لمسة تغيّر شكل بيتك'
+              : 'A Touch That Transforms Your Home'}
           </span>
         )}
       </div>
@@ -270,18 +270,19 @@ export default function AlamelsgadLogo({
   return (
     <div className={`inline-flex items-center ${s.gap} select-none ${className}`}>
       <AlamelsgadMark size={s.mark} />
+
       <div className="flex flex-col leading-tight">
         <div className="flex items-baseline gap-2">
           <span className={`font-extrabold tracking-tight ${s.title} ${textColor}`}>
-            عالم السجاد
-          </span>
-          <span className="text-[10px] sm:text-[11px] tracking-widest uppercase text-[#A27B5C] font-semibold">
-            ALAMELSGAD
+            {language === 'ar' ? 'عالم السجاد' : 'Alamelsgad'}
           </span>
         </div>
+
         {showTagline && (
           <span className={`font-normal ${s.tag} ${subTextColor} mt-0.5`}>
-            لمسة تغيّر شكل بيتك
+            {language === 'ar'
+              ? 'لمسة تغيّر شكل بيتك'
+              : 'A Touch That Transforms Your Home'}
           </span>
         )}
       </div>
