@@ -1,6 +1,13 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { LanguageProvider } from '@/lib/context/LanguageContext';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: '#1F150F',
+};
 
 export const metadata: Metadata = {
   title: 'عالم السجاد | Alamelsgad — لمسة تغير شكل بيتك',
@@ -35,14 +42,6 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ar" dir="rtl" className="scroll-smooth">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap"
-          rel="stylesheet"
-        />
-      </head>
       <body
         className="bg-[#FBF9F5] text-[#21160F] font-sans antialiased selection:bg-[#9E734F] selection:text-white"
         suppressHydrationWarning

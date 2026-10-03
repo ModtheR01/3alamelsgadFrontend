@@ -42,13 +42,22 @@ async function proxy(request: NextRequest) {
 
   const hasBody = !['GET', 'HEAD'].includes(request.method);
 
-  const upstreamResponse = await fetch(destination, {
-    method: request.method,
-    headers,
-    body: hasBody ? await request.arrayBuffer() : undefined,
-    redirect: 'manual',
-    cache: 'no-store',
-  });
+  let upstreamResponse: Response;
+  try {
+    upstreamResponse = await fetch(destination, {
+      method: request.method,
+      headers,
+      body: hasBody ? await request.arrayBuffer() : undefined,
+      redirect: 'manual',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(3500),
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { detail: 'Upstream server unreachable or timed out', error: err?.message },
+      { status: 503 }
+    );
+  }
 
   const responseHeaders = new Headers();
   const upstreamContentType = upstreamResponse.headers.get('content-type');
