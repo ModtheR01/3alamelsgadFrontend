@@ -10,7 +10,6 @@ import Footer from '@/components/Footer';
 import CartDrawer from '@/components/CartDrawer';
 import {
   HomeHero,
-  NewArrivalsSection,
   CategoriesShowcase,
   StoryTeaserSection,
   CustomersReviewsSection,
@@ -88,7 +87,6 @@ function AlamelsgadApp() {
         {activeView === 'home' && (
           <div>
             <HomeHero />
-            <NewArrivalsSection />
             <CategoriesShowcase />
             <StoryTeaserSection />
             <CustomersReviewsSection />

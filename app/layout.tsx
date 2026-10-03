@@ -1,13 +1,14 @@
-import type { Metadata, Viewport } from 'next';
+import type { Metadata } from 'next';
+import { Cairo } from 'next/font/google';
 import './globals.css';
 import { LanguageProvider } from '@/lib/context/LanguageContext';
 
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 5,
-  themeColor: '#1F150F',
-};
+const cairo = Cairo({
+  subsets: ['arabic', 'latin'],
+  weight: ['300', '400', '500', '600', '700', '800', '900'],
+  display: 'swap',
+  variable: '--font-cairo',
+});
 
 export const metadata: Metadata = {
   title: 'عالم السجاد | Alamelsgad — لمسة تغير شكل بيتك',
@@ -41,7 +42,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl" className="scroll-smooth">
+    <html lang="ar" dir="rtl" className={`scroll-smooth ${cairo.variable}`}>
       <body
         className="bg-[#FBF9F5] text-[#21160F] font-sans antialiased selection:bg-[#9E734F] selection:text-white"
         suppressHydrationWarning

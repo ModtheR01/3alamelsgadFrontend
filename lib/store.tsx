@@ -39,7 +39,6 @@ import { BackendEvent } from '@/types/event';
 import { BackendCollaboration } from '@/types/collaboration';
 import { spaceProjectService } from '@/lib/api/services/spaceProjectService';
 import { BackendSpaceProject, SpaceProjectRequest } from '@/types/spaceProject';
-import { INITIAL_PRODUCTS, INITIAL_CATEGORIES } from '@/lib/initialData';
 
 const EMPTY_SETTINGS: StoreSettings = {
   brandName: 'عالم السجاد',
@@ -350,8 +349,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState<boolean>(false);
 
   // Entities
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<BackendSubcategory[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -369,17 +368,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   });
   const [user, setUser] = useState<CustomerUser | null>(null);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<BackendOrder | Order | null>(null);
-  const [isCatalogLoading, setIsCatalogLoading] = useState(false);
-  const [isEventsLoading, setIsEventsLoading] = useState(false);
-  const [isProjectsLoading, setIsProjectsLoading] = useState(false);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(true);
+  const [isEventsLoading, setIsEventsLoading] = useState(true);
+  const [isProjectsLoading, setIsProjectsLoading] = useState(true);
 
   // Load catalog data from the production backend.
   useEffect(() => {
     let active = true;
     Promise.all([
-      productService.getProducts().catch(() => []),
-      categoryService.getCategories().catch(() => []),
-      subcategoryService.getSubcategories().catch(() => []),
+      productService.getProducts(),
+      categoryService.getCategories(),
+      subcategoryService.getSubcategories(),
     ])
       .then(([backendProducts, backendCategories, backendSubcategories]) => {
         if (!active) return;
@@ -387,23 +386,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const catList = Array.isArray(backendCategories) ? backendCategories : [];
         const prodList = Array.isArray(backendProducts) ? backendProducts : [];
 
-        if (subcatList.length > 0) setSubcategories(subcatList);
-        if (prodList.length > 0) {
-          const mappedProducts = prodList.map((product) => mapBackendProduct(product, subcatList));
-          setProducts(mappedProducts);
-        }
-        if (catList.length > 0) {
-          setCategories(catList.map(mapBackendCategory));
-        }
+        setSubcategories(subcatList);
+        const mappedProducts = prodList.map((product) => mapBackendProduct(product, subcatList));
+        setProducts(mappedProducts);
+        setCategories(catList.map(mapBackendCategory));
 
-        // Hydrate cart
+        // Cart items reference product images by id, so hydrate the cart only
+        // once the product catalog is available to resolve thumbnails correctly.
         return cartService
           .getCart()
           .then((backendCart) => {
             if (!active || !backendCart) return;
             const items = Array.isArray(backendCart.items) ? backendCart.items : [];
             setIsGuestCart(false);
-            setCart(items.map((item) => mapBackendCartItem(item, products)));
+            setCart(items.map((item) => mapBackendCartItem(item, mappedProducts)));
             setCartPricing({
               originalTotal: Number(backendCart.original_total) || 0,
               discountTotal: Number(backendCart.discount_amount) || 0,
@@ -412,6 +408,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             });
           })
           .catch(() => {
+            // Not authenticated (or request failed) - fall back to the locally persisted guest cart.
             if (active) {
               setIsGuestCart(true);
               setCart(getGuestCart());
@@ -420,7 +417,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {
         if (!active) return;
-        // Keep initial products and categories on error
+        setProducts([]);
+        setCategories([]);
+        setSubcategories([]);
+        setCart([]);
       })
       .finally(() => {
         if (active) setIsCatalogLoading(false);
@@ -525,10 +525,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         quantity: itemData.quantity,
       });
       await refreshCart();
-    } catch {
-      // Offline, unreachable backend, or guest: keep the item in the local guest cart
-      setIsGuestCart(true);
-      setCart(addGuestCartItem(itemData));
+    } catch (err) {
+      // Not signed in: keep the item in a local guest cart instead of losing it.
+      // It gets pushed to the real backend cart once the user signs in (syncGuestCart).
+      if (err instanceof ApiError && err.status === 401) {
+        setIsGuestCart(true);
+        setCart(addGuestCartItem(itemData));
+      } else {
+        throw err;
+      }
     }
 
     setIsCartDrawerOpen(true);
@@ -944,10 +949,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Helper getters
   const getProductById = useCallback(
-    (id: string) =>
-      products.find(
-        (p) => String(p.id) === String(id) || p.slug === String(id)
-      ),
+    (id: string) => products.find((p) => p.id === id),
     [products]
   );
 
