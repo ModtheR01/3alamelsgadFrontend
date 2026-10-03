@@ -136,25 +136,11 @@ export function AlamelsgadMark({
         </g>
 
         {/* Gold Separator Hairline with Centered Diamond */}
-        <g transform="translate(100, 133)">
-          <line x1="-55" y1="0" x2="-6" y2="0" stroke="#B8946E" strokeWidth="0.8" opacity="0.8" />
+        <g transform="translate(100, 136)">
+          <line x1="-40" y1="0" x2="-6" y2="0" stroke="#B8946E" strokeWidth="0.8" opacity="0.8" />
           <path d="M 0 -3 L 3 0 L 0 3 L -3 0 Z" fill="#B8946E" />
-          <line x1="6" y1="0" x2="55" y2="0" stroke="#B8946E" strokeWidth="0.8" opacity="0.8" />
+          <line x1="6" y1="0" x2="40" y2="0" stroke="#B8946E" strokeWidth="0.8" opacity="0.8" />
         </g>
-
-        {/* Tagline: "لمسة تغيّر شكل بيتك" */}
-        <text
-          x="100"
-          y="146"
-          textAnchor="middle"
-          fontFamily="system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif"
-          fontWeight="500"
-          fontSize="10.5"
-          letterSpacing="0.2px"
-          fill="#3E2B20"
-        >
-          لمسة تغيّر شكل بيتك
-        </text>
 
         {/* Woven Carpet Fringe Border at the Bottom */}
         <g transform="translate(100, 172)">
@@ -204,11 +190,11 @@ export default function AlamelsgadLogo({
   const { language  } = useLanguage();
 
   const sizeMap = {
-    xs: { mark: 30, title: 'text-sm', tag: 'text-[9px]', gap: 'gap-2' },
-    sm: { mark: 38, title: 'text-base', tag: 'text-[10px]', gap: 'gap-2.5' },
-    md: { mark: 48, title: 'text-lg', tag: 'text-[11px]', gap: 'gap-3' },
-    lg: { mark: 60, title: 'text-xl', tag: 'text-xs', gap: 'gap-3.5' },
-    xl: { mark: 76, title: 'text-2xl', tag: 'text-sm', gap: 'gap-4' },
+    xs: { mark: 26, title: 'text-xs sm:text-sm', tag: 'text-[9px]', gap: 'gap-1.5' },
+    sm: { mark: 32, title: 'text-sm sm:text-base', tag: 'text-[10px]', gap: 'gap-2' },
+    md: { mark: 38, title: 'text-base sm:text-lg', tag: 'text-[11px]', gap: 'gap-2 sm:gap-2.5' },
+    lg: { mark: 50, title: 'text-lg sm:text-xl', tag: 'text-xs', gap: 'gap-3' },
+    xl: { mark: 64, title: 'text-xl sm:text-2xl', tag: 'text-sm', gap: 'gap-3.5' },
   };
 
   const s = sizeMap[size];
@@ -240,7 +226,7 @@ export default function AlamelsgadLogo({
     return (
       <div className={`inline-flex items-center ${s.gap} ${className}`}>
         <AlamelsgadMark size={s.mark} />
-        <span className={`font-bold tracking-tight ${s.title} ${textColor}`}>
+        <span className={`font-bold tracking-tight ${s.title} ${textColor} whitespace-nowrap`}>
           {language === 'ar' ? 'عالم السجاد' : 'Alamelsgad'}
         </span>
       </div>
@@ -249,20 +235,10 @@ export default function AlamelsgadLogo({
 
   if (variant === 'text-only') {
     return (
-      <div className={`flex flex-col leading-tight ${className}`}>
-        <div className="flex items-baseline gap-2">
-          <span className={`font-extrabold tracking-tight ${s.title} ${textColor}`}>
-            {language === 'ar' ? 'عالم السجاد' : 'Alamelsgad'}
-          </span>
-        </div>
-
-        {showTagline && (
-          <span className={`font-normal ${s.tag} ${subTextColor} mt-0.5`}>
-            {language === 'ar'
-              ? 'لمسة تغيّر شكل بيتك'
-              : 'A Touch That Transforms Your Home'}
-          </span>
-        )}
+      <div className={`flex flex-col leading-tight justify-center ${className}`}>
+        <span className={`font-extrabold tracking-tight ${s.title} ${textColor} whitespace-nowrap`}>
+          {language === 'ar' ? 'عالم السجاد' : 'Alamelsgad'}
+        </span>
       </div>
     );
   }
@@ -271,20 +247,10 @@ export default function AlamelsgadLogo({
     <div className={`inline-flex items-center ${s.gap} select-none ${className}`}>
       <AlamelsgadMark size={s.mark} />
 
-      <div className="flex flex-col leading-tight">
-        <div className="flex items-baseline gap-2">
-          <span className={`font-extrabold tracking-tight ${s.title} ${textColor}`}>
-            {language === 'ar' ? 'عالم السجاد' : 'Alamelsgad'}
-          </span>
-        </div>
-
-        {showTagline && (
-          <span className={`font-normal ${s.tag} ${subTextColor} mt-0.5`}>
-            {language === 'ar'
-              ? 'لمسة تغيّر شكل بيتك'
-              : 'A Touch That Transforms Your Home'}
-          </span>
-        )}
+      <div className="flex flex-col leading-tight justify-center">
+        <span className={`font-extrabold tracking-tight ${s.title} ${textColor} whitespace-nowrap`}>
+          {language === 'ar' ? 'عالم السجاد' : 'Alamelsgad'}
+        </span>
       </div>
     </div>
   );

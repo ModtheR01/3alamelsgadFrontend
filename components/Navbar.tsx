@@ -80,19 +80,19 @@ export default function Navbar() {
       }`}
     >
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2">
         {/* Brand Identity / Logo */}
         <button
           id="nav-logo-btn"
           onClick={() => handleNavClick('home')}
-          className="group flex items-center text-start focus:outline-none touch-manipulation"
+          className="group flex items-center text-start focus:outline-none touch-manipulation shrink-0"
           aria-label="عالم السجاد - Alamelsgad"
         >
           <AlamelsgadLogo
             size="md"
             variant="horizontal"
             theme={isTransparent ? 'light' : 'dark'}
-            showTagline={true}
+            showTagline={false}
           />
         </button>
 
@@ -134,11 +134,11 @@ export default function Navbar() {
         </nav>
 
         {/* Right: Actions (Search, Language Switcher, Account, Cart, Mobile Toggle) */}
-        <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Language Switcher */}
           <button
             onClick={toggleLanguage}
-            className={`px-2.5 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-colors flex items-center gap-1.5 border ${
+            className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-semibold tracking-wide transition-colors flex items-center gap-1 border shrink-0 ${
               isTransparent
                 ? 'text-white border-white/20 hover:bg-white/10'
                 : 'text-[#473428] border-[#E8DEC0] bg-[#FAF5EB] hover:bg-[#F2E8D7]'
@@ -159,7 +159,7 @@ export default function Navbar() {
                 navigateTo('shop');
               }
             }}
-            className={`p-2.5 rounded-full transition-colors focus:outline-none touch-manipulation ${
+            className={`p-2 sm:p-2.5 rounded-full transition-colors focus:outline-none touch-manipulation shrink-0 ${
               isTransparent
                 ? 'text-white/90 hover:text-white hover:bg-white/10'
                 : 'text-[#5C4A3E] hover:text-[#241710] hover:bg-[#EFE7DC]'
@@ -174,7 +174,7 @@ export default function Navbar() {
           <button
             id="nav-account-btn"
             onClick={() => handleNavClick('account')}
-            className={`p-2 sm:px-3 sm:py-2 rounded-full transition-colors focus:outline-none touch-manipulation flex items-center gap-1.5 ${
+            className={`p-2 sm:px-3 sm:py-2 rounded-full transition-colors focus:outline-none touch-manipulation flex items-center gap-1.5 shrink-0 ${
               isTransparent
                 ? 'text-white/90 hover:text-white hover:bg-white/10'
                 : activeView === 'account'
@@ -201,7 +201,7 @@ export default function Navbar() {
           <button
             id="nav-cart-btn"
             onClick={() => setIsCartDrawerOpen(true)}
-            className={`relative p-2.5 rounded-full transition-colors focus:outline-none touch-manipulation flex items-center justify-center ${
+            className={`relative p-2 sm:p-2.5 rounded-full transition-colors focus:outline-none touch-manipulation flex items-center justify-center shrink-0 ${
               isTransparent
                 ? 'text-white hover:bg-white/10'
                 : 'text-[#241710] hover:bg-[#EFE7DC]'
@@ -209,9 +209,9 @@ export default function Navbar() {
             title={t('سلة المشتريات', 'Shopping Cart')}
             aria-label="Cart"
           >
-            <ShoppingBag className="w-5 h-5" />
+            <ShoppingBag className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
             {cartItemsCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-[#A27B5C] text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-in zoom-in-50">
+              <span className="absolute -top-1 -right-1 bg-[#A27B5C] text-white text-[10px] font-bold w-4.5 h-4.5 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shadow-md animate-in zoom-in-50">
                 {cartItemsCount}
               </span>
             )}
@@ -219,16 +219,17 @@ export default function Navbar() {
 
           {/* Mobile Menu Trigger */}
           <button
-            id="mobile-menu-toggle-btn"
+            id="nav-mobile-menu-btn"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className={`lg:hidden p-2 rounded-lg transition-colors focus:outline-none touch-manipulation ${
+            className={`p-2 sm:p-2.5 rounded-full transition-colors focus:outline-none lg:hidden touch-manipulation shrink-0 ${
               isTransparent
                 ? 'text-white hover:bg-white/10'
                 : 'text-[#241710] hover:bg-[#EFE7DC]'
             }`}
+            title={t('القائمة الرئيسية', 'Main Menu')}
             aria-label="Toggle navigation menu"
           >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {mobileMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
           </button>
         </div>
       </div>

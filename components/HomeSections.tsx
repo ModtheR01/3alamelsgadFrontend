@@ -10,8 +10,6 @@ import {
   Sparkles,
   MapPin,
   Star,
-  ChevronLeft,
-  ChevronRight,
   Phone,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
@@ -95,16 +93,70 @@ export function HomeHero() {
     return () => clearInterval(interval);
   }, [isPaused, slides.length]);
 
-  const ArrowPrev = isRtl ? ChevronRight : ChevronLeft;
-  const ArrowNext = isRtl ? ChevronLeft : ChevronRight;
+  // Swipe and drag support for hero slider
+  const touchStartX = React.useRef(0);
+  const touchEndX = React.useRef(0);
+  const mouseStartX = React.useRef(0);
+  const isMouseDown = React.useRef(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return;
+    const diff = touchStartX.current - touchEndX.current;
+    if (Math.abs(diff) > 40) {
+      if (diff > 0) {
+        // Swiped left
+        setCurrentSlide((prev) => (prev + 1) % slides.length);
+      } else {
+        // Swiped right
+        setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+      }
+    }
+    touchStartX.current = 0;
+    touchEndX.current = 0;
+  };
+
+  const handleHeroMouseDown = (e: React.MouseEvent) => {
+    isMouseDown.current = true;
+    mouseStartX.current = e.clientX;
+  };
+
+  const handleHeroMouseUp = (e: React.MouseEvent) => {
+    if (!isMouseDown.current) return;
+    isMouseDown.current = false;
+    const diff = mouseStartX.current - e.clientX;
+    if (Math.abs(diff) > 45) {
+      if (diff > 0) {
+        setCurrentSlide((prev) => (prev + 1) % slides.length);
+      } else {
+        setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+      }
+    }
+  };
+
   const activeSlide = slides[currentSlide];
 
   return (
     <section
       id="homepage-hero-slideshow"
       onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      className="relative min-h-[82vh] sm:min-h-[88vh] lg:min-h-[92vh] flex items-center justify-center overflow-hidden bg-[#1A1009] select-none"
+      onMouseLeave={() => {
+        setIsPaused(false);
+        isMouseDown.current = false;
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onMouseDown={handleHeroMouseDown}
+      onMouseUp={handleHeroMouseUp}
+      className="relative min-h-[82vh] sm:min-h-[88vh] lg:min-h-[92vh] flex items-center justify-center overflow-hidden bg-[#1A1009] select-none cursor-grab active:cursor-grabbing"
     >
       {/* Background Slides with Crossfade */}
       {slides.map((slide, idx) => (
@@ -153,23 +205,6 @@ export function HomeHero() {
 
         </div>
       </div>
-
-      {/* Slide Navigation Controls (Prev/Next) */}
-      <button
-        onClick={() => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length)}
-        aria-label="Previous Slide"
-        className="absolute start-4 sm:start-8 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-black/25 hover:bg-black/55 text-white/90 hover:text-white border border-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 group"
-      >
-        <ArrowPrev className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-      </button>
-
-      <button
-        onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)}
-        aria-label="Next Slide"
-        className="absolute end-4 sm:end-8 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-black/25 hover:bg-black/55 text-white/90 hover:text-white border border-white/20 backdrop-blur-sm flex items-center justify-center transition-all duration-200 group"
-      >
-        <ArrowNext className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-      </button>
     </section>
   );
 }
@@ -490,6 +525,8 @@ export function CustomersReviewsSection() {
     </section>
   );
 }
+
+export { default as NewArrivalSection } from './NewArrivalSection';
 
 // Deprecated / Removed sections: exported as null to prevent broken imports
 export function ValueTrustRibbon() {

@@ -10,8 +10,6 @@ import {
   Calendar,
   Compass,
   ArrowRight,
-  ChevronLeft,
-  ChevronRight,
   Copy,
   Check,
   Flame,
@@ -140,31 +138,6 @@ export default function BannersSection() {
             <p className="text-xs sm:text-sm text-[#736B63] max-w-xl leading-relaxed">
               Discover recently unveiled monolithic pieces, limited atelier privileges, and upcoming architectural exhibitions.
             </p>
-          </div>
-
-          {/* Desktop Slide Navigation Controls */}
-          <div className="hidden sm:flex items-center gap-2.5">
-            <button
-              id="banners-nav-prev-btn"
-              onClick={handlePrev}
-              disabled={activeSlideIndex === 0}
-              aria-label="Previous highlight"
-              className="w-10 h-10 rounded-full border border-[#DCD5C9] bg-white text-[#1C1A19] flex items-center justify-center hover:bg-[#FAF8F5] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="text-xs font-mono text-[#736B63] px-1">
-              0{activeSlideIndex + 1} / 0{displayedBanners.length}
-            </span>
-            <button
-              id="banners-nav-next-btn"
-              onClick={handleNext}
-              disabled={activeSlideIndex >= displayedBanners.length - 1}
-              aria-label="Next highlight"
-              className="w-10 h-10 rounded-full border border-[#DCD5C9] bg-white text-[#1C1A19] flex items-center justify-center hover:bg-[#FAF8F5] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
           </div>
         </div>
 

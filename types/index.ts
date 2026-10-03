@@ -30,6 +30,8 @@ export interface Product {
   subcategoryIds: string[];
   description: string;
   price: number; // in EGP
+  originalPrice?: number;
+  discountPercentage?: number;
   images: string[];
   imageRecords?: ProductImageDraft[];
   dimensions: string;
