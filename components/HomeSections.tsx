@@ -156,9 +156,9 @@ export function HomeHero() {
       onTouchEnd={handleTouchEnd}
       onMouseDown={handleHeroMouseDown}
       onMouseUp={handleHeroMouseUp}
-      className="relative min-h-[82vh] sm:min-h-[88vh] lg:min-h-[92vh] flex items-center justify-center overflow-hidden bg-[#1A1009] select-none cursor-grab active:cursor-grabbing"
+      className="relative min-h-[74vh] sm:min-h-[85vh] lg:min-h-[90vh] flex items-center justify-center overflow-hidden bg-[#1A1009] select-none cursor-grab active:cursor-grabbing"
     >
-      {/* Background Slides with Crossfade */}
+      {/* Background Slides with Crossfade - Vibrant, Clear, and Beautiful */}
       {slides.map((slide, idx) => (
         <div
           key={slide.id}
@@ -169,41 +169,36 @@ export function HomeHero() {
         >
           <Image
             src={slide.image}
-            alt={slide.titleAr}
+            alt="عالم السجاد - سجاد فاخر"
             fill
             priority={idx === 0}
-            className="object-cover object-center brightness-[0.42] contrast-[1.08]"
+            className="object-cover object-[center_65%] sm:object-center brightness-[0.88] contrast-[1.04]"
             referrerPolicy="no-referrer"
           />
-          {/* Subtle Luxury Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#150D07] via-[#150D07]/45 to-[#150D07]/30" />
+          {/* Subtle Balanced Gradient: Keeps the carpets & rooms luminous and vivid while ensuring crisp text contrast */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#120B06]/85 via-black/25 to-black/20" />
         </div>
       ))}
 
-      {/* Main Slide Content */}
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white flex flex-col items-center pt-24 sm:pt-28 pb-16">
-
-        {/* Headline */}
-        <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.18] sm:leading-[1.14] text-white max-w-4xl drop-shadow-sm transition-all duration-700">
-          {t(activeSlide.titleAr, activeSlide.titleEn)}
+      {/* Main Slide Content - Headline */}
+      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white flex flex-col items-center justify-center pt-16 sm:pt-24 pb-20 sm:pb-28">
+        <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.3] sm:leading-[1.18] text-white max-w-3xl drop-shadow-[0_2px_14px_rgba(0,0,0,0.85)] transition-all">
+          {t('عالم السجاد.. لمسة جمال بيتك عندنا', 'Alamelsgad.. The Touch of Beauty for Your Home')}
         </h1>
+      </div>
 
-        {/* Subtitle */}
-        <p className="mt-4 sm:mt-5 text-sm sm:text-lg md:text-xl text-[#E8DED3] font-light max-w-2xl mx-auto leading-relaxed">
-          {t(activeSlide.subtitleAr, activeSlide.subtitleEn)}
-        </p>
-
-        {/* Action Buttons */}
-        <div className="mt-7 sm:mt-9 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full sm:w-auto">
-          <button
-            onClick={() => navigateTo('shop')}
-            className="w-full sm:w-auto px-8 py-3.5 sm:py-4 rounded-full bg-white hover:bg-[#F4ECE1] text-[#1F150F] text-xs sm:text-sm font-bold uppercase tracking-wider transition-all duration-200 shadow-xl hover:shadow-2xl flex items-center justify-center gap-2.5 active:scale-95 group"
-          >
-            <span>{t(activeSlide.ctaPrimaryAr, activeSlide.ctaPrimaryEn)}</span>
-            <ArrowRight className={`w-4 h-4 text-[#A27B5C] transition-transform duration-200 ${isRtl ? 'group-hover:-translate-x-1' : 'group-hover:translate-x-1'}`} />
-          </button>
-
-        </div>
+      {/* Primary Action Button - At the bottom of the picture with high-end professional styling */}
+      <div className="absolute bottom-6 sm:bottom-10 inset-x-0 z-20 flex items-center justify-center px-4 pointer-events-auto">
+        <button
+          id="hero-shop-cta-btn"
+          onClick={() => navigateTo('shop')}
+          className="group px-6 sm:px-8 py-2.5 sm:py-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 backdrop-blur-md border border-white/35 hover:border-white/70 text-white text-xs sm:text-sm font-semibold tracking-wide transition-all duration-300 shadow-[0_8px_30px_rgba(0,0,0,0.35)] hover:shadow-[0_12px_40px_rgba(255,255,255,0.15)] flex items-center justify-center gap-2.5 active:scale-95 touch-manipulation cursor-pointer"
+        >
+          <span className="drop-shadow-sm">{t('تسوق التشكيلة الآن', 'Shop the Collection')}</span>
+          <div className="w-5 h-5 rounded-full bg-white/15 group-hover:bg-white/25 flex items-center justify-center transition-colors shrink-0">
+            <ArrowRight className={`w-3 h-3 text-white transition-transform duration-300 ${isRtl ? 'group-hover:-translate-x-0.5' : 'group-hover:translate-x-0.5'}`} />
+          </div>
+        </button>
       </div>
     </section>
   );
@@ -262,14 +257,14 @@ export function CategoriesShowcase() {
   const ArrowIcon = isRtl ? ArrowLeft : ArrowRight;
 
   return (
-    <section id="categories-showcase-section" className="py-16 sm:py-24 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="categories-showcase-section" className="pt-6 sm:pt-10 pb-4 sm:pb-6 bg-white">
+      <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16 space-y-2.5">
-          <span className="text-xs font-bold uppercase tracking-widest text-[#A27B5C]">
+        <div className="text-center max-w-2xl mx-auto mb-6 sm:mb-10 space-y-1.5 sm:space-y-2">
+          <span className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-[#A27B5C]">
             {t('المجموعات والتشكيلات', 'Curated Collections')}
           </span>
-          <h2 className="text-2xl sm:text-4xl font-extrabold text-[#241710] tracking-tight">
+          <h2 className="text-xl sm:text-3xl md:text-4xl font-extrabold text-[#241710] tracking-tight">
             {t('اختر ما يناسب مساحة منزلك', 'Explore Collections for Every Room')}
           </h2>
           <p className="text-xs sm:text-sm text-[#736357] font-normal leading-relaxed">
@@ -280,13 +275,13 @@ export function CategoriesShowcase() {
           </p>
         </div>
 
-        {/* 4 Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* 4 Cards Grid - 2 columns on mobile, 4 columns on desktop */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {collections.map((cat) => (
             <div
               key={cat.id}
               onClick={() => navigateTo('shop')}
-              className="group relative rounded-2xl overflow-hidden bg-[#FBF9F5] border border-[#EAE3D8] hover:border-[#D5C6B5] shadow-xs hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col"
+              className="group relative rounded-xl sm:rounded-2xl overflow-hidden bg-[#FBF9F5] border border-[#EAE3D8] hover:border-[#D5C6B5] shadow-xs hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col"
             >
               {/* Image Container with Consistent Aspect Ratio */}
               <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#EFE9DF]">
@@ -297,25 +292,25 @@ export function CategoriesShowcase() {
                   className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
-                <span className="absolute top-3 start-3 bg-[#1F150F]/85 backdrop-blur-xs text-[#EED8BE] text-[10px] font-bold px-2.5 py-1 rounded-full">
+                <span className="absolute top-2 sm:top-3 start-2 sm:start-3 bg-[#1F150F]/85 backdrop-blur-xs text-[#EED8BE] text-[9px] sm:text-[10px] font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full">
                   {t(cat.tagAr, cat.tagEn)}
                 </span>
               </div>
 
               {/* Card Body */}
-              <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
-                <div className="space-y-1.5">
-                  <h3 className="text-base font-bold text-[#241710] group-hover:text-[#A27B5C] transition-colors">
+              <div className="p-3 sm:p-5 flex-1 flex flex-col justify-between space-y-2 sm:space-y-3">
+                <div className="space-y-1">
+                  <h3 className="text-xs sm:text-base font-bold text-[#241710] group-hover:text-[#A27B5C] transition-colors leading-snug">
                     {t(cat.titleAr, cat.titleEn)}
                   </h3>
-                  <p className="text-xs text-[#7A6A5E] leading-relaxed line-clamp-2">
+                  <p className="text-[11px] sm:text-xs text-[#7A6A5E] leading-relaxed line-clamp-2">
                     {t(cat.descAr, cat.descEn)}
                   </p>
                 </div>
 
-                <div className="pt-3 border-t border-[#EFE7DC] flex items-center justify-between text-xs font-bold text-[#A27B5C]">
+                <div className="pt-2 sm:pt-3 border-t border-[#EFE7DC] flex items-center justify-between text-[11px] sm:text-xs font-bold text-[#A27B5C]">
                   <span>{t('تصفح التشكيلة', 'Explore Pieces')}</span>
-                  <ArrowIcon className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  <ArrowIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform group-hover:translate-x-1" />
                 </div>
               </div>
             </div>
@@ -336,17 +331,17 @@ export function StoryTeaserSection() {
   const ArrowIcon = isRtl ? ArrowLeft : ArrowRight;
 
   return (
-    <section id="story-teaser-section" className="py-16 sm:py-24 bg-white border-b border-[#EAE3D8]">
+    <section id="story-teaser-section" className="pt-6 sm:pt-10 pb-12 sm:pb-16 bg-white border-b border-[#EAE3D8]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-14 items-center">
           {/* Quote & Brand Vision (6 cols) */}
-          <div className="lg:col-span-6 space-y-6">
-            <div className="w-12 h-12 rounded-full bg-[#FAF5EB] border border-[#EAE3D8] flex items-center justify-center">
-              <AlamelsgadMark size={40} />
+          <div className="lg:col-span-6 space-y-4 sm:space-y-5">
+            <div className="w-11 h-11 rounded-full bg-[#FAF5EB] border border-[#EAE3D8] flex items-center justify-center">
+              <AlamelsgadMark size={36} />
             </div>
 
-            <div className="space-y-4">
-              <span className="text-xs font-bold uppercase tracking-widest text-[#A27B5C]">
+            <div className="space-y-3 sm:space-y-4">
+              <span className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-[#A27B5C]">
                 {t('معرضنا وقصة علامتنا', 'Our Heritage & Showroom')}
               </span>
               <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-[#241710] leading-tight">

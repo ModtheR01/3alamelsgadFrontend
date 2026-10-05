@@ -29,37 +29,33 @@ export function AlamelsgadMark({
   className?: string;
 }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 200 200"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={`inline-block shrink-0 select-none ${className}`}
+    <div
+      className={`relative rounded-full overflow-hidden shrink-0 select-none shadow-sm flex items-center justify-center ${className}`}
+      style={{
+        width: size,
+        height: size,
+        aspectRatio: '1 / 1',
+        containerType: 'size',
+      }}
       aria-label="شعار عالم السجاد - Alamelsgad"
     >
-      <defs>
-        {/* Warm cream gradient matching the emblem */}
-        <radialGradient id="sealBg" cx="45%" cy="40%" r="65%" fx="35%" fy="30%">
-          <stop offset="0%" stopColor="#F9F6F0" />
-          <stop offset="60%" stopColor="#EDE5DC" />
-          <stop offset="100%" stopColor="#E2D7CC" />
-        </radialGradient>
+      {/* Background Circular Seal SVG with Luxury Carpet Motifs */}
+      <svg
+        viewBox="0 0 200 200"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="absolute inset-0 w-full h-full pointer-events-none"
+      >
+        <defs>
+          <radialGradient id="sealBg" cx="45%" cy="40%" r="65%" fx="35%" fy="30%">
+            <stop offset="0%" stopColor="#F9F6F0" />
+            <stop offset="60%" stopColor="#EDE5DC" />
+            <stop offset="100%" stopColor="#E2D7CC" />
+          </radialGradient>
+        </defs>
 
-        {/* Soft shadow for depth */}
-        <filter id="badgeShadow" x="-10%" y="-10%" width="120%" height="120%">
-          <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#2A1C12" floodOpacity="0.1" />
-        </filter>
-
-        {/* Clip path for circular seal */}
-        <clipPath id="circleClip">
-          <circle cx="100" cy="100" r="96" />
-        </clipPath>
-      </defs>
-
-      {/* Main Circular Seal */}
-      <g clipPath="url(#circleClip)">
-        <circle cx="100" cy="100" r="96" fill="url(#sealBg)" />
+        {/* Circular Seal Background */}
+        <circle cx="100" cy="100" r="98" fill="url(#sealBg)" />
 
         {/* Subtle decorative wheat/palm leaf shadow on left */}
         <path
@@ -92,59 +88,22 @@ export function AlamelsgadMark({
         />
 
         {/* Top Carpet Geometric Diamond Motif (Stepped Lozenge) */}
-        <g transform="translate(100, 36)" stroke="#A27B5C" strokeWidth="2" fill="none">
-          {/* Outer stepped diamond */}
-          <path d="M 0 -14 L 14 0 L 0 14 L -14 0 Z" strokeWidth="1.8" />
-          {/* Inner diamond */}
-          <path d="M 0 -7 L 7 0 L 0 7 L -7 0 Z" fill="#A27B5C" opacity="0.3" strokeWidth="1.5" />
-          {/* Stepped corner accents */}
-          <path d="M -9 -9 L -13 -13 M 9 -9 L 13 -13 M -9 9 L -13 13 M 9 9 L 13 13" strokeWidth="1.5" />
-          {/* Center dot */}
+        <g transform="translate(100, 32)" stroke="#A27B5C" strokeWidth="2" fill="none">
+          <path d="M 0 -12 L 12 0 L 0 12 L -12 0 Z" strokeWidth="1.8" />
+          <path d="M 0 -6 L 6 0 L 0 6 L -6 0 Z" fill="#A27B5C" opacity="0.3" strokeWidth="1.5" />
+          <path d="M -8 -8 L -11 -11 M 8 -8 L 11 -11 M -8 8 L -11 11 M 8 8 L 11 11" strokeWidth="1.5" />
           <circle cx="0" cy="0" r="1.5" fill="#A27B5C" />
         </g>
 
-        {/* Main Calligraphy: "عالم السجاد" in Deep Charcoal-Brown */}
-        <text
-          x="100"
-          y="84"
-          textAnchor="middle"
-          fontFamily="system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif"
-          fontWeight="800"
-          fontSize="36"
-          letterSpacing="-0.5px"
-          fill="#251811"
-        >
-          عالم
-        </text>
-
-        <text
-          x="100"
-          y="118"
-          textAnchor="middle"
-          fontFamily="system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif"
-          fontWeight="800"
-          fontSize="34"
-          letterSpacing="-0.5px"
-          fill="#251811"
-        >
-          السجاد
-        </text>
-
-        {/* Traditional Diamond Dot under the "ج" */}
-        <g transform="translate(112, 126)">
-          <path d="M 0 -3 L 3 0 L 0 3 L -3 0 Z" fill="#A27B5C" />
-        </g>
-
         {/* Gold Separator Hairline with Centered Diamond */}
-        <g transform="translate(100, 136)">
-          <line x1="-40" y1="0" x2="-6" y2="0" stroke="#B8946E" strokeWidth="0.8" opacity="0.8" />
-          <path d="M 0 -3 L 3 0 L 0 3 L -3 0 Z" fill="#B8946E" />
-          <line x1="6" y1="0" x2="40" y2="0" stroke="#B8946E" strokeWidth="0.8" opacity="0.8" />
+        <g transform="translate(100, 142)">
+          <line x1="-36" y1="0" x2="-5" y2="0" stroke="#B8946E" strokeWidth="1" opacity="0.85" />
+          <path d="M 0 -2.5 L 2.5 0 L 0 2.5 L -2.5 0 Z" fill="#B8946E" />
+          <line x1="5" y1="0" x2="36" y2="0" stroke="#B8946E" strokeWidth="1" opacity="0.85" />
         </g>
 
         {/* Woven Carpet Fringe Border at the Bottom */}
         <g transform="translate(100, 172)">
-          {/* Carpet edge patterned band */}
           <path
             d="M -75 -4 C -40 6, 40 6, 75 -4 L 80 8 C 40 18, -40 18, -80 8 Z"
             fill="#5D3A24"
@@ -155,7 +114,6 @@ export function AlamelsgadMark({
             strokeWidth="1"
             strokeDasharray="2 2"
           />
-          {/* Carpet tassels/fringes along the lower curve */}
           {[-60, -50, -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60].map((x, i) => {
             const yOffset = Math.sin(((x + 60) / 120) * Math.PI) * 5;
             return (
@@ -173,10 +131,40 @@ export function AlamelsgadMark({
           })}
         </g>
 
-        {/* Subtle rim border */}
-        <circle cx="100" cy="100" r="95" stroke="#CBB9A5" strokeWidth="1" fill="none" opacity="0.7" />
-      </g>
-    </svg>
+        {/* Outer Rim Border */}
+        <circle cx="100" cy="100" r="98" stroke="#CBB9A5" strokeWidth="2" fill="none" opacity="0.8" />
+      </svg>
+
+      {/* Connected Native Arabic Typography in HTML - Zero SVG WebKit Shaping Glitches */}
+      <div
+        className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none text-center"
+        dir="rtl"
+        lang="ar"
+        style={{
+          paddingTop: '6%',
+          paddingBottom: '14%',
+        }}
+      >
+        <span
+          className="font-black text-[#251811] tracking-tight leading-[1.08]"
+          style={{
+            fontSize: 'clamp(7px, 20cqw, 36px)',
+            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Tahoma, sans-serif',
+          }}
+        >
+          عالم
+        </span>
+        <span
+          className="font-black text-[#251811] tracking-tight leading-[1.08] mt-[1cqw]"
+          style={{
+            fontSize: 'clamp(6px, 18cqw, 32px)',
+            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Tahoma, sans-serif',
+          }}
+        >
+          السجاد
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -190,11 +178,11 @@ export default function AlamelsgadLogo({
   const { language  } = useLanguage();
 
   const sizeMap = {
-    xs: { mark: 26, title: 'text-xs sm:text-sm', tag: 'text-[9px]', gap: 'gap-1.5' },
-    sm: { mark: 32, title: 'text-sm sm:text-base', tag: 'text-[10px]', gap: 'gap-2' },
-    md: { mark: 38, title: 'text-base sm:text-lg', tag: 'text-[11px]', gap: 'gap-2 sm:gap-2.5' },
-    lg: { mark: 50, title: 'text-lg sm:text-xl', tag: 'text-xs', gap: 'gap-3' },
-    xl: { mark: 64, title: 'text-xl sm:text-2xl', tag: 'text-sm', gap: 'gap-3.5' },
+    xs: { mark: 22, markClass: 'w-5 h-5 sm:w-6 sm:h-6', title: 'text-[11px] sm:text-xs', tag: 'text-[9px]', gap: 'gap-1' },
+    sm: { mark: 26, markClass: 'w-6 h-6 sm:w-8 sm:h-8', title: 'text-xs sm:text-sm', tag: 'text-[10px]', gap: 'gap-1.5' },
+    md: { mark: 32, markClass: 'w-7 h-7 sm:w-9 sm:h-9 md:w-10 md:h-10', title: 'text-xs sm:text-base md:text-lg', tag: 'text-[11px]', gap: 'gap-1.5 sm:gap-2.5' },
+    lg: { mark: 46, markClass: 'w-9 h-9 sm:w-12 sm:h-12', title: 'text-sm sm:text-xl', tag: 'text-xs', gap: 'gap-2.5' },
+    xl: { mark: 60, markClass: 'w-12 h-12 sm:w-16 sm:h-16', title: 'text-base sm:text-2xl', tag: 'text-sm', gap: 'gap-3' },
   };
 
   const s = sizeMap[size];
@@ -217,7 +205,7 @@ export default function AlamelsgadLogo({
   if (variant === 'badge') {
     return (
       <div className={`inline-flex flex-col items-center text-center ${className}`}>
-        <AlamelsgadMark size={s.mark * 1.5} />
+        <AlamelsgadMark size={s.mark * 1.5} className={s.markClass} />
       </div>
     );
   }
@@ -225,7 +213,7 @@ export default function AlamelsgadLogo({
   if (variant === 'compact') {
     return (
       <div className={`inline-flex items-center ${s.gap} ${className}`}>
-        <AlamelsgadMark size={s.mark} />
+        <AlamelsgadMark size={s.mark} className={s.markClass} />
         <span className={`font-bold tracking-tight ${s.title} ${textColor} whitespace-nowrap`}>
           {language === 'ar' ? 'عالم السجاد' : 'Alamelsgad'}
         </span>
@@ -245,7 +233,7 @@ export default function AlamelsgadLogo({
 
   return (
     <div className={`inline-flex items-center ${s.gap} select-none ${className}`}>
-      <AlamelsgadMark size={s.mark} />
+      <AlamelsgadMark size={s.mark} className={s.markClass} />
 
       <div className="flex flex-col leading-tight justify-center">
         <span className={`font-extrabold tracking-tight ${s.title} ${textColor} whitespace-nowrap`}>

@@ -251,7 +251,7 @@ export default function NewArrivalSection() {
               Array.from({ length: 6 }).map((_, idx) => (
                 <div
                   key={`skeleton-${idx}`}
-                  className="w-[240px] sm:w-[260px] md:w-[270px] lg:w-[280px] shrink-0 animate-pulse flex flex-col"
+                  className="w-[195px] sm:w-[250px] md:w-[270px] lg:w-[280px] shrink-0 animate-pulse flex flex-col"
                 >
                   <div className="aspect-[4/5] bg-[#EFE9DF] rounded-none sm:rounded-xs" />
                   <div className="pt-3 space-y-2">
@@ -270,7 +270,7 @@ export default function NewArrivalSection() {
                   <article
                     key={product.id}
                     onClick={() => handleCardClick(product.id)}
-                    className="w-[240px] sm:w-[260px] md:w-[270px] lg:w-[280px] shrink-0 flex flex-col group cursor-pointer"
+                    className="w-[195px] sm:w-[250px] md:w-[270px] lg:w-[280px] shrink-0 flex flex-col group cursor-pointer"
                   >
                     {/* Product Image Container */}
                     <div className="relative aspect-[4/5] bg-[#F2EDE5] overflow-hidden rounded-none sm:rounded-xs">

@@ -1,7 +1,15 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Cairo } from 'next/font/google';
 import './globals.css';
 import { LanguageProvider } from '@/lib/context/LanguageContext';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
+  themeColor: '#1A1009',
+};
 
 const cairo = Cairo({
   subsets: ['arabic', 'latin'],
