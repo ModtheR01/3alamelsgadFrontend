@@ -17,3 +17,40 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Cinematic Ken Burns Effect for Luxury Hero */
+@keyframes kenBurnsSlow {
+  0% {
+    transform: scale(1.0) translate3d(0, 0, 0);
+  }
+  100% {
+    transform: scale(1.045) translate3d(-0.4%, -0.3%, 0);
+  }
+}
+
+@keyframes kenBurnsSlowAlt {
+  0% {
+    transform: scale(1.045) translate3d(0.4%, 0.3%, 0);
+  }
+  100% {
+    transform: scale(1.0) translate3d(0, 0, 0);
+  }
+}
+
+.animate-ken-burns {
+  animation: kenBurnsSlow 9s cubic-bezier(0.25, 1, 0.5, 1) infinite alternate;
+  will-change: transform;
+}
+
+.animate-ken-burns-alt {
+  animation: kenBurnsSlowAlt 9s cubic-bezier(0.25, 1, 0.5, 1) infinite alternate;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ken-burns,
+  .animate-ken-burns-alt {
+    animation: none !important;
+    transform: none !important;
+  }
+}

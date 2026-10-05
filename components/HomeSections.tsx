@@ -37,6 +37,7 @@ export function HomeHero() {
   const { t, isRtl } = useLanguage();
 
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [prevSlide, setPrevSlide] = useState<number | null>(null);
   const [isPaused, setIsPaused] = useState(false);
 
   const slides = [
@@ -84,46 +85,67 @@ export function HomeHero() {
     },
   ];
 
-  // Auto-play slideshow
+  const goToSlide = React.useCallback(
+    (nextIndex: number) => {
+      if (nextIndex === currentSlide) return;
+      setPrevSlide(currentSlide);
+      setCurrentSlide(nextIndex);
+    },
+    [currentSlide]
+  );
+
+  // Auto-play slideshow with smooth cinematic timing
   useEffect(() => {
     if (isPaused) return;
     const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 6000);
+      goToSlide((currentSlide + 1) % slides.length);
+    }, 7000);
     return () => clearInterval(interval);
-  }, [isPaused, slides.length]);
+  }, [isPaused, currentSlide, slides.length, goToSlide]);
 
-  // Swipe and drag support for hero slider
+  // Swipe and drag support with direction locking and touch protection
   const touchStartX = React.useRef(0);
+  const touchStartY = React.useRef(0);
   const touchEndX = React.useRef(0);
+  const touchEndY = React.useRef(0);
   const mouseStartX = React.useRef(0);
   const isMouseDown = React.useRef(false);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.targetTouches[0].clientX;
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    touchEndX.current = e.touches[0].clientX;
+    touchEndY.current = e.touches[0].clientY;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.targetTouches[0].clientX;
+    touchEndX.current = e.touches[0].clientX;
+    touchEndY.current = e.touches[0].clientY;
   };
 
   const handleTouchEnd = () => {
-    if (!touchStartX.current || !touchEndX.current) return;
-    const diff = touchStartX.current - touchEndX.current;
-    if (Math.abs(diff) > 40) {
-      if (diff > 0) {
+    const deltaX = touchStartX.current - touchEndX.current;
+    const deltaY = touchStartY.current - touchEndY.current;
+    // Only trigger if horizontal swipe is dominant over vertical page scroll
+    if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3) {
+      if (deltaX > 0) {
         // Swiped left
-        setCurrentSlide((prev) => (prev + 1) % slides.length);
+        goToSlide((currentSlide + 1) % slides.length);
       } else {
         // Swiped right
-        setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+        goToSlide((currentSlide - 1 + slides.length) % slides.length);
       }
     }
     touchStartX.current = 0;
+    touchStartY.current = 0;
     touchEndX.current = 0;
+    touchEndY.current = 0;
   };
 
   const handleHeroMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a')) return;
     isMouseDown.current = true;
     mouseStartX.current = e.clientX;
   };
@@ -134,14 +156,12 @@ export function HomeHero() {
     const diff = mouseStartX.current - e.clientX;
     if (Math.abs(diff) > 45) {
       if (diff > 0) {
-        setCurrentSlide((prev) => (prev + 1) % slides.length);
+        goToSlide((currentSlide + 1) % slides.length);
       } else {
-        setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+        goToSlide((currentSlide - 1 + slides.length) % slides.length);
       }
     }
   };
-
-  const activeSlide = slides[currentSlide];
 
   return (
     <section
@@ -156,29 +176,54 @@ export function HomeHero() {
       onTouchEnd={handleTouchEnd}
       onMouseDown={handleHeroMouseDown}
       onMouseUp={handleHeroMouseUp}
-      className="relative min-h-[74vh] sm:min-h-[85vh] lg:min-h-[90vh] flex items-center justify-center overflow-hidden bg-[#1A1009] select-none cursor-grab active:cursor-grabbing"
+      className="relative min-h-[74vh] sm:min-h-[85vh] lg:min-h-[90vh] flex items-center justify-center overflow-hidden bg-[#1A1009] select-none cursor-grab active:cursor-grabbing touch-pan-y"
     >
-      {/* Background Slides with Crossfade - Vibrant, Clear, and Beautiful */}
-      {slides.map((slide, idx) => (
-        <div
-          key={slide.id}
-          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-            idx === currentSlide ? 'opacity-100 z-0 scale-100' : 'opacity-0 -z-10 scale-105 pointer-events-none'
-          }`}
-          style={{ transitionProperty: 'opacity, transform' }}
-        >
-          <Image
-            src={slide.image}
-            alt="عالم السجاد - سجاد فاخر"
-            fill
-            priority={idx === 0}
-            className="object-cover object-[center_65%] sm:object-center brightness-[0.88] contrast-[1.04]"
-            referrerPolicy="no-referrer"
-          />
-          {/* Subtle Balanced Gradient: Keeps the carpets & rooms luminous and vivid while ensuring crisp text contrast */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#120B06]/85 via-black/25 to-black/20" />
-        </div>
-      ))}
+      {/* Background Slides with Cinema Crossfade & Ken Burns Slow Zoom */}
+      {slides.map((slide, idx) => {
+        const isActive = idx === currentSlide;
+        const isPrevious = idx === prevSlide;
+
+        return (
+          <div
+            key={slide.id}
+            aria-hidden={!isActive}
+            className={`absolute inset-0 overflow-hidden pointer-events-none transition-opacity ease-in-out ${
+              isActive
+                ? 'opacity-100 z-10'
+                : isPrevious
+                ? 'opacity-0 z-0'
+                : 'opacity-0 -z-10'
+            }`}
+            style={{
+              transitionDuration: '1400ms',
+              transitionTimingFunction: 'cubic-bezier(0.4, 0.0, 0.2, 1)',
+            }}
+          >
+            {/* Background Image with Cinematic Ken Burns subtle slow motion */}
+            <div
+              className={`relative w-full h-full transform-gpu ${
+                isActive
+                  ? idx % 2 === 0
+                    ? 'animate-ken-burns'
+                    : 'animate-ken-burns-alt'
+                  : 'scale-100'
+              }`}
+            >
+              <Image
+                src={slide.image}
+                alt="عالم السجاد - سجاد فاخر"
+                fill
+                priority={idx === 0}
+                className="object-cover object-[center_65%] sm:object-center brightness-[0.88] contrast-[1.04]"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+
+            {/* Subtle Balanced Gradient: Keeps the carpets & rooms luminous and vivid while ensuring crisp text contrast */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#120B06]/85 via-black/25 to-black/20" />
+          </div>
+        );
+      })}
 
       {/* Main Slide Content - Headline */}
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white flex flex-col items-center justify-center pt-16 sm:pt-24 pb-20 sm:pb-28">
