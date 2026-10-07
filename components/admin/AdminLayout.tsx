@@ -58,8 +58,8 @@ export default function AdminLayout({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const roleLabel = (user?.role || '').toLowerCase() === 'admin' ? 'Admin' : 'Moderator';
-  const userName = user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user?.email || 'Store Manager';
+  const roleLabel = (user?.role || '').toLowerCase() === 'moderator' ? 'Moderator' : 'Admin';
+  const userName = user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user?.email || 'Admin';
 
   const navItems: {
     id: DashboardSection;

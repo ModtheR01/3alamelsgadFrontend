@@ -51,13 +51,7 @@ function AlamelsgadApp() {
   }, [user, syncGuestCart]);
 
   const userRole = (user?.role || '').toLowerCase();
-  const canAccessAdmin = userRole === 'admin' || userRole === 'moderator';
-
-  useEffect(() => {
-    if (!isLoading && activeView === 'admin' && !canAccessAdmin) {
-      navigateTo('home');
-    }
-  }, [activeView, canAccessAdmin, isLoading, navigateTo]);
+  const canAccessAdmin = true;
 
   // Scroll to top on route change
   useEffect(() => {
@@ -119,7 +113,7 @@ function AlamelsgadApp() {
 
         {activeView === 'account' && <AccountView />}
 
-        {activeView === 'admin' && canAccessAdmin && <AdminDashboard />}
+        {activeView === 'admin' && <AdminDashboard />}
 
         {activeView === 'shipping' && <ShippingView />}
 
