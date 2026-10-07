@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Truck,
+  ShieldCheck,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -34,6 +35,9 @@ export default function Navbar() {
 
   const { user } = useAuth();
   const { language, toggleLanguage, t, isRtl } = useLanguage();
+
+  const userRole = (user?.role || '').toLowerCase();
+  const canAccessAdmin = userRole === 'admin' || userRole === 'moderator';
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -180,6 +184,23 @@ export default function Navbar() {
             <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
 
+          {/* Admin / Moderator Dashboard Direct Access */}
+          {canAccessAdmin && (
+            <a
+              id="nav-admin-dashboard-link"
+              href="/dashboard"
+              className={`p-1.5 sm:px-3 sm:py-1.5 rounded-full transition-all focus:outline-none touch-manipulation flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-xs ${
+                isTransparent
+                  ? 'bg-amber-400/25 text-amber-200 border border-amber-300/40 hover:bg-amber-400/40'
+                  : 'bg-[#241710] text-[#EED8BE] hover:bg-[#3D291D] border border-[#3D291D]'
+              }`}
+              title={t('لوحة التحكم الإدارية', 'Admin Dashboard')}
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#EED8BE]" />
+              <span className="hidden sm:inline">{t('لوحة التحكم', 'Dashboard')}</span>
+            </a>
+          )}
+
           {/* User Account Portal */}
           <button
             id="nav-account-btn"
@@ -291,6 +312,23 @@ export default function Navbar() {
               />
               <Search className="w-4 h-4 text-[#8F7D70] absolute top-3.5 end-3 pointer-events-none" />
             </div>
+
+            {/* Admin / Moderator Mobile Direct Access */}
+            {canAccessAdmin && (
+              <a
+                href="/dashboard"
+                id="nav-mobile-admin-link"
+                className="w-full py-2.5 px-3.5 rounded-xl bg-[#241710] text-[#EED8BE] flex items-center justify-between text-xs font-bold shadow-xs border border-[#3D291D]"
+              >
+                <span className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#EED8BE]" />
+                  <span>{t('لوحة تحكم الإدارة (Dashboard)', 'Admin Dashboard')}</span>
+                </span>
+                <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-white/15 text-white">
+                  {user?.role}
+                </span>
+              </a>
+            )}
 
             {/* Navigation Links */}
             <div className="space-y-1 divide-y divide-[#EFE8DD]/70">

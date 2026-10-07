@@ -702,8 +702,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (options?.productId !== undefined) setSelectedProductId(options.productId);
       if (options?.categoryId !== undefined) setSelectedCategoryId(options.categoryId);
 
-      // Scroll to top on navigation
+      // Scroll to top on navigation & update URL pathname
       if (typeof window !== 'undefined') {
+        if (targetView === 'admin') {
+          if (!window.location.pathname.startsWith('/dashboard')) {
+            window.history.pushState(null, '', '/dashboard');
+          }
+        } else if (window.location.pathname.startsWith('/dashboard') || window.location.pathname.startsWith('/admin')) {
+          window.location.href = targetView === 'home' ? '/' : `/?route=${targetView}`;
+          return;
+        }
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     },
