@@ -12,7 +12,6 @@ import {
   ShoppingBag,
   Tag,
   Truck,
-  Sparkles,
   Settings,
   LogOut,
   ChevronLeft,
@@ -32,7 +31,6 @@ export type DashboardSection =
   | 'orders'
   | 'offers'
   | 'shipping'
-  | 'ai-images'
   | 'settings';
 
 interface AdminLayoutProps {
@@ -130,16 +128,6 @@ export default function AdminLayout({
       ],
     },
     {
-      groupTitle: 'الصور والوسائط',
-      items: [
-        {
-          id: 'ai-images',
-          label: 'استوديو صور المنتجات (AI)',
-          icon: Sparkles,
-        },
-      ],
-    },
-    {
       groupTitle: 'النظام',
       items: [
         {
@@ -176,8 +164,6 @@ export default function AdminLayout({
         return 'العروض وكوبونات الخصم';
       case 'shipping':
         return 'تعريفة الشحن ومحافظات الجمهورية';
-      case 'ai-images':
-        return 'استوديو تحسين صور المنتجات بالذكاء الاصطناعي';
       case 'settings':
         return 'إعدادات الحسابات ووسائل الدفع';
       default:

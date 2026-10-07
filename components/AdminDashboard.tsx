@@ -19,7 +19,6 @@ import SubcategoriesSection from './admin/SubcategoriesSection';
 import OrdersSection from './admin/OrdersSection';
 import OffersSection from './admin/OffersSection';
 import ShippingSection from './admin/ShippingSection';
-import AiProductImageView from './admin/AiProductImageView';
 import SettingsSection from './admin/SettingsSection';
 
 const PREVIEW_ORDERS: BackendOrder[] = [
@@ -290,15 +289,6 @@ export default function AdminDashboard() {
     setOffers((prev) => prev.filter((o) => o.id !== offerId));
   };
 
-  // Handle Product Assignment from AI Image Studio
-  const handleAssignAiImageToProduct = async (productId: string, imageUrl: string) => {
-    const target = products.find((p) => p.id === productId);
-    if (target) {
-      const updatedImages = [imageUrl, ...target.images.filter((img) => img !== imageUrl)];
-      await saveProduct({ ...target, images: updatedImages });
-    }
-  };
-
   // Compute category product counts
   const productCountsByCategory = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -480,15 +470,7 @@ export default function AdminDashboard() {
         {/* SECTION 7: SHIPPING */}
         {activeSection === 'shipping' && <ShippingSection />}
 
-        {/* SECTION 8: AI PRODUCT IMAGES */}
-        {activeSection === 'ai-images' && (
-          <AiProductImageView
-            products={products}
-            onAssignImageToProduct={handleAssignAiImageToProduct}
-          />
-        )}
-
-        {/* SECTION 9: SETTINGS */}
+        {/* SECTION 8: SETTINGS */}
         {activeSection === 'settings' && (
           <SettingsSection
             settings={settings}
