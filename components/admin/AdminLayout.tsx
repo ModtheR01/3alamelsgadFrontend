@@ -21,6 +21,7 @@ import {
   ExternalLink,
   ShieldCheck,
   Store,
+  Sparkles,
 } from 'lucide-react';
 
 export type DashboardSection =
@@ -28,8 +29,9 @@ export type DashboardSection =
   | 'products'
   | 'categories'
   | 'subcategories'
-  | 'orders'
   | 'offers'
+  | 'ai-images'
+  | 'orders'
   | 'shipping'
   | 'settings';
 
@@ -103,6 +105,11 @@ export default function AdminLayout({
           label: 'العروض والخصومات',
           icon: Tag,
         },
+        {
+          id: 'ai-images',
+          label: 'استوديو الصور بالذكاء الاصطناعي',
+          icon: Sparkles,
+        },
       ],
     },
     {
@@ -162,6 +169,8 @@ export default function AdminLayout({
         return 'إدارة الطلبات وتأكيد الدفع';
       case 'offers':
         return 'العروض وكوبونات الخصم';
+      case 'ai-images':
+        return 'استوديو معالجة صور المنتجات بالذكاء الاصطناعي';
       case 'shipping':
         return 'تعريفة الشحن ومحافظات الجمهورية';
       case 'settings':

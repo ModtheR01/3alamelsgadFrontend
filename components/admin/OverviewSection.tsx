@@ -19,6 +19,7 @@ import {
   Eye,
   Layers,
   FolderTree,
+  Sparkles,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 import { DashboardSection } from './AdminLayout';
@@ -257,6 +258,14 @@ export default function OverviewSection({
           >
             <ShoppingBag className="w-4 h-4 text-[#A27B5C]" />
             <span>عرض الطلبات</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateSection('ai-images')}
+            className="px-3.5 py-2 rounded-xl bg-[#FAF5EB] hover:bg-[#F2E8D7] border border-[#E8DEC0] text-[#241710] text-xs font-bold flex items-center gap-1.5 transition-all"
+          >
+            <Sparkles className="w-4 h-4 text-[#A27B5C]" />
+            <span>استوديو الذكاء الاصطناعي</span>
           </button>
         </div>
       </div>

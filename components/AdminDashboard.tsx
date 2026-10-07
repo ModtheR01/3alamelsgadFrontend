@@ -18,6 +18,7 @@ import CategoriesSection from './admin/CategoriesSection';
 import SubcategoriesSection from './admin/SubcategoriesSection';
 import OrdersSection from './admin/OrdersSection';
 import OffersSection from './admin/OffersSection';
+import AiProductImageView from './admin/AiProductImageView';
 import ShippingSection from './admin/ShippingSection';
 import SettingsSection from './admin/SettingsSection';
 
@@ -467,10 +468,28 @@ export default function AdminDashboard() {
           />
         )}
 
-        {/* SECTION 7: SHIPPING */}
+        {/* SECTION 7: AI PRODUCT IMAGES */}
+        {activeSection === 'ai-images' && (
+          <AiProductImageView
+            products={products}
+            onAssignImageToProduct={(prodId, newImgUrl) => {
+              const target = products.find((p) => String(p.id) === String(prodId));
+              if (target) {
+                const updatedImages = [newImgUrl, ...target.images.filter((img) => img !== newImgUrl)];
+                saveProduct({
+                  ...target,
+                  images: updatedImages,
+                });
+              }
+            }}
+            onNavigateSection={setActiveSection}
+          />
+        )}
+
+        {/* SECTION 8: SHIPPING */}
         {activeSection === 'shipping' && <ShippingSection />}
 
-        {/* SECTION 8: SETTINGS */}
+        {/* SECTION 9: SETTINGS */}
         {activeSection === 'settings' && (
           <SettingsSection
             settings={settings}
