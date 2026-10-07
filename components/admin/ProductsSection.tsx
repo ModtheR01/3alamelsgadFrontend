@@ -22,9 +22,12 @@ import {
   FolderTree,
   Layers,
   Sparkles,
+  UploadCloud,
+  Loader2,
+  Link as LinkIcon,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
-import CloudinaryImageUploader from '@/components/CloudinaryImageUploader';
+import { uploadDirectToCloudinary } from '@/lib/api/cloudinary';
 
 interface ProductsSectionProps {
   products: Product[];
@@ -69,6 +72,9 @@ export default function ProductsSection({
 
   // Manual Image URL input state
   const [manualImageUrl, setManualImageUrl] = useState('');
+  const [isImageUploading, setIsImageUploading] = useState(false);
+  const [imageUploadProgress, setImageUploadProgress] = useState(0);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Color management inputs
   const [newColorName, setNewColorName] = useState('');
@@ -199,6 +205,64 @@ export default function ProductsSection({
       ...editingProduct,
       images: [...editingProduct.images, url.trim()],
     });
+  };
+
+  const handleSetPrimaryImage = (index: number) => {
+    if (!editingProduct) return;
+    const images = [...editingProduct.images];
+    const [selected] = images.splice(index, 1);
+    images.unshift(selected);
+    setEditingProduct({ ...editingProduct, images });
+  };
+
+  const handleRemoveImage = (index: number) => {
+    if (!editingProduct) return;
+    const images = editingProduct.images.filter((_, i) => i !== index);
+    setEditingProduct({ ...editingProduct, images });
+  };
+
+  const handleImageFileUpload = async (files: FileList | File[]) => {
+    if (!editingProduct) return;
+    const fileArray = Array.from(files).filter((file) => file.type.startsWith('image/'));
+    if (fileArray.length === 0) return;
+
+    if (editingProduct.images.length + fileArray.length > 8) {
+      setFormError('الحد الأقصى لعدد صور المنتج هو 8 صور.');
+      return;
+    }
+
+    setIsImageUploading(true);
+    setImageUploadProgress(0);
+    setFormError(null);
+
+    try {
+      const uploadedUrls: string[] = [];
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i];
+        try {
+          const res = await uploadDirectToCloudinary(file, {
+            folder: 'alamelsgad-products',
+            onProgress: (p) => setImageUploadProgress(Math.round(((i + p / 100) / fileArray.length) * 100)),
+          });
+          uploadedUrls.push(res.secure_url || res.url);
+        } catch {
+          // Local fallback preview for development
+          const reader = new FileReader();
+          const dataUrl = await new Promise<string>((resolve) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+          uploadedUrls.push(dataUrl);
+        }
+      }
+      setEditingProduct({
+        ...editingProduct,
+        images: [...editingProduct.images, ...uploadedUrls],
+      });
+    } finally {
+      setIsImageUploading(false);
+      setImageUploadProgress(0);
+    }
   };
 
   const handleAddColor = () => {
@@ -580,495 +644,607 @@ export default function ProductsSection({
         )}
       </div>
 
-      {/* Add / Edit Product Modal */}
+      {/* Add / Edit Product Modal - Compact Professional Two-Column Redesign */}
       {isModalOpen && editingProduct && (
         <div
           dir="rtl"
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in"
         >
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-5 sm:p-7 space-y-6 border border-[#EAE3D8] shadow-2xl my-8 text-right">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-[#EAE3D8]">
+          <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-[#EAE3D8] overflow-hidden text-right">
+            {/* Modal Header (Fixed at top) */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#EAE3D8] bg-[#FAF8F5]/90 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-[#FAF5EB] text-[#A27B5C]">
-                  <Package className="w-5 h-5" />
+                <div className="p-1.5 rounded-xl bg-white border border-[#EAE3D8] text-[#A27B5C] shadow-xs">
+                  <Package className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-black text-[#241710]">
-                    {editingProduct.name ? 'تعديل بيانات المنتج' : 'إضافة منتج جديد'}
+                  <h3 className="text-sm sm:text-base font-black text-[#241710] leading-none">
+                    {editingProduct.name ? `تعديل: ${editingProduct.name}` : 'إضافة منتج جديد للكتالوج'}
                   </h3>
-                  <p className="text-[11px] text-[#8C7A6B]">
-                    حدد التصنيف الرئيسي والفرعي، الصور، وتفاصيل الأسعار والمقاسات
-                  </p>
+                  <span className="text-[10px] text-[#8C7A6B] font-medium mt-1 block">
+                    بيانات المنتج والتسعير والتصنيفات والألوان
+                  </span>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-lg text-[#8C7A6B] hover:text-[#241710] hover:bg-[#F5EFE6]"
+                className="p-1.5 rounded-lg text-[#8C7A6B] hover:text-[#241710] hover:bg-[#F5EFE6] transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {formError && (
-              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{formError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmitProductForm} className="space-y-5">
-              {/* Basic Info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#241710]">
-                    اسم المنتج <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editingProduct.name}
-                    onChange={(e) =>
-                      setEditingProduct({
-                        ...editingProduct,
-                        name: e.target.value,
-                        slug: e.target.value.toLowerCase().replace(/\s+/g, '-'),
-                      })
-                    }
-                    placeholder="مثال: سجاد تبريز كلاسيك فاخر، رول ممرات تركي..."
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
-                  />
-                </div>
-
-                {/* Category Selection (Core Requirement: Category -> Subcategory) */}
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#241710]">
-                    التصنيف الرئيسي <span className="text-rose-600">*</span>
-                  </label>
-                  <select
-                    required
-                    value={editingProduct.categoryId}
-                    onChange={(e) => {
-                      setEditingProduct({
-                        ...editingProduct,
-                        categoryId: e.target.value,
-                        subcategoryIds: [],
-                      });
-                    }}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
-                  >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Subcategory Selection (Only shows subcategories of chosen category) */}
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#241710]">
-                    التصنيف الفرعي التابع له
-                  </label>
-                  <select
-                    value={editingProduct.subcategoryIds?.[0] || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setEditingProduct({
-                        ...editingProduct,
-                        subcategoryIds: val ? [val] : [],
-                      });
-                    }}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
-                  >
-                    <option value="">-- اختياري: اختر التصنيف الفرعي --</option>
-                    {modalAvailableSubcategories.map((sub) => (
-                      <option key={sub.id} value={sub.id}>
-                        {sub.name}
-                      </option>
-                    ))}
-                  </select>
-                  {modalAvailableSubcategories.length === 0 && (
-                    <p className="text-[10px] text-[#8C7A6B]">
-                      لا توجد تصنيفات فرعية مسجلة تحت هذا التصنيف بعد.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Product Type: Normal vs Arwal (Core Requirement 5) */}
-              <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-3">
-                <label className="block text-xs font-bold text-[#241710]">
-                  نوع تسعير وسلوك المنتج:
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <label
-                    className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
-                      !editingProduct.isArawal
-                        ? 'border-[#241710] bg-white ring-1 ring-[#241710]'
-                        : 'border-[#EAE3D8] bg-white/60 hover:bg-white'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="productType"
-                      checked={!editingProduct.isArawal}
-                      onChange={() =>
-                        setEditingProduct({
-                          ...editingProduct,
-                          isArawal: false,
-                        })
-                      }
-                      className="mt-0.5 text-[#241710]"
-                    />
-                    <div>
-                      <p className="font-bold text-xs text-[#241710]">منتج عادي (سجاد بمقاسات محددة)</p>
-                      <p className="text-[10px] text-[#8C7A6B]">
-                        سجادة كاملة تباع بالقطعة وفق مقاس ثابت (مثل 200x300 سم).
-                      </p>
-                    </div>
-                  </label>
-
-                  <label
-                    className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
-                      editingProduct.isArawal
-                        ? 'border-amber-600 bg-amber-50/40 ring-1 ring-amber-600'
-                        : 'border-[#EAE3D8] bg-white/60 hover:bg-white'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="productType"
-                      checked={Boolean(editingProduct.isArawal)}
-                      onChange={() =>
-                        setEditingProduct({
-                          ...editingProduct,
-                          isArawal: true,
-                          availableWidths: editingProduct.availableWidths || [60, 80, 100, 120],
-                          arawalUnitPricePerMeter: editingProduct.arawalUnitPricePerMeter || editingProduct.price || 450,
-                        })
-                      }
-                      className="mt-0.5 text-amber-600"
-                    />
-                    <div>
-                      <p className="font-bold text-xs text-amber-950">رول أروال (يباع بالطول بالمتر)</p>
-                      <p className="text-[10px] text-amber-800">
-                        يختار العميل العرض والطول المناسب لممراته ويحسب السعر بالمتر.
-                      </p>
-                    </div>
-                  </label>
-                </div>
-
-                {/* Arwal Configuration (Strictly Allowed Widths: 60, 80, 100, 120 cm) */}
-                {editingProduct.isArawal && (
-                  <div className="pt-3 border-t border-amber-200/70 space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <label className="text-xs font-bold text-amber-950">
-                        العروض المتاحة حصرياً لرول الأروال (سم) *:
-                      </label>
-                      <span className="text-[10px] text-amber-800">
-                        ممنوع إدخال عروض عشوائية وفق معايير المصنع
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-2">
-                      {ALLOWED_ARWAL_WIDTHS.map((width) => {
-                        const isChecked = (editingProduct.availableWidths || []).includes(width);
-
-                        return (
-                          <label
-                            key={width}
-                            className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
-                              isChecked
-                                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                                : 'bg-white text-[#5C4A3E] border-[#EAE3D8] hover:border-amber-400'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                const currentWidths = editingProduct.availableWidths || [];
-                                const updated = e.target.checked
-                                  ? [...currentWidths, width]
-                                  : currentWidths.filter((w) => w !== width);
-                                setEditingProduct({
-                                  ...editingProduct,
-                                  availableWidths: updated,
-                                });
-                              }}
-                              className="hidden"
-                            />
-                            <span>{width} سم</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-
-                    <div className="space-y-1 pt-1">
-                      <label className="block text-xs font-bold text-amber-950">
-                        سعر المتر الطولي بالجنيه (EGP / متر) *
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        required
-                        value={editingProduct.arawalUnitPricePerMeter || ''}
-                        onChange={(e) =>
-                          setEditingProduct({
-                            ...editingProduct,
-                            arawalUnitPricePerMeter: Number(e.target.value),
-                            price: Number(e.target.value),
-                          })
-                        }
-                        placeholder="مثال: 450"
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-amber-300 bg-white text-[#241710] font-bold focus:outline-none focus:border-amber-600"
-                      />
-                      <p className="text-[10px] text-amber-800">
-                        سيقوم المتجر بضرب هذا السعر في الطول الذي يحدده العميل لحساب إجمالي التكلفة تلقائياً.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Normal Pricing and Dimensions (When not Arwal) */}
-              {!editingProduct.isArawal && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-[#241710]">
-                      السعر الحالي (ج.م) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      value={editingProduct.price || ''}
-                      onChange={(e) =>
-                        setEditingProduct({ ...editingProduct, price: Number(e.target.value) })
-                      }
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-[#241710]">
-                      السعر قبل الخصم (اختياري)
-                    </label>
-                    <input
-                      type="number"
-                      value={editingProduct.originalPrice || ''}
-                      onChange={(e) =>
-                        setEditingProduct({
-                          ...editingProduct,
-                          originalPrice: e.target.value ? Number(e.target.value) : undefined,
-                        })
-                      }
-                      placeholder="لإظهار شارة الخصم"
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] focus:outline-none focus:border-[#241710]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-[#241710]">
-                      المقاس الافتراضي
-                    </label>
-                    <input
-                      type="text"
-                      value={editingProduct.dimensions || ''}
-                      onChange={(e) =>
-                        setEditingProduct({ ...editingProduct, dimensions: e.target.value })
-                      }
-                      placeholder="مثال: 200x300 سم"
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] focus:outline-none focus:border-[#241710]"
-                    />
-                  </div>
+            {/* Scrollable Form Body */}
+            <form
+              id="product-form"
+              onSubmit={handleSubmitProductForm}
+              className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5"
+            >
+              {formError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span className="font-bold">{formError}</span>
                 </div>
               )}
 
-              {/* Description and Material */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#241710]">
-                    الخامة ومواصفات النسيج
-                  </label>
-                  <input
-                    type="text"
-                    value={editingProduct.material || ''}
-                    onChange={(e) =>
-                      setEditingProduct({ ...editingProduct, material: e.target.value })
-                    }
-                    placeholder="مثال: صوف تركي فاخر، حرير ناعم عالي الكثافة..."
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] focus:outline-none focus:border-[#241710]"
-                  />
-                </div>
+              {/* Two-Column Grid on Desktop */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+                {/* Column 1: Main Info & Pricing (7 cols on lg) */}
+                <div className="lg:col-span-7 space-y-3.5">
+                  {/* Card 1: Primary Details */}
+                  <div className="p-4 rounded-xl bg-[#FAF8F5]/70 border border-[#EAE3D8] space-y-3">
+                    <h4 className="text-xs font-black text-[#241710] flex items-center gap-1.5 pb-2 border-b border-[#EAE3D8]/70">
+                      <Package className="w-3.5 h-3.5 text-[#A27B5C]" />
+                      <span>بيانات المنتج الأساسية</span>
+                    </h4>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#241710]">
-                    مدة التوصيل والشحن
-                  </label>
-                  <input
-                    type="text"
-                    value={editingProduct.shippingTime || ''}
-                    onChange={(e) =>
-                      setEditingProduct({ ...editingProduct, shippingTime: e.target.value })
-                    }
-                    placeholder="مثال: توصيل خلال ٢-٤ أيام عمل"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] focus:outline-none focus:border-[#241710]"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#241710]">الوصف الكامل للمنتج</label>
-                <textarea
-                  rows={3}
-                  value={editingProduct.description}
-                  onChange={(e) =>
-                    setEditingProduct({ ...editingProduct, description: e.target.value })
-                  }
-                  placeholder="مواصفات السجادة، إرشادات التنظيف، والمميزات التنسيقية في المنزل..."
-                  className="w-full text-xs p-3 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] focus:outline-none focus:border-[#241710]"
-                />
-              </div>
-
-              {/* Colors Management */}
-              <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-3">
-                <label className="block text-xs font-bold text-[#241710]">
-                  خيارات الألوان المتاحة للمنتج:
-                </label>
-                <div className="flex flex-wrap gap-2 items-center">
-                  {(editingProduct.colors || []).map((col) => (
-                    <div
-                      key={col.id}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-[#EAE3D8] text-xs font-bold text-[#241710] shadow-xs"
-                    >
-                      <span
-                        className="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0"
-                        style={{ backgroundColor: col.hex }}
+                    {/* Product Name */}
+                    <div className="space-y-1">
+                      <label className="block text-xs font-bold text-[#241710]">
+                        اسم المنتج <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editingProduct.name}
+                        onChange={(e) =>
+                          setEditingProduct({
+                            ...editingProduct,
+                            name: e.target.value,
+                            slug: e.target.value.toLowerCase().replace(/\s+/g, '-'),
+                          })
+                        }
+                        placeholder="مثال: سجاد تبريز كلاسيك فاخر، رول ممرات تركي..."
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
                       />
-                      <span>{col.name}</span>
+                    </div>
+
+                    {/* Category & Subcategory Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-[#241710]">
+                          التصنيف الرئيسي <span className="text-rose-600">*</span>
+                        </label>
+                        <select
+                          required
+                          value={editingProduct.categoryId}
+                          onChange={(e) => {
+                            setEditingProduct({
+                              ...editingProduct,
+                              categoryId: e.target.value,
+                              subcategoryIds: [],
+                            });
+                          }}
+                          className="w-full px-2.5 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
+                        >
+                          {categories.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-[#241710]">
+                          التصنيف الفرعي
+                        </label>
+                        <select
+                          value={editingProduct.subcategoryIds?.[0] || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditingProduct({
+                              ...editingProduct,
+                              subcategoryIds: val ? [val] : [],
+                            });
+                          }}
+                          className="w-full px-2.5 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
+                        >
+                          <option value="">-- اختياري: اختر الفرعي --</option>
+                          {modalAvailableSubcategories.map((sub) => (
+                            <option key={sub.id} value={sub.id}>
+                              {sub.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Product Type Toggle */}
+                    <div className="space-y-1.5 pt-1">
+                      <label className="block text-[11px] font-bold text-[#8C7A6B]">
+                        نوع تسعير وسلوك المنتج:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingProduct({ ...editingProduct, isArawal: false })}
+                          className={`p-2.5 rounded-xl border text-right transition-all flex items-center gap-2 ${
+                            !editingProduct.isArawal
+                              ? 'bg-white border-[#241710] ring-1 ring-[#241710] shadow-xs'
+                              : 'bg-white/60 border-[#EAE3D8] text-[#5C4A3E] hover:bg-white'
+                          }`}
+                        >
+                          <span
+                            className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
+                              !editingProduct.isArawal
+                                ? 'border-[#241710] bg-[#241710]'
+                                : 'border-[#D8CEBF]'
+                            }`}
+                          >
+                            {!editingProduct.isArawal && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </span>
+                          <div>
+                            <p className="font-bold text-xs text-[#241710] leading-none">سجاد عادي</p>
+                            <span className="text-[10px] text-[#8C7A6B] mt-0.5 block">يباع بالقطعة بمقاس محدد</span>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              isArawal: true,
+                              availableWidths: editingProduct.availableWidths || [60, 80, 100, 120],
+                              arawalUnitPricePerMeter: editingProduct.arawalUnitPricePerMeter || editingProduct.price || 450,
+                            })
+                          }
+                          className={`p-2.5 rounded-xl border text-right transition-all flex items-center gap-2 ${
+                            editingProduct.isArawal
+                              ? 'bg-amber-50 border-amber-600 ring-1 ring-amber-600 shadow-xs'
+                              : 'bg-white/60 border-[#EAE3D8] text-[#5C4A3E] hover:bg-white'
+                          }`}
+                        >
+                          <span
+                            className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
+                              editingProduct.isArawal
+                                ? 'border-amber-600 bg-amber-600'
+                                : 'border-[#D8CEBF]'
+                            }`}
+                          >
+                            {editingProduct.isArawal && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </span>
+                          <div>
+                            <p className="font-bold text-xs text-amber-950 leading-none">رول أروال (بالمتر)</p>
+                            <span className="text-[10px] text-amber-800 mt-0.5 block">يباع بالطول حسب طلب العميل</span>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Conditional Pricing: Normal Carpet */}
+                    {!editingProduct.isArawal && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                        <div className="space-y-1">
+                          <label className="block text-xs font-bold text-[#241710]">
+                            السعر الحالي (ج.م) <span className="text-rose-600">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            required
+                            min={1}
+                            value={editingProduct.price || ''}
+                            onChange={(e) =>
+                              setEditingProduct({ ...editingProduct, price: Number(e.target.value) })
+                            }
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-xs font-bold text-[#241710]">
+                            السعر قبل الخصم
+                          </label>
+                          <input
+                            type="number"
+                            value={editingProduct.originalPrice || ''}
+                            onChange={(e) =>
+                              setEditingProduct({
+                                ...editingProduct,
+                                originalPrice: e.target.value ? Number(e.target.value) : undefined,
+                              })
+                            }
+                            placeholder="اختياري"
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-xs font-bold text-[#241710]">
+                            المقاس الافتراضي
+                          </label>
+                          <input
+                            type="text"
+                            value={editingProduct.dimensions || ''}
+                            onChange={(e) =>
+                              setEditingProduct({ ...editingProduct, dimensions: e.target.value })
+                            }
+                            placeholder="مثال: 200x300 سم"
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Conditional Pricing: Arwal Rolls */}
+                    {editingProduct.isArawal && (
+                      <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="block text-xs font-bold text-amber-950">
+                              سعر المتر الطولي (ج.م / متر) <span className="text-rose-600">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              required
+                              value={editingProduct.arawalUnitPricePerMeter || ''}
+                              onChange={(e) =>
+                                setEditingProduct({
+                                  ...editingProduct,
+                                  arawalUnitPricePerMeter: Number(e.target.value),
+                                  price: Number(e.target.value),
+                                })
+                              }
+                              placeholder="مثال: 450"
+                              className="w-full px-3 py-1.5 text-xs rounded-xl border border-amber-300 bg-white text-[#241710] font-bold focus:outline-none focus:border-amber-600"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="block text-xs font-bold text-amber-950">
+                              العروض المتاحة حصرياً (سم):
+                            </label>
+                            <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+                              {ALLOWED_ARWAL_WIDTHS.map((width) => {
+                                const isChecked = (editingProduct.availableWidths || []).includes(width);
+                                return (
+                                  <button
+                                    key={width}
+                                    type="button"
+                                    onClick={() => {
+                                      const currentWidths = editingProduct.availableWidths || [];
+                                      const updated = isChecked
+                                        ? currentWidths.filter((w) => w !== width)
+                                        : [...currentWidths, width];
+                                      setEditingProduct({
+                                        ...editingProduct,
+                                        availableWidths: updated,
+                                      });
+                                    }}
+                                    className={`py-1.5 text-[11px] font-bold rounded-lg border transition-all ${
+                                      isChecked
+                                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                                        : 'bg-white text-stone-700 border-stone-200 hover:border-amber-400'
+                                    }`}
+                                  >
+                                    {width} سم
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card 2: Description & Specifications */}
+                  <div className="p-4 rounded-xl bg-[#FAF8F5]/70 border border-[#EAE3D8] space-y-3">
+                    <h4 className="text-xs font-black text-[#241710] flex items-center gap-1.5 pb-2 border-b border-[#EAE3D8]/70">
+                      <FolderTree className="w-3.5 h-3.5 text-[#A27B5C]" />
+                      <span>الوصف ومواصفات التوصيل</span>
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-[#241710]">
+                          الخامة والنسيج
+                        </label>
+                        <input
+                          type="text"
+                          value={editingProduct.material || ''}
+                          onChange={(e) =>
+                            setEditingProduct({ ...editingProduct, material: e.target.value })
+                          }
+                          placeholder="مثال: صوف تركي فاخر، مقاوم للبقع"
+                          className="w-full px-3 py-1.5 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-[#241710]">
+                          مدة التوصيل والشحن
+                        </label>
+                        <input
+                          type="text"
+                          value={editingProduct.shippingTime || ''}
+                          onChange={(e) =>
+                            setEditingProduct({ ...editingProduct, shippingTime: e.target.value })
+                          }
+                          placeholder="مثال: توصيل خلال ٢-٤ أيام عمل"
+                          className="w-full px-3 py-1.5 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-xs font-bold text-[#241710]">
+                        الوصف التعريفي للمنتج
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={editingProduct.description}
+                        onChange={(e) =>
+                          setEditingProduct({ ...editingProduct, description: e.target.value })
+                        }
+                        placeholder="نبذة عن السجادة وتنسيقها في غرف المعيشة والصالون..."
+                        className="w-full text-xs p-2.5 rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Column 2: Images, Colors & Toggles (5 cols on lg) */}
+                <div className="lg:col-span-5 space-y-3.5">
+                  {/* Card 3: Compact Product Images Manager */}
+                  <div className="p-4 rounded-xl bg-[#FAF8F5]/70 border border-[#EAE3D8] space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#EAE3D8]/70">
+                      <h4 className="text-xs font-black text-[#241710] flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-[#A27B5C]" />
+                        <span>صور المنتج ({editingProduct.images.length}/8)</span>
+                      </h4>
+                      <span className="text-[10px] text-[#8C7A6B]">الصورة الأولى هي الغلاف</span>
+                    </div>
+
+                    {/* Compact Upload Bar */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => e.target.files && handleImageFileUpload(e.target.files)}
+                        disabled={isImageUploading}
+                      />
                       <button
                         type="button"
-                        onClick={() => handleRemoveColor(col.id)}
-                        className="text-stone-400 hover:text-rose-600 ms-1"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isImageUploading || editingProduct.images.length >= 8}
+                        className="flex-1 py-2 px-3 rounded-xl border border-dashed border-[#A27B5C] bg-white hover:bg-[#FAF5EB] text-xs font-bold text-[#241710] flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
                       >
-                        <X className="w-3.5 h-3.5" />
+                        {isImageUploading ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#A27B5C]" />
+                            <span>جاري الرفع ({imageUploadProgress}%)...</span>
+                          </>
+                        ) : (
+                          <>
+                            <UploadCloud className="w-3.5 h-3.5 text-[#A27B5C]" />
+                            <span>+ إضافة صور من جهازك</span>
+                          </>
+                        )}
                       </button>
                     </div>
-                  ))}
-                </div>
 
-                <div className="flex items-center gap-2 pt-2 border-t border-[#EAE3D8]/60">
-                  <input
-                    type="text"
-                    value={newColorName}
-                    onChange={(e) => setNewColorName(e.target.value)}
-                    placeholder="اسم اللون الجديد (مثال: بيج ملكي)"
-                    className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-white border border-[#EAE3D8] text-[#241710]"
-                  />
-                  <input
-                    type="color"
-                    value={newColorHex}
-                    onChange={(e) => setNewColorHex(e.target.value)}
-                    className="w-8 h-8 rounded-lg border border-[#EAE3D8] cursor-pointer"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddColor}
-                    className="px-3 py-1.5 rounded-xl bg-[#241710] text-[#FAF5EB] text-xs font-bold shrink-0"
-                  >
-                    إضافة لون
-                  </button>
-                </div>
-              </div>
+                    {/* Compact Image URL input */}
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="url"
+                        value={manualImageUrl}
+                        onChange={(e) => setManualImageUrl(e.target.value)}
+                        placeholder="أو الصق رابط صورة مباشر..."
+                        className="flex-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (manualImageUrl.trim()) {
+                            handleAddImageUrl(manualImageUrl);
+                            setManualImageUrl('');
+                          }
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-white border border-[#EAE3D8] text-[11px] font-bold text-[#241710] hover:bg-[#FAF8F5] shrink-0"
+                      >
+                        إضافة
+                      </button>
+                    </div>
 
-              {/* Product Images Gallery (Cloudinary Multi-Upload) */}
-              <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-4">
-                <CloudinaryImageUploader
-                  productId={editingProduct.id}
-                  images={editingProduct.images}
-                  onImagesChange={(imgs) =>
-                    setEditingProduct({ ...editingProduct, images: imgs })
-                  }
-                  maxImages={8}
-                />
+                    {/* Image Thumbnails Grid */}
+                    {editingProduct.images.length === 0 ? (
+                      <div className="py-4 text-center text-xs text-[#8C7A6B] bg-white rounded-xl border border-dashed border-[#EAE3D8]">
+                        لا توجد صور مرفوعة للمنتج بعد
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-4 gap-2 pt-1 max-h-48 overflow-y-auto">
+                        {editingProduct.images.map((imgUrl, idx) => {
+                          const isPrimary = idx === 0;
 
-                <div className="pt-2 border-t border-[#EAE3D8] space-y-2">
-                  <p className="text-[11px] font-bold text-[#8C7A6B]">
-                    أو إضافة رابط صورة مباشر من الويب:
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="url"
-                      value={manualImageUrl}
-                      onChange={(e) => setManualImageUrl(e.target.value)}
-                      placeholder="الصق رابط الصورة (https://...)"
-                      className="flex-1 text-xs px-3 py-2 rounded-xl border border-[#EAE3D8] bg-white text-[#241710]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (manualImageUrl.trim()) {
-                          handleAddImageUrl(manualImageUrl);
-                          setManualImageUrl('');
+                          return (
+                            <div
+                              key={`${imgUrl}-${idx}`}
+                              className={`group relative aspect-square rounded-lg overflow-hidden border bg-white shadow-2xs transition-all ${
+                                isPrimary
+                                  ? 'border-[#241710] ring-2 ring-[#241710]/20'
+                                  : 'border-[#EAE3D8] hover:border-[#A27B5C]'
+                              }`}
+                            >
+                              <Image
+                                src={imgUrl}
+                                alt={`صورة ${idx + 1}`}
+                                fill
+                                className="object-cover"
+                              />
+
+                              {/* Primary Cover Badge */}
+                              {isPrimary && (
+                                <span className="absolute top-1 start-1 z-10 px-1.5 py-0.5 rounded-md bg-[#241710] text-[#FAF5EB] text-[9px] font-bold flex items-center gap-0.5 shadow-xs">
+                                  <Star className="w-2 h-2 fill-current text-[#EED8BE]" />
+                                  <span>الغلاف</span>
+                                </span>
+                              )}
+
+                              {/* Hover Action Controls */}
+                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 z-20">
+                                {!isPrimary && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetPrimaryImage(idx)}
+                                    className="p-1 rounded-md bg-white text-[#241710] hover:bg-amber-50"
+                                    title="تعيين كغلاف رئيسي"
+                                  >
+                                    <Star className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveImage(idx)}
+                                  className="p-1 rounded-md bg-white text-rose-600 hover:bg-rose-50"
+                                  title="حذف الصورة"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card 4: Colors Management */}
+                  <div className="p-4 rounded-xl bg-[#FAF8F5]/70 border border-[#EAE3D8] space-y-2.5">
+                    <h4 className="text-xs font-black text-[#241710] flex items-center gap-1.5 pb-2 border-b border-[#EAE3D8]/70">
+                      <Sparkles className="w-3.5 h-3.5 text-[#A27B5C]" />
+                      <span>خيارات الألوان المتاحة ({editingProduct.colors?.length || 0})</span>
+                    </h4>
+
+                    {/* Color Chips */}
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      {(editingProduct.colors || []).map((col) => (
+                        <div
+                          key={col.id}
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white border border-[#EAE3D8] text-[11px] font-bold text-[#241710] shadow-2xs"
+                        >
+                          <span
+                            className="w-3 h-3 rounded-full border border-black/10 shrink-0"
+                            style={{ backgroundColor: col.hex }}
+                          />
+                          <span>{col.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveColor(col.id)}
+                            className="text-[#8C7A6B] hover:text-rose-600 ms-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add Color Compact Inline Row */}
+                    <div className="flex items-center gap-1.5 pt-1.5 border-t border-[#EAE3D8]/60">
+                      <input
+                        type="text"
+                        value={newColorName}
+                        onChange={(e) => setNewColorName(e.target.value)}
+                        placeholder="اسم اللون (مثال: كحلي ملكي)"
+                        className="flex-1 px-2.5 py-1.5 text-xs rounded-lg bg-white border border-[#EAE3D8] text-[#241710] focus:outline-none focus:border-[#241710]"
+                      />
+                      <input
+                        type="color"
+                        value={newColorHex}
+                        onChange={(e) => setNewColorHex(e.target.value)}
+                        className="w-8 h-8 rounded-lg border border-[#EAE3D8] cursor-pointer shrink-0"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddColor}
+                        className="px-3 py-1.5 rounded-lg bg-[#241710] text-[#FAF5EB] text-xs font-bold shrink-0 hover:bg-[#3D291D] transition-colors"
+                      >
+                        + إضافة
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Card 5: Inventory & Featured Toggles */}
+                  <div className="p-3.5 rounded-xl bg-[#FAF8F5]/70 border border-[#EAE3D8] space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#241710]">
+                      <input
+                        type="checkbox"
+                        checked={editingProduct.inStock}
+                        onChange={(e) =>
+                          setEditingProduct({ ...editingProduct, inStock: e.target.checked })
                         }
-                      }}
-                      className="px-4 py-2 rounded-xl bg-white border border-[#EAE3D8] text-xs font-bold text-[#241710] hover:bg-[#F5EFE6]"
-                    >
-                      إضافة الرابط
-                    </button>
+                        className="rounded text-[#241710]"
+                      />
+                      <span>متوفر في المخزن للبيع الفوري</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#241710]">
+                      <input
+                        type="checkbox"
+                        checked={editingProduct.isFeatured}
+                        onChange={(e) =>
+                          setEditingProduct({ ...editingProduct, isFeatured: e.target.checked })
+                        }
+                        className="rounded text-[#241710]"
+                      />
+                      <span>تمييز المنتج في واجهة المتجر الرئيسية</span>
+                    </label>
                   </div>
                 </div>
               </div>
+            </form>
 
-              {/* Stock and Featured Toggles */}
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-[#EAE3D8]">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#241710]">
-                  <input
-                    type="checkbox"
-                    checked={editingProduct.inStock}
-                    onChange={(e) =>
-                      setEditingProduct({ ...editingProduct, inStock: e.target.checked })
-                    }
-                    className="rounded text-[#241710]"
-                  />
-                  <span>متوفر في المخزن للبيع الفوري</span>
-                </label>
+            {/* Modal Actions Footer (Fixed Sticky Bar at Bottom) */}
+            <div className="px-5 py-3 border-t border-[#EAE3D8] bg-white flex items-center justify-between gap-3 shrink-0">
+              <span className="text-[11px] text-[#8C7A6B] hidden sm:inline">
+                {editingProduct.name ? 'تعديل المنتج الحالي بالمتجر' : 'منتج جديد سيتم نشره فور الحفظ'}
+              </span>
 
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#241710]">
-                  <input
-                    type="checkbox"
-                    checked={editingProduct.isFeatured}
-                    onChange={(e) =>
-                      setEditingProduct({ ...editingProduct, isFeatured: e.target.checked })
-                    }
-                    className="rounded text-[#241710]"
-                  />
-                  <span>تمييز المنتج في واجهة المتجر الرئيسية</span>
-                </label>
-              </div>
-
-              {/* Modal Actions */}
-              <div className="pt-4 border-t border-[#EAE3D8] flex items-center justify-end gap-3">
+              <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#736B63] hover:bg-[#F5EFE6] transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#736B63] hover:bg-[#F5EFE6] transition-colors"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
+                  form="product-form"
                   disabled={isSaving}
-                  className="px-5 py-2.5 rounded-xl bg-[#241710] hover:bg-[#3D291D] text-[#FAF5EB] text-xs font-bold transition-all shadow-xs disabled:opacity-50"
+                  className="px-6 py-2 rounded-xl bg-[#241710] hover:bg-[#3D291D] text-[#FAF5EB] text-xs font-bold transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {isSaving ? 'جاري الحفظ...' : 'حفظ المنتج بالكتالوج'}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
