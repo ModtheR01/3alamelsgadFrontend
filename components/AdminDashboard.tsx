@@ -15,6 +15,7 @@ import AdminLayout, { DashboardSection } from './admin/AdminLayout';
 import OverviewSection from './admin/OverviewSection';
 import ProductsSection from './admin/ProductsSection';
 import CategoriesSection from './admin/CategoriesSection';
+import SubcategoriesSection from './admin/SubcategoriesSection';
 import OrdersSection from './admin/OrdersSection';
 import OffersSection from './admin/OffersSection';
 import ShippingSection from './admin/ShippingSection';
@@ -148,12 +149,15 @@ export default function AdminDashboard() {
   const {
     products,
     categories,
+    subcategories,
     settings,
     saveProduct,
     deleteProduct,
     toggleProductFeatured,
     saveCategory,
     deleteCategory,
+    saveSubcategory,
+    deleteSubcategory,
     updateSettings,
     navigateTo,
   } = useToccoStore();
@@ -344,6 +348,7 @@ export default function AdminDashboard() {
           <OverviewSection
             products={products}
             categories={categories}
+            subcategories={subcategories}
             orders={backendOrders}
             onNavigateSection={setActiveSection}
             onOpenAddProduct={() => {
@@ -392,6 +397,9 @@ export default function AdminDashboard() {
               });
               setIsCategoryModalOpen(true);
             }}
+            onOpenAddSubcategory={() => {
+              setActiveSection('subcategories');
+            }}
             onOpenAddOffer={() => {
               setActiveSection('offers');
             }}
@@ -407,7 +415,7 @@ export default function AdminDashboard() {
           <ProductsSection
             products={products}
             categories={categories}
-            depositPercentage={settings.depositPercentage}
+            subcategories={subcategories}
             onSaveProduct={saveProduct}
             onDeleteProduct={deleteProduct}
             onToggleFeatured={toggleProductFeatured}
@@ -434,7 +442,18 @@ export default function AdminDashboard() {
           />
         )}
 
-        {/* SECTION 4: ORDERS */}
+        {/* SECTION 4: SUBCATEGORIES (CORE REQUIREMENT) */}
+        {activeSection === 'subcategories' && (
+          <SubcategoriesSection
+            categories={categories}
+            subcategories={subcategories}
+            onSaveSubcategory={saveSubcategory}
+            onDeleteSubcategory={deleteSubcategory}
+            onRequestDeleteConfirm={requestDeleteConfirm}
+          />
+        )}
+
+        {/* SECTION 5: ORDERS */}
         {activeSection === 'orders' && (
           <OrdersSection
             orders={backendOrders}
@@ -446,7 +465,7 @@ export default function AdminDashboard() {
           />
         )}
 
-        {/* SECTION 5: OFFERS */}
+        {/* SECTION 6: OFFERS */}
         {activeSection === 'offers' && (
           <OffersSection
             offers={offers}
@@ -458,10 +477,10 @@ export default function AdminDashboard() {
           />
         )}
 
-        {/* SECTION 6: SHIPPING */}
+        {/* SECTION 7: SHIPPING */}
         {activeSection === 'shipping' && <ShippingSection />}
 
-        {/* SECTION 7: AI PRODUCT IMAGES */}
+        {/* SECTION 8: AI PRODUCT IMAGES */}
         {activeSection === 'ai-images' && (
           <AiProductImageView
             products={products}
@@ -469,7 +488,7 @@ export default function AdminDashboard() {
           />
         )}
 
-        {/* SECTION 8: SETTINGS */}
+        {/* SECTION 9: SETTINGS */}
         {activeSection === 'settings' && (
           <SettingsSection
             settings={settings}
@@ -483,8 +502,8 @@ export default function AdminDashboard() {
         isOpen={Boolean(pendingDelete)}
         title={pendingDelete?.title || ''}
         description={pendingDelete?.description || ''}
-        confirmLabel="Yes, Delete Permanently"
-        cancelLabel="Cancel"
+        confirmLabel="نعم، حذف نهائي"
+        cancelLabel="إلغاء"
         variant="danger"
         isLoading={isDeleteProcessing}
         onConfirm={handleExecuteDelete}

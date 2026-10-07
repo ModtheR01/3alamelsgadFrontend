@@ -23,7 +23,7 @@ export default function ConfirmDialog({
   title,
   description,
   confirmLabel,
-  cancelLabel = 'Cancel',
+  cancelLabel = 'إلغاء',
   variant = 'danger',
   icon = 'delete',
   confirmDisabled = false,
@@ -38,13 +38,13 @@ export default function ConfirmDialog({
   const Icon = icon === 'archive' ? Archive : icon === 'delete' ? Trash2 : AlertTriangle;
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#EAE4DC] shadow-2xl">
+    <div dir="rtl" className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#EAE3D8] shadow-2xl text-right">
         <div className="flex items-center gap-3">
           <div className={`p-3 rounded-xl ${isDanger ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'}`}>
             <Icon className="w-6 h-6" />
           </div>
-          <h3 className="text-base font-semibold text-[#1C1A19]">{title}</h3>
+          <h3 className="text-base font-bold text-[#241710]">{title}</h3>
         </div>
 
         <div className="text-xs text-[#524B45] leading-relaxed space-y-3">
@@ -52,19 +52,24 @@ export default function ConfirmDialog({
           {children}
         </div>
 
-        <div className="pt-3 border-t border-[#EAE4DC] flex justify-end gap-2.5">
-          <button type="button" onClick={onCancel} disabled={isLoading} className="px-4 py-2 text-xs uppercase tracking-wider text-[#736B63] hover:text-[#1C1A19] disabled:opacity-50 disabled:cursor-not-allowed">
+        <div className="pt-3 border-t border-[#EAE3D8] flex items-center justify-end gap-2.5">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-[#736B63] hover:text-[#241710] hover:bg-[#F5EFE6] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             {cancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
             disabled={isLoading || confirmDisabled}
-            className={`px-5 py-2 rounded-full text-white text-xs uppercase tracking-wider font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-              isDanger ? 'bg-rose-700 hover:bg-rose-800' : 'bg-amber-700 hover:bg-amber-800'
+            className={`px-5 py-2.5 rounded-xl text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed ${
+              isDanger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-amber-600 hover:bg-amber-700'
             }`}
           >
-            {isLoading ? 'Processing...' : confirmLabel}
+            {isLoading ? 'جاري التنفيذ...' : confirmLabel}
           </button>
         </div>
       </div>

@@ -108,10 +108,13 @@ const DEFAULT_FALLBACK_CATEGORIES: Category[] = [
 ];
 
 const DEFAULT_FALLBACK_SUBCATEGORIES: BackendSubcategory[] = [
-  { id: 101, category_id: 1, name: 'HARIR', image: null, public_id: null, created_at: '', updated_at: '', deleted_at: null },
-  { id: 102, category_id: 2, name: 'تركي مودرن', image: null, public_id: null, created_at: '', updated_at: '', deleted_at: null },
-  { id: 103, category_id: 3, name: 'شرقي كلاسيك', image: null, public_id: null, created_at: '', updated_at: '', deleted_at: null },
-  { id: 104, category_id: 4, name: 'أروال بالمتر', image: null, public_id: null, created_at: '', updated_at: '', deleted_at: null },
+  { id: 101, category_id: 1, name: 'حرير البامبو الفاخر', image: 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=800&q=80', public_id: null, created_at: '', updated_at: '', deleted_at: null },
+  { id: 102, category_id: 2, name: 'سجاد تركي مودرن', image: 'https://images.unsplash.com/photo-1579656381226-5fc0f0100c3b?auto=format&fit=crop&w=800&q=80', public_id: null, created_at: '', updated_at: '', deleted_at: null },
+  { id: 103, category_id: 2, name: 'سجاد تركي كلاسيك بارز', image: 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=800&q=80', public_id: null, created_at: '', updated_at: '', deleted_at: null },
+  { id: 104, category_id: 3, name: 'سجاد شرقي أصفهان', image: 'https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?auto=format&fit=crop&w=800&q=80', public_id: null, created_at: '', updated_at: '', deleted_at: null },
+  { id: 105, category_id: 3, name: 'سجاد شيراز صوف يدوي', image: 'https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?auto=format&fit=crop&w=800&q=80', public_id: null, created_at: '', updated_at: '', deleted_at: null },
+  { id: 106, category_id: 4, name: 'أروال ممرات عصرية (عرض ٨٠ سم)', image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=800&q=80', public_id: null, created_at: '', updated_at: '', deleted_at: null },
+  { id: 107, category_id: 4, name: 'أروال صوف فاخر (عرض ١٠٠ سم)', image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=800&q=80', public_id: null, created_at: '', updated_at: '', deleted_at: null },
 ];
 
 const DEFAULT_FALLBACK_PRODUCTS: Product[] = [
@@ -524,6 +527,8 @@ interface StoreContextType {
   toggleProductFeatured: (productId: string) => Promise<void>;
   saveCategory: (category: Category) => void;
   deleteCategory: (categoryId: string) => void;
+  saveSubcategory: (subcategory: { id?: number | string; category_id: number | string; name: string; image?: string | null }) => Promise<void>;
+  deleteSubcategory: (subcategoryId: number | string) => Promise<void>;
 
   saveEvent: (event: EventItem) => void;
   deleteEvent: (eventId: string) => void;
@@ -562,7 +567,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Entities
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [subcategories, setSubcategories] = useState<BackendSubcategory[]>([]);
+  const [subcategories, setSubcategories] = useState<BackendSubcategory[]>(DEFAULT_FALLBACK_SUBCATEGORIES);
   const [orders, setOrders] = useState<Order[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
@@ -991,6 +996,70 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setCategories((prev) => prev.filter((c) => c.id !== categoryId));
   }, []);
 
+  // Admin CRUD for Subcategories
+  const saveSubcategory = useCallback(
+    async (subToSave: { id?: number | string; category_id: number | string; name: string; image?: string | null }) => {
+      const numericCatId =
+        typeof subToSave.category_id === 'number'
+          ? subToSave.category_id
+          : parseInt(String(subToSave.category_id).replace(/\D/g, '') || '1', 10);
+      const numericSubId = subToSave.id ? Number(subToSave.id) : undefined;
+      try {
+        if (numericSubId && Number.isInteger(numericSubId) && numericSubId < 1000000000) {
+          const saved = await subcategoryService.updateSubcategory(numericSubId, {
+            category_id: numericCatId,
+            name: subToSave.name,
+            image: subToSave.image || null,
+          });
+          setSubcategories((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
+          return;
+        }
+        const created = await subcategoryService.createSubcategory({
+          category_id: numericCatId,
+          name: subToSave.name,
+          image: subToSave.image || null,
+        });
+        setSubcategories((prev) => [...prev, created]);
+      } catch {
+        // Local fallback for offline preview
+        if (subToSave.id) {
+          setSubcategories((prev) =>
+            prev.map((s) =>
+              String(s.id) === String(subToSave.id)
+                ? { ...s, name: subToSave.name, category_id: numericCatId, image: subToSave.image || null }
+                : s
+            )
+          );
+        } else {
+          const mockSub: BackendSubcategory = {
+            id: Date.now(),
+            category_id: numericCatId,
+            name: subToSave.name,
+            image: subToSave.image || null,
+            public_id: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            deleted_at: null,
+          };
+          setSubcategories((prev) => [...prev, mockSub]);
+        }
+      }
+    },
+    []
+  );
+
+  const deleteSubcategory = useCallback(async (subId: number | string) => {
+    try {
+      const numId = Number(subId);
+      if (Number.isInteger(numId) && numId < 1000000000) {
+        await subcategoryService.deleteSubcategory(numId);
+      }
+    } catch {
+      // Local fallback
+    }
+    setSubcategories((prev) => prev.filter((s) => String(s.id) !== String(subId)));
+  }, []);
+
   // Admin CRUD for Events
   const saveEvent = useCallback(async (eventToSave: EventItem) => {
     const eventId = Number(eventToSave.id);
@@ -1232,6 +1301,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         toggleProductFeatured,
         saveCategory,
         deleteCategory,
+        saveSubcategory,
+        deleteSubcategory,
         saveEvent,
         deleteEvent,
         saveProject,

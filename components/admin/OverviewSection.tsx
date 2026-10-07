@@ -3,9 +3,9 @@
 import React from 'react';
 import { Product, Category } from '@/types';
 import { BackendOrder, BackendOrderStatus } from '@/types/order';
+import { BackendSubcategory } from '@/types/category';
 import {
   Package,
-  FolderTree,
   ShoppingBag,
   Clock,
   CheckCircle2,
@@ -14,12 +14,11 @@ import {
   CheckCheck,
   XCircle,
   Plus,
-  ArrowRight,
-  TrendingUp,
-  AlertCircle,
+  ArrowLeft,
   Tag,
-  DollarSign,
-  ExternalLink,
+  Eye,
+  Layers,
+  FolderTree,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 import { DashboardSection } from './AdminLayout';
@@ -27,10 +26,12 @@ import { DashboardSection } from './AdminLayout';
 interface OverviewSectionProps {
   products: Product[];
   categories: Category[];
+  subcategories?: BackendSubcategory[];
   orders: BackendOrder[];
   onNavigateSection: (section: DashboardSection) => void;
   onOpenAddProduct: () => void;
   onOpenAddCategory: () => void;
+  onOpenAddSubcategory?: () => void;
   onOpenAddOffer: () => void;
   onSelectOrder: (order: BackendOrder) => void;
 }
@@ -38,10 +39,12 @@ interface OverviewSectionProps {
 export default function OverviewSection({
   products,
   categories,
+  subcategories = [],
   orders,
   onNavigateSection,
   onOpenAddProduct,
   onOpenAddCategory,
+  onOpenAddSubcategory,
   onOpenAddOffer,
   onSelectOrder,
 }: OverviewSectionProps) {
@@ -57,7 +60,10 @@ export default function OverviewSection({
   ).length;
 
   const preparingOrders = orders.filter(
-    (o) => (o.status as string) === 'PREPARING' || (o.status as string) === 'preparing' || (o.status as string) === 'in_production'
+    (o) =>
+      (o.status as string) === 'PREPARING' ||
+      (o.status as string) === 'preparing' ||
+      (o.status as string) === 'in_production'
   ).length;
 
   const shippedOrders = orders.filter(
@@ -80,304 +86,359 @@ export default function OverviewSection({
   // Recent 5 Products
   const recentProducts = [...products].slice(0, 5);
 
+  // Key Metric Cards (8 Core Indicators)
   const metricCards = [
     {
-      title: 'Total Products',
-      titleAr: 'إجمالي المنتجات',
+      title: 'إجمالي المنتجات',
       count: products.length,
       icon: Package,
-      color: 'bg-stone-100 text-stone-800',
+      color: 'bg-stone-50 border-stone-200 text-stone-800',
+      badgeColor: 'bg-stone-200 text-stone-800',
       action: () => onNavigateSection('products'),
     },
     {
-      title: 'Total Categories',
-      titleAr: 'إجمالي التصنيفات',
-      count: categories.length,
-      icon: FolderTree,
-      color: 'bg-stone-100 text-stone-800',
-      action: () => onNavigateSection('categories'),
-    },
-    {
-      title: 'Total Orders',
-      titleAr: 'إجمالي الطلبات',
+      title: 'إجمالي الطلبات',
       count: totalOrders,
       icon: ShoppingBag,
-      color: 'bg-amber-50 text-amber-900 border-amber-200',
+      color: 'bg-stone-50 border-stone-200 text-stone-800',
+      badgeColor: 'bg-[#241710] text-[#FAF5EB]',
       action: () => onNavigateSection('orders'),
     },
     {
-      title: 'Unconfirmed Orders',
-      titleAr: 'بانتظار التأكيد',
+      title: 'طلبات غير مؤكدة',
+      subtitle: 'تحتاج مراجعة الدفع',
       count: unconfirmedOrders,
       icon: Clock,
-      color: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
-      highlight: unconfirmedOrders > 0,
+      color: 'bg-amber-50/70 border-amber-200 text-amber-900',
+      badgeColor: 'bg-amber-500 text-white',
       action: () => onNavigateSection('orders'),
+      highlight: unconfirmedOrders > 0,
     },
     {
-      title: 'Confirmed Orders',
-      titleAr: 'طلبات مؤكدة',
+      title: 'طلبات مؤكدة',
       count: confirmedOrders,
       icon: CheckCircle2,
-      color: 'bg-blue-50 text-blue-800 border-blue-200',
+      color: 'bg-blue-50/70 border-blue-200 text-blue-900',
+      badgeColor: 'bg-blue-600 text-white',
       action: () => onNavigateSection('orders'),
     },
     {
-      title: 'In Preparation',
-      titleAr: 'قيد التجهيز والسرفلة',
+      title: 'قيد التجهيز',
       count: preparingOrders,
       icon: Cog,
-      color: 'bg-purple-50 text-purple-800 border-purple-200',
+      color: 'bg-purple-50/70 border-purple-200 text-purple-900',
+      badgeColor: 'bg-purple-600 text-white',
       action: () => onNavigateSection('orders'),
     },
     {
-      title: 'Shipped Orders',
-      titleAr: 'خرجت للشحن',
+      title: 'تم الشحن',
       count: shippedOrders,
       icon: Truck,
-      color: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+      color: 'bg-cyan-50/70 border-cyan-200 text-cyan-900',
+      badgeColor: 'bg-cyan-600 text-white',
       action: () => onNavigateSection('orders'),
     },
     {
-      title: 'Delivered Orders',
-      titleAr: 'تم التسليم بنجاح',
+      title: 'تم التسليم',
       count: deliveredOrders,
       icon: CheckCheck,
-      color: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      color: 'bg-emerald-50/70 border-emerald-200 text-emerald-900',
+      badgeColor: 'bg-emerald-600 text-white',
       action: () => onNavigateSection('orders'),
     },
     {
-      title: 'Cancelled Orders',
-      titleAr: 'طلبات ملغاة',
+      title: 'طلبات ملغاة',
       count: cancelledOrders,
       icon: XCircle,
-      color: 'bg-rose-50 text-rose-800 border-rose-200',
+      color: 'bg-rose-50/70 border-rose-200 text-rose-900',
+      badgeColor: 'bg-rose-600 text-white',
       action: () => onNavigateSection('orders'),
     },
   ];
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'NOT_CONFIRMED':
+      case 'unconfirmed':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+            غير مؤكد
+          </span>
+        );
+      case 'CONFIRMED':
+      case 'confirmed':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-100 text-blue-900 border border-blue-200">
+            مؤكد
+          </span>
+        );
+      case 'PREPARING':
+      case 'preparing':
+      case 'in_production':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-100 text-purple-900 border border-purple-200">
+            قيد التجهيز
+          </span>
+        );
+      case 'SHIPPED':
+      case 'shipped':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-100 text-cyan-900 border border-cyan-200">
+            تم الشحن
+          </span>
+        );
+      case 'DELIVERED':
+      case 'delivered':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-200">
+            تم التسليم
+          </span>
+        );
+      case 'CANCELLED':
+      case 'cancelled':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-900 border border-rose-200">
+            ملغي
+          </span>
+        );
+      default:
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-stone-100 text-stone-800 border border-stone-200">
+            {status}
+          </span>
+        );
+    }
+  };
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
-      {/* Top Header & Quick Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-[#EAE3D8]">
+    <div className="space-y-6">
+      {/* Top Welcome & Quick Actions */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#EAE3D8]">
         <div>
-          <h1 className="text-2xl font-extrabold text-[#241710] tracking-tight">
-            Overview & Store Metrics
+          <h1 className="text-xl sm:text-2xl font-black text-[#241710] tracking-tight">
+            نظرة عامة على المتجر
           </h1>
           <p className="text-xs text-[#8C7A6B] mt-0.5">
-            Real-time status of products, orders, inventory, and logistics.
+            متابعة فورية للمنتجات، دورة حياة الطلبات، والتصنيفات في معرض عالم السجاد.
           </p>
         </div>
 
-        {/* Quick Action Buttons */}
+        {/* Quick Actions (Core Requirement) */}
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={onOpenAddProduct}
-            className="px-3.5 py-2 rounded-xl bg-[#241710] text-white hover:bg-[#3D281C] text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
+            className="px-3.5 py-2 rounded-xl bg-[#241710] hover:bg-[#3D291D] text-[#FAF5EB] text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Product</span>
+            <Plus className="w-4 h-4 text-[#EED8BE]" />
+            <span>إضافة منتج</span>
           </button>
 
           <button
             onClick={onOpenAddCategory}
-            className="px-3.5 py-2 rounded-xl bg-white border border-[#EAE3D8] hover:bg-[#F5EFE6] text-[#241710] text-xs font-semibold flex items-center gap-1.5 transition-all"
+            className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF8F5] border border-[#EAE3D8] text-[#241710] text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Category</span>
+            <FolderTree className="w-4 h-4 text-[#A27B5C]" />
+            <span>إضافة تصنيف</span>
           </button>
 
-          <button
-            onClick={onOpenAddOffer}
-            className="px-3.5 py-2 rounded-xl bg-white border border-[#EAE3D8] hover:bg-[#F5EFE6] text-[#241710] text-xs font-semibold flex items-center gap-1.5 transition-all"
-          >
-            <Tag className="w-3.5 h-3.5" />
-            <span>Add Offer</span>
-          </button>
+          {onOpenAddSubcategory && (
+            <button
+              onClick={onOpenAddSubcategory}
+              className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF8F5] border border-[#EAE3D8] text-[#241710] text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+            >
+              <Layers className="w-4 h-4 text-[#A27B5C]" />
+              <span>إضافة تصنيف فرعي</span>
+            </button>
+          )}
 
           <button
             onClick={() => onNavigateSection('orders')}
-            className="px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-300 hover:bg-amber-500/20 text-amber-900 text-xs font-semibold flex items-center gap-1.5 transition-all"
+            className="px-3.5 py-2 rounded-xl bg-[#FAF5EB] hover:bg-[#F2E8D7] border border-[#E8DEC0] text-[#241710] text-xs font-bold flex items-center gap-1.5 transition-all"
           >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            <span>View Orders</span>
+            <ShoppingBag className="w-4 h-4 text-[#A27B5C]" />
+            <span>عرض الطلبات</span>
           </button>
         </div>
       </div>
 
-      {/* Unconfirmed Orders Callout (if any) */}
-      {unconfirmedOrders > 0 && (
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-              <Clock className="w-5 h-5 text-amber-700" />
-            </div>
-            <div>
-              <p className="text-xs font-bold">
-                {unconfirmedOrders} Unconfirmed Order{unconfirmedOrders > 1 ? 's' : ''} Require Payment Review
-              </p>
-              <p className="text-[11px] text-amber-800">
-                Verify that customer deposit or shipping payment has been received before confirming.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => onNavigateSection('orders')}
-            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shrink-0 transition-colors"
-          >
-            Review Unconfirmed Orders
-          </button>
-        </div>
-      )}
-
-      {/* 9 Metric Cards Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4">
+      {/* 8 Core Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3 sm:gap-4">
         {metricCards.map((card, idx) => {
           const Icon = card.icon;
+
           return (
             <div
               key={idx}
               onClick={card.action}
-              className={`p-4 sm:p-5 rounded-2xl border bg-white shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group ${
-                card.highlight ? 'ring-2 ring-amber-400 border-amber-300' : 'border-[#EAE3D8]'
-              }`}
+              className={`p-4 rounded-2xl border transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 relative overflow-hidden ${
+                card.color
+              } ${card.highlight ? 'ring-2 ring-amber-400' : ''}`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#8C7A6B]">{card.title}</span>
-                <div className={`p-2 rounded-xl ${card.color}`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold">{card.title}</span>
+                <div className={`p-1.5 rounded-xl ${card.badgeColor}`}>
                   <Icon className="w-4 h-4" />
                 </div>
               </div>
 
-              <div className="mt-3 flex items-baseline justify-between">
-                <span className="text-2xl sm:text-3xl font-extrabold text-[#241710] tracking-tight">
-                  {card.count}
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-black tracking-tight">
+                  {card.count.toLocaleString('ar-EG')}
                 </span>
-                <span className="text-[10px] text-[#A27B5C] font-semibold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-                  View <ArrowRight className="w-3 h-3" />
-                </span>
+                {card.subtitle && (
+                  <span className="text-[10px] font-medium opacity-80 truncate hidden sm:inline">
+                    {card.subtitle}
+                  </span>
+                )}
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Distribution & Analytics Row */}
+      {/* Middle Row: Status Distribution & Recent Orders */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Order Status Distribution Bar */}
+        {/* Order Status Distribution */}
         <div className="lg:col-span-1 p-5 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-[#241710]">Order Status Distribution</h3>
-            <span className="text-[11px] text-[#8C7A6B] font-mono">{totalOrders} total</span>
+            <h3 className="text-sm font-bold text-[#241710]">توزيع حالات الطلبات</h3>
+            <span className="text-xs text-[#8C7A6B] font-mono font-bold">
+              {totalOrders} طلب
+            </span>
           </div>
 
-          {totalOrders === 0 ? (
-            <p className="text-xs text-[#8C7A6B] py-8 text-center">No orders recorded yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {[
-                { label: 'Unconfirmed', count: unconfirmedOrders, color: 'bg-amber-400' },
-                { label: 'Confirmed', count: confirmedOrders, color: 'bg-blue-500' },
-                { label: 'In Preparation', count: preparingOrders, color: 'bg-purple-500' },
-                { label: 'Shipped', count: shippedOrders, color: 'bg-indigo-500' },
-                { label: 'Delivered', count: deliveredOrders, color: 'bg-emerald-500' },
-                { label: 'Cancelled', count: cancelledOrders, color: 'bg-rose-400' },
-              ].map((item, i) => {
-                const percentage = totalOrders > 0 ? Math.round((item.count / totalOrders) * 100) : 0;
-                return (
-                  <div key={i} className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-[#5C4A3E] font-medium">{item.label}</span>
-                      <span className="text-[#241710] font-bold">
-                        {item.count} <span className="text-[10px] text-[#8C7A6B] font-normal">({percentage}%)</span>
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-[#F5EFE6] overflow-hidden">
-                      <div
-                        className={`h-full ${item.color} rounded-full transition-all duration-500`}
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+          <div className="space-y-3">
+            {[
+              {
+                label: 'طلبات غير مؤكدة',
+                count: unconfirmedOrders,
+                color: 'bg-amber-400',
+                pct: totalOrders > 0 ? Math.round((unconfirmedOrders / totalOrders) * 100) : 0,
+              },
+              {
+                label: 'طلبات مؤكدة',
+                count: confirmedOrders,
+                color: 'bg-blue-500',
+                pct: totalOrders > 0 ? Math.round((confirmedOrders / totalOrders) * 100) : 0,
+              },
+              {
+                label: 'قيد التجهيز',
+                count: preparingOrders,
+                color: 'bg-purple-500',
+                pct: totalOrders > 0 ? Math.round((preparingOrders / totalOrders) * 100) : 0,
+              },
+              {
+                label: 'تم الشحن',
+                count: shippedOrders,
+                color: 'bg-cyan-500',
+                pct: totalOrders > 0 ? Math.round((shippedOrders / totalOrders) * 100) : 0,
+              },
+              {
+                label: 'تم التسليم',
+                count: deliveredOrders,
+                color: 'bg-emerald-500',
+                pct: totalOrders > 0 ? Math.round((deliveredOrders / totalOrders) * 100) : 0,
+              },
+              {
+                label: 'ملغاة',
+                count: cancelledOrders,
+                color: 'bg-rose-400',
+                pct: totalOrders > 0 ? Math.round((cancelledOrders / totalOrders) * 100) : 0,
+              },
+            ].map((st, i) => (
+              <div key={i} className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-[#5C4A3E] font-medium">{st.label}</span>
+                  <span className="text-[#241710] font-bold">
+                    {st.count} <span className="text-[10px] text-[#8C7A6B]">({st.pct}%)</span>
+                  </span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-[#FAF5EB] overflow-hidden">
+                  <div
+                    className={`h-full ${st.color} rounded-full transition-all duration-500`}
+                    style={{ width: `${st.pct}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {unconfirmedOrders > 0 && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
+              <span>لديك {unconfirmedOrders} طلب بانتظار مراجعة التحويل وتأكيد الدفع</span>
+              <button
+                onClick={() => onNavigateSection('orders')}
+                className="font-bold underline hover:text-amber-950 text-[11px]"
+              >
+                مراجعة الآن
+              </button>
             </div>
           )}
         </div>
 
-        {/* Recent Orders List */}
+        {/* Recent Orders Table */}
         <div className="lg:col-span-2 p-5 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-[#241710]">Recent Orders</h3>
-              <p className="text-[11px] text-[#8C7A6B]">Latest customer orders placed on storefront</p>
+              <h3 className="text-sm font-bold text-[#241710]">أحدث الطلبات المستلمة</h3>
+              <p className="text-[11px] text-[#8C7A6B]">آخر الطلبات التي تم إنشاؤها عبر المتجر</p>
             </div>
+
             <button
               onClick={() => onNavigateSection('orders')}
-              className="text-xs font-semibold text-[#A27B5C] hover:text-[#241710] flex items-center gap-1"
+              className="text-xs font-bold text-[#A27B5C] hover:text-[#241710] flex items-center gap-1 transition-colors"
             >
-              All orders <ArrowRight className="w-3.5 h-3.5" />
+              <span>كافة الطلبات</span>
+              <ArrowLeft className="w-3.5 h-3.5" />
             </button>
           </div>
 
           {recentOrders.length === 0 ? (
-            <div className="py-10 text-center space-y-2">
-              <ShoppingBag className="w-8 h-8 text-[#D5C6B5] mx-auto" />
-              <p className="text-xs text-[#8C7A6B]">No recent orders yet.</p>
+            <div className="p-8 text-center text-xs text-[#8C7A6B]">
+              لا توجد طلبات مسجلة حتى الآن.
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-start">
-                <thead className="border-b border-[#EAE3D8] text-[#8C7A6B] uppercase font-bold text-[10px]">
+              <table className="w-full text-xs text-right">
+                <thead className="border-b border-[#EAE3D8] text-[#8C7A6B] text-[10px] font-bold uppercase">
                   <tr>
-                    <th className="py-2.5 pe-4 text-start">Order Number</th>
-                    <th className="py-2.5 px-3 text-start">Customer</th>
-                    <th className="py-2.5 px-3 text-start">Status</th>
-                    <th className="py-2.5 px-3 text-start">Total</th>
-                    <th className="py-2.5 ps-3 text-end">Action</th>
+                    <th className="py-2.5 px-3 text-right">رقم الطلب</th>
+                    <th className="py-2.5 px-3 text-right">العميل</th>
+                    <th className="py-2.5 px-3 text-right">الحالة</th>
+                    <th className="py-2.5 px-3 text-right">القيمة</th>
+                    <th className="py-2.5 px-3 text-left">الإجراء</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F5EFE6]">
                   {recentOrders.map((ord) => {
-                    const isUnconfirmed = ord.status === 'NOT_CONFIRMED' || (ord.status as string) === 'unconfirmed';
-                    const isConfirmed = ord.status === 'CONFIRMED' || (ord.status as string) === 'confirmed';
-                    const isCancelled = ord.status === 'CANCELLED' || (ord.status as string) === 'cancelled';
+                    const custName = ord.user
+                      ? `${ord.user.first_name || ''} ${ord.user.last_name || ''}`.trim() || ord.user.phone
+                      : 'عميل المتجر';
+                    const custPhone = ord.user?.phone || '';
+                    const totalVal = Number(ord.total_price || 0);
 
                     return (
                       <tr key={ord.id} className="hover:bg-[#FAF8F5] transition-colors">
-                        <td className="py-3 pe-4 font-mono font-bold text-[#241710]">
-                          #{ord.order_number?.slice(0, 8) || ord.id}
+                        <td className="py-3 px-3 font-mono font-bold text-[#241710]">
+                          #{ord.order_number || ord.id}
                         </td>
                         <td className="py-3 px-3">
-                          <p className="font-semibold text-[#241710]">
-                            {ord.user?.first_name} {ord.user?.last_name}
-                          </p>
-                          <p className="text-[10px] text-[#8C7A6B] font-mono">{ord.user?.phone || '—'}</p>
+                          <p className="font-bold text-[#241710]">{custName}</p>
+                          {custPhone && <p className="text-[10px] text-[#8C7A6B] font-mono">{custPhone}</p>}
                         </td>
                         <td className="py-3 px-3">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-block ${
-                              isUnconfirmed
-                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                : isConfirmed
-                                ? 'bg-blue-100 text-blue-800'
-                                : isCancelled
-                                ? 'bg-rose-100 text-rose-800'
-                                : 'bg-emerald-100 text-emerald-800'
-                            }`}
-                          >
-                            {isUnconfirmed ? 'Unconfirmed' : ord.status}
-                          </span>
+                          {getStatusBadge(ord.status)}
                         </td>
                         <td className="py-3 px-3 font-bold text-[#241710]">
-                          {Number(ord.total_price || 0).toLocaleString()} EGP
+                          {totalVal.toLocaleString('ar-EG')} ج.م
                         </td>
-                        <td className="py-3 ps-3 text-end">
+                        <td className="py-3 px-3 text-left">
                           <button
                             onClick={() => onSelectOrder(ord)}
-                            className="px-2.5 py-1 rounded-lg bg-[#FAF5EB] hover:bg-[#F2E8D7] text-[#A27B5C] font-semibold text-[11px] transition-colors"
+                            className="px-3 py-1.5 rounded-lg bg-[#FAF5EB] hover:bg-[#F2E8D7] text-[#241710] font-bold text-[11px] inline-flex items-center gap-1 transition-colors"
                           >
-                            View
+                            <Eye className="w-3.5 h-3.5 text-[#A27B5C]" />
+                            <span>تفاصيل</span>
                           </button>
                         </td>
                       </tr>
@@ -390,51 +451,83 @@ export default function OverviewSection({
         </div>
       </div>
 
-      {/* Recent Products Showcase */}
+      {/* Bottom Row: Categories & Subcategories Showcase */}
       <div className="p-5 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-[#241710]">Catalogue Highlights</h3>
-            <p className="text-[11px] text-[#8C7A6B]">Latest products active in the storefront</p>
+            <h3 className="text-sm font-bold text-[#241710]">الهيكل التصنيفي للمنتجات</h3>
+            <p className="text-[11px] text-[#8C7A6B]">
+              التصنيفات الرئيسية والتصنيفات الفرعية المربوطة بها في المتجر
+            </p>
           </div>
-          <button
-            onClick={() => onNavigateSection('products')}
-            className="text-xs font-semibold text-[#A27B5C] hover:text-[#241710] flex items-center gap-1"
-          >
-            All products <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onNavigateSection('categories')}
+              className="text-xs font-bold text-[#A27B5C] hover:text-[#241710] flex items-center gap-1"
+            >
+              <span>التصنيفات الرئيسية</span>
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-[#D8CEBF]">|</span>
+            <button
+              onClick={() => onNavigateSection('subcategories')}
+              className="text-xs font-bold text-[#A27B5C] hover:text-[#241710] flex items-center gap-1"
+            >
+              <span>التصنيفات الفرعية</span>
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-          {recentProducts.map((p) => {
-            const cat = categories.find((c) => c.id === p.categoryId);
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {categories.map((cat, idx) => {
+            const childSubs = subcategories.filter(
+              (s) =>
+                String(s.category_id) === String(cat.id) ||
+                (idx + 1 === s.category_id)
+            );
+
             return (
               <div
-                key={p.id}
-                className="p-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] space-y-2 group hover:border-[#D5C6B5] transition-all"
+                key={cat.id}
+                className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-3"
               >
-                <div className="relative aspect-[4/3] rounded-lg overflow-hidden bg-[#EFEBE3]">
-                  <Image
-                    src={p.images[0]}
-                    alt={p.name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform"
-                    referrerPolicy="no-referrer"
-                  />
-                  {p.isArawal && (
-                    <span className="absolute top-1 start-1 bg-amber-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                      Arwal
-                    </span>
-                  )}
+                <div className="flex items-center gap-3">
+                  <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-white border border-[#EAE3D8] shrink-0">
+                    <Image
+                      src={cat.image || 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=400&q=80'}
+                      alt={cat.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="overflow-hidden">
+                    <h4 className="text-xs font-bold text-[#241710] truncate">{cat.name}</h4>
+                    <p className="text-[10px] text-[#8C7A6B]">
+                      {childSubs.length} تصنيفات فرعية
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-[#241710] truncate">{p.name}</p>
-                  <p className="text-[10px] text-[#8C7A6B] truncate">{cat?.name || '—'}</p>
-                  <p className="text-xs font-bold text-[#A27B5C] mt-1">
-                    {p.price?.toLocaleString()} EGP
-                    {p.isArawal && <span className="text-[9px] font-normal text-[#8C7A6B]"> / meter</span>}
-                  </p>
-                </div>
+
+                {childSubs.length > 0 && (
+                  <div className="pt-2 border-t border-[#EAE3D8]/60 space-y-1">
+                    {childSubs.slice(0, 3).map((sub) => (
+                      <div
+                        key={sub.id}
+                        className="flex items-center gap-1.5 text-[11px] text-[#5C4A3E]"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#A27B5C]" />
+                        <span className="truncate">{sub.name}</span>
+                      </div>
+                    ))}
+                    {childSubs.length > 3 && (
+                      <p className="text-[10px] text-[#8C7A6B]">
+                        + {childSubs.length - 3} تصنيفات فرعية إضافية
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

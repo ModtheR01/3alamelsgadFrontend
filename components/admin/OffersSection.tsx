@@ -102,22 +102,22 @@ export default function OffersSection({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!offerName.trim()) {
-      setFormError('Offer name is required.');
+      setFormError('اسم العرض الترويجي مطلوب.');
       return;
     }
 
     if (offerType === 'PERCENTAGE' && (!percentageValue || Number(percentageValue) <= 0)) {
-      setFormError('Please provide a valid percentage discount value.');
+      setFormError('يرجى تحديد نسبة خصم صحيحة (مثال: 20%).');
       return;
     }
 
     if (offerType === 'BUNDLE' && (!bundlePriceValue || Number(bundlePriceValue) <= 0)) {
-      setFormError('Please provide a bundle fixed price.');
+      setFormError('يرجى تحديد السعر الإجمالي للباقة بالجنيه.');
       return;
     }
 
     if (selectedProductIds.length === 0) {
-      setFormError('Please select at least one applicable product.');
+      setFormError('يرجى اختيار منتج واحد على الأقل ينطبق عليه هذا العرض.');
       return;
     }
 
@@ -141,7 +141,7 @@ export default function OffersSection({
       await onSaveOffer(payload, editingOfferId || undefined);
       setIsModalOpen(false);
     } catch (err: any) {
-      setFormError(err?.message || 'Failed to save offer');
+      setFormError(err?.message || 'تعذر حفظ العرض');
     } finally {
       setIsSaving(false);
     }
@@ -150,32 +150,42 @@ export default function OffersSection({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EAE3D8]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#EAE3D8]">
         <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-[#241710] tracking-tight">
-            Offers & Campaign Discounts
+          <h1 className="text-xl sm:text-2xl font-black text-[#241710] tracking-tight">
+            العروض والخصومات الترويجية
           </h1>
-          <p className="text-xs text-[#8C7A6B]">
-            Create percentage discounts (e.g. 20% OFF) or fixed-price bundles (e.g. 3 products for 1000 EGP).
+          <p className="text-xs text-[#8C7A6B] mt-0.5">
+            إنشاء حملات الخصم بالنسب المئوية (مثل خصم ٢٠٪) أو باقات المنتجات بسعر موحد (مثل ٣ مشايات بـ ١٠٠٠ ج.م).
           </p>
         </div>
 
         <button
           onClick={handleOpenAdd}
-          className="px-4 py-2.5 rounded-xl bg-[#241710] text-white hover:bg-[#3D281C] text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-xs shrink-0"
+          className="px-4 py-2.5 rounded-xl bg-[#241710] hover:bg-[#3D291D] text-[#FAF5EB] text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs shrink-0"
         >
-          <Plus className="w-4 h-4" />
-          <span>Create New Offer</span>
+          <Plus className="w-4 h-4 text-[#EED8BE]" />
+          <span>إضافة عرض جديد</span>
         </button>
       </div>
 
       {/* Offers List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {offers.length === 0 ? (
-          <div className="col-span-full py-16 text-center space-y-3 bg-white rounded-2xl border border-[#EAE3D8]">
-            <Tag className="w-10 h-10 text-[#D5C6B5] mx-auto" />
-            <p className="text-sm font-semibold text-[#241710]">No active offers</p>
-            <p className="text-xs text-[#8C7A6B]">Create promotional percentage discounts or product bundles.</p>
+          <div className="col-span-full py-16 text-center space-y-3 bg-white rounded-2xl border border-[#EAE3D8] shadow-xs">
+            <div className="w-12 h-12 rounded-full bg-[#FAF5EB] text-[#A27B5C] flex items-center justify-center mx-auto">
+              <Tag className="w-6 h-6" />
+            </div>
+            <p className="text-sm font-bold text-[#241710]">لا توجد عروض ترويجية نشطة حالياً</p>
+            <p className="text-xs text-[#8C7A6B] max-w-sm mx-auto">
+              يمكنك إنشاء عروض الخصم المئوي أو باقات المنتجات لتشجيع عملاء المتجر على الشراء.
+            </p>
+            <button
+              onClick={handleOpenAdd}
+              className="px-4 py-2 rounded-xl bg-[#241710] text-[#FAF5EB] text-xs font-bold"
+            >
+              إنشاء أول عرض الآن
+            </button>
           </div>
         ) : (
           offers.map((offer) => {
@@ -185,45 +195,50 @@ export default function OffersSection({
             return (
               <div
                 key={offer.id}
-                className="p-5 rounded-2xl border border-[#EAE3D8] bg-white shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+                className="p-5 rounded-2xl border border-[#EAE3D8] bg-white shadow-xs hover:border-[#D8CEBF] transition-all flex flex-col justify-between space-y-4"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
                         isPercentage
                           ? 'bg-amber-100 text-amber-900 border border-amber-300'
                           : 'bg-purple-100 text-purple-900 border border-purple-300'
                       }`}
                     >
-                      {isPercentage ? 'Percentage Discount' : 'Fixed Price Bundle'}
+                      {isPercentage ? 'خصم نسبة مئوية' : 'باقة بسعر موحد'}
                     </span>
 
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        offer.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'
+                        offer.is_active
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : 'bg-stone-100 text-stone-700 border border-stone-200'
                       }`}
                     >
-                      {offer.is_active ? 'Active' : 'Deactivated'}
+                      {offer.is_active ? 'نشط بالمتجر' : 'معطل'}
                     </span>
                   </div>
 
                   <div>
                     <h3 className="font-bold text-sm text-[#241710]">{offer.name}</h3>
-                    <div className="mt-2 text-2xl font-extrabold text-[#A27B5C]">
-                      {isPercentage && `${offer.percentage}% OFF`}
-                      {isBundle && `${Number(offer.bundle_price || 0).toLocaleString()} EGP`}
+                    <div className="mt-2 text-2xl font-black text-[#A27B5C]">
+                      {isPercentage && `خصم ${offer.percentage}٪`}
+                      {isBundle && `${Number(offer.bundle_price || 0).toLocaleString('ar-EG')} ج.م`}
                     </div>
                   </div>
 
-                  <div className="text-xs text-[#5C4A3E] space-y-1 pt-2 border-t border-[#F5EFE6]">
-                    <p>
-                      <strong>Products:</strong> {offer.products?.length || 0} pieces assigned
+                  <div className="text-xs text-[#5C4A3E] space-y-1.5 pt-3 border-t border-[#F5EFE6]">
+                    <p className="flex items-center justify-between">
+                      <span className="text-[#8C7A6B]">المنتجات المشمولة:</span>
+                      <strong className="text-[#241710]">{offer.products?.length || 0} منتج</strong>
                     </p>
                     {offer.starts_at && (
-                      <p className="text-[11px] text-[#8C7A6B] flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        <span>Valid: {offer.starts_at.slice(0, 10)} {offer.ends_at ? `to ${offer.ends_at.slice(0, 10)}` : ''}</span>
+                      <p className="text-[11px] text-[#8C7A6B] flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-[#A27B5C]" />
+                        <span>
+                          ساري من {offer.starts_at.slice(0, 10)} {offer.ends_at ? `إلى ${offer.ends_at.slice(0, 10)}` : ''}
+                        </span>
                       </p>
                     )}
                   </div>
@@ -232,21 +247,21 @@ export default function OffersSection({
                 <div className="pt-3 border-t border-[#F5EFE6] flex items-center justify-end gap-2">
                   <button
                     onClick={() => handleOpenEdit(offer)}
-                    className="p-1.5 rounded-lg text-[#241710] hover:bg-[#F5EFE6]"
-                    title="Edit offer"
+                    className="p-1.5 rounded-lg text-[#5C4A3E] hover:text-[#241710] hover:bg-[#FAF8F5] transition-colors"
+                    title="تعديل العرض"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() =>
                       onRequestDeleteConfirm(
-                        `Delete Offer: "${offer.name}"`,
-                        'Are you sure you want to delete this promotional offer? Discount will no longer apply in customer cart.',
+                        `حذف العرض: «${offer.name}»`,
+                        'هل أنت متأكد من رغبتك في حذف هذا العرض الترويجي؟ لن يتم تطبيق الخصم في سلة المشتريات بعد الحذف.',
                         () => onDeleteOffer(offer.id)
                       )
                     }
-                    className="p-1.5 rounded-lg text-[#9E4A2B] hover:bg-rose-50"
-                    title="Delete offer"
+                    className="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-50 transition-colors"
+                    title="حذف العرض"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -259,15 +274,23 @@ export default function OffersSection({
 
       {/* ================= ADD / EDIT OFFER MODAL ================= */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full my-8 p-5 sm:p-7 space-y-5 shadow-2xl border border-[#EAE3D8] max-h-[92vh] overflow-y-auto">
+        <div
+          dir="rtl"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in"
+        >
+          <div className="bg-white rounded-2xl max-w-xl w-full my-8 p-6 space-y-5 shadow-2xl border border-[#EAE3D8] max-h-[92vh] overflow-y-auto text-right">
             <div className="flex items-center justify-between pb-3 border-b border-[#EAE3D8]">
-              <h3 className="text-base font-bold text-[#241710]">
-                {editingOfferId ? 'Edit Offer' : 'Create New Promotional Offer'}
-              </h3>
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-[#FAF5EB] text-[#A27B5C]">
+                  <Tag className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-[#241710]">
+                  {editingOfferId ? 'تعديل العرض الترويجي' : 'إنشاء عرض ترويجي جديد'}
+                </h3>
+              </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-[#8C7A6B] hover:bg-[#F5EFE6]"
+                className="p-1.5 rounded-lg text-[#8C7A6B] hover:text-[#241710] hover:bg-[#F5EFE6]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -282,23 +305,27 @@ export default function OffersSection({
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#241710]">Offer Name *</label>
+                <label className="block text-xs font-bold text-[#241710]">
+                  عنوان العرض <span className="text-rose-600">*</span>
+                </label>
                 <input
                   type="text"
                   required
                   value={offerName}
                   onChange={(e) => setOfferName(e.target.value)}
-                  placeholder="e.g. خصم 20% على السجاد التركي or باقة 3 مشايات بـ 1000 جنيه"
-                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710]"
+                  placeholder="مثال: خصم ٢٠٪ على السجاد التركي، أو باقة ٣ مشايات بـ ١٠٠٠ جنيه"
+                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
                 />
               </div>
 
-              {/* Offer Type Selection (CORE REQUIREMENT) */}
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#241710]">Offer Type *</label>
+              {/* Offer Type Selection */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-[#241710]">
+                  نوع العرض الترويجي <span className="text-rose-600">*</span>
+                </label>
                 <div className="grid grid-cols-2 gap-3">
                   <label
-                    className={`p-3 rounded-xl border cursor-pointer flex items-center gap-2.5 text-xs font-semibold ${
+                    className={`p-3 rounded-xl border cursor-pointer flex items-center gap-2.5 text-xs font-bold transition-all ${
                       offerType === 'PERCENTAGE'
                         ? 'bg-amber-50 border-amber-500 text-amber-900 ring-1 ring-amber-500'
                         : 'bg-[#FAF8F5] border-[#EAE3D8] text-[#5C4A3E]'
@@ -311,11 +338,11 @@ export default function OffersSection({
                       onChange={() => setOfferType('PERCENTAGE')}
                       className="text-amber-600"
                     />
-                    <span>Percentage Discount (e.g. 20%)</span>
+                    <span>خصم نسبة مئوية (٪)</span>
                   </label>
 
                   <label
-                    className={`p-3 rounded-xl border cursor-pointer flex items-center gap-2.5 text-xs font-semibold ${
+                    className={`p-3 rounded-xl border cursor-pointer flex items-center gap-2.5 text-xs font-bold transition-all ${
                       offerType === 'BUNDLE'
                         ? 'bg-purple-50 border-purple-500 text-purple-900 ring-1 ring-purple-500'
                         : 'bg-[#FAF8F5] border-[#EAE3D8] text-[#5C4A3E]'
@@ -328,7 +355,7 @@ export default function OffersSection({
                       onChange={() => setOfferType('BUNDLE')}
                       className="text-purple-600"
                     />
-                    <span>Product Bundle (Fixed Price)</span>
+                    <span>باقة منتجات (سعر موحد)</span>
                   </label>
                 </div>
               </div>
@@ -336,7 +363,9 @@ export default function OffersSection({
               {/* Value Input */}
               {offerType === 'PERCENTAGE' ? (
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#241710]">Discount Percentage (%) *</label>
+                  <label className="block text-xs font-bold text-[#241710]">
+                    نسبة الخصم المئوية (٪) <span className="text-rose-600">*</span>
+                  </label>
                   <input
                     type="number"
                     required
@@ -345,12 +374,14 @@ export default function OffersSection({
                     value={percentageValue}
                     onChange={(e) => setPercentageValue(e.target.value)}
                     placeholder="20"
-                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710]"
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
                   />
                 </div>
               ) : (
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#241710]">Bundle Fixed Price (EGP) *</label>
+                  <label className="block text-xs font-bold text-[#241710]">
+                    السعر الإجمالي للباقة (ج.م) <span className="text-rose-600">*</span>
+                  </label>
                   <input
                     type="number"
                     required
@@ -358,16 +389,16 @@ export default function OffersSection({
                     value={bundlePriceValue}
                     onChange={(e) => setBundlePriceValue(e.target.value)}
                     placeholder="1000"
-                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710]"
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
                   />
                 </div>
               )}
 
               {/* Applicable Products Selector */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-[#241710]">
-                    Select Applicable Products ({selectedProductIds.length} selected) *
+                    المنتجات المشمولة في العرض ({selectedProductIds.length} محددة) <span className="text-rose-600">*</span>
                   </label>
                 </div>
 
@@ -380,8 +411,8 @@ export default function OffersSection({
                       <div
                         key={p.id}
                         onClick={() => handleToggleProduct(numId)}
-                        className={`p-2 rounded-lg cursor-pointer flex items-center justify-between text-xs transition-colors ${
-                          isSelected ? 'bg-amber-100/70 font-semibold' : 'hover:bg-white'
+                        className={`p-2.5 rounded-lg cursor-pointer flex items-center justify-between text-xs transition-colors ${
+                          isSelected ? 'bg-amber-100/70 font-bold' : 'hover:bg-white'
                         }`}
                       >
                         <div className="flex items-center gap-2 truncate">
@@ -393,8 +424,8 @@ export default function OffersSection({
                           />
                           <span className="truncate text-[#241710]">{p.name}</span>
                         </div>
-                        <span className="text-[11px] text-[#8C7A6B] shrink-0">
-                          {p.price?.toLocaleString()} EGP
+                        <span className="text-[11px] text-[#8C7A6B] shrink-0 font-bold">
+                          {p.price?.toLocaleString('ar-EG')} ج.م
                         </span>
                       </div>
                     );
@@ -405,52 +436,52 @@ export default function OffersSection({
               {/* Dates & Active Toggle */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#241710]">Start Date</label>
+                  <label className="block text-xs font-bold text-[#241710]">تاريخ بدء العرض</label>
                   <input
                     type="date"
                     value={startsAt}
                     onChange={(e) => setStartsAt(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710]"
+                    className="w-full text-xs px-3 py-2 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#241710]">End Date (Optional)</label>
+                  <label className="block text-xs font-bold text-[#241710]">تاريخ الانتهاء (اختياري)</label>
                   <input
                     type="date"
                     value={endsAt}
                     onChange={(e) => setEndsAt(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710]"
+                    className="w-full text-xs px-3 py-2 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
+              <div className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"
                   id="offer-active"
                   checked={isActive}
                   onChange={(e) => setIsActive(e.target.checked)}
-                  className="rounded text-amber-600"
+                  className="rounded text-[#241710]"
                 />
-                <label htmlFor="offer-active" className="text-xs font-semibold text-[#241710] cursor-pointer">
-                  Activate Offer Now
+                <label htmlFor="offer-active" className="text-xs font-bold text-[#241710] cursor-pointer">
+                  تفعيل العرض فوراً في المتجر
                 </label>
               </div>
 
-              <div className="pt-3 border-t border-[#EAE3D8] flex justify-end gap-2">
+              <div className="pt-4 border-t border-[#EAE3D8] flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-[#EAE3D8] text-xs font-semibold text-[#5C4A3E]"
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#736B63] hover:bg-[#F5EFE6] transition-colors"
                 >
-                  Cancel
+                  إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-5 py-2 rounded-xl bg-[#241710] text-white text-xs font-semibold disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-[#241710] hover:bg-[#3D291D] text-[#FAF5EB] text-xs font-bold shadow-xs disabled:opacity-50 transition-all"
                 >
-                  {isSaving ? 'Saving...' : 'Save Offer'}
+                  {isSaving ? 'جاري الحفظ...' : 'حفظ العرض الترويجي'}
                 </button>
               </div>
             </form>

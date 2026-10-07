@@ -15,16 +15,15 @@ import {
   AlertCircle,
   Eye,
   Phone,
-  Mail,
   MapPin,
   CreditCard,
-  DollarSign,
   User as UserIcon,
   X,
   RefreshCw,
   ExternalLink,
   ShieldCheck,
   Calendar,
+  MessageCircle,
 } from 'lucide-react';
 import { toWhatsAppNumber } from '@/lib/utils';
 import { BRAND_CONFIG } from '@/lib/brandConfig';
@@ -41,56 +40,49 @@ interface OrdersSectionProps {
 export const ORDER_WORKFLOW: {
   status: BackendOrderStatus;
   label: string;
-  labelAr: string;
   color: string;
   bg: string;
   border: string;
 }[] = [
   {
     status: 'NOT_CONFIRMED',
-    label: 'Unconfirmed',
-    labelAr: 'بانتظار التأكيد ومراجعة الدفع',
-    color: 'text-amber-800',
+    label: 'غير مؤكد (بانتظار التحويل)',
+    color: 'text-amber-900',
     bg: 'bg-amber-100',
     border: 'border-amber-300',
   },
   {
     status: 'CONFIRMED',
-    label: 'Confirmed',
-    labelAr: 'تم تأكيد الدفع والطلب',
-    color: 'text-blue-800',
+    label: 'مؤكد (تم التحقق من الدفع)',
+    color: 'text-blue-900',
     bg: 'bg-blue-100',
     border: 'border-blue-300',
   },
   {
     status: 'PREPARING' as any,
-    label: 'Preparing',
-    labelAr: 'قيد التجهيز والسرفلة',
-    color: 'text-purple-800',
+    label: 'قيد التجهيز والسرفلة',
+    color: 'text-purple-900',
     bg: 'bg-purple-100',
     border: 'border-purple-300',
   },
   {
     status: 'SHIPPED' as any,
-    label: 'Shipped',
-    labelAr: 'تم الشحن مع مندوب التوصيل',
-    color: 'text-indigo-800',
-    bg: 'bg-indigo-100',
-    border: 'border-indigo-300',
+    label: 'تم الشحن مع المندوب',
+    color: 'text-cyan-900',
+    bg: 'bg-cyan-100',
+    border: 'border-cyan-300',
   },
   {
     status: 'DELIVERED' as any,
-    label: 'Delivered',
-    labelAr: 'تم التسليم بنجاح للعميل',
-    color: 'text-emerald-800',
+    label: 'تم التسليم بنجاح للعميل',
+    color: 'text-emerald-900',
     bg: 'bg-emerald-100',
     border: 'border-emerald-300',
   },
   {
     status: 'CANCELLED',
-    label: 'Cancelled',
-    labelAr: 'طلب ملغي',
-    color: 'text-rose-800',
+    label: 'طلب ملغي',
+    color: 'text-rose-900',
     bg: 'bg-rose-100',
     border: 'border-rose-300',
   },
@@ -106,7 +98,6 @@ export default function OrdersSection({
 }: OrdersSectionProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [paymentFilter, setPaymentFilter] = useState<string>('ALL');
 
   // Updating order status state
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
@@ -124,15 +115,22 @@ export default function OrdersSection({
         ord.user?.first_name?.toLowerCase().includes(q) ||
         ord.user?.last_name?.toLowerCase().includes(q) ||
         ord.user?.phone?.includes(q) ||
-        ord.user?.email?.toLowerCase().includes(q) ||
         ord.shipping_address?.city?.toLowerCase().includes(q);
 
-      const isUnconfirmed = ord.status === 'NOT_CONFIRMED' || (ord.status as string) === 'unconfirmed';
-      const isConfirmed = ord.status === 'CONFIRMED' || (ord.status as string) === 'confirmed';
-      const isPreparing = (ord.status as string) === 'PREPARING' || (ord.status as string) === 'preparing' || (ord.status as string) === 'in_production';
-      const isShipped = (ord.status as string) === 'SHIPPED' || (ord.status as string) === 'shipped';
-      const isDelivered = (ord.status as string) === 'DELIVERED' || (ord.status as string) === 'delivered';
-      const isCancelled = ord.status === 'CANCELLED' || (ord.status as string) === 'cancelled';
+      const isUnconfirmed =
+        ord.status === 'NOT_CONFIRMED' || (ord.status as string) === 'unconfirmed';
+      const isConfirmed =
+        ord.status === 'CONFIRMED' || (ord.status as string) === 'confirmed';
+      const isPreparing =
+        (ord.status as string) === 'PREPARING' ||
+        (ord.status as string) === 'preparing' ||
+        (ord.status as string) === 'in_production';
+      const isShipped =
+        (ord.status as string) === 'SHIPPED' || (ord.status as string) === 'shipped';
+      const isDelivered =
+        (ord.status as string) === 'DELIVERED' || (ord.status as string) === 'delivered';
+      const isCancelled =
+        ord.status === 'CANCELLED' || (ord.status as string) === 'cancelled';
 
       const matchesStatus =
         statusFilter === 'ALL' ||
@@ -153,252 +151,255 @@ export default function OrdersSection({
     setStatusActionSuccess(null);
     try {
       await onUpdateOrderStatus(orderId, nextStatus);
-      setStatusActionSuccess(`Order #${orderId} status updated to ${nextStatus}`);
-      setTimeout(() => setStatusActionSuccess(null), 3000);
+      setStatusActionSuccess('تم تحديث حالة الطلب بنجاح.');
       if (selectedOrderForModal && selectedOrderForModal.id === orderId) {
-        setSelectedOrderForModal({
-          ...selectedOrderForModal,
-          status: nextStatus,
-        });
+        setSelectedOrderForModal({ ...selectedOrderForModal, status: nextStatus });
       }
+      setTimeout(() => setStatusActionSuccess(null), 3000);
     } catch (err: any) {
-      setStatusActionError(err?.message || 'Failed to update order status');
+      setStatusActionError(err?.message || 'تعذر تحديث حالة الطلب');
     } finally {
       setUpdatingOrderId(null);
     }
   };
 
-  // Helper to detect payment method details
-  const getOrderPaymentInfo = (order: BackendOrder) => {
-    const notes = order.customer_notes || '';
-    const isVodafone = /vodafone|فودافون/i.test(notes);
-    const isInstapay = /instapay|انستاباي/i.test(notes);
-    const isCod = /cash|دفع عند الاستلام|cod/i.test(notes);
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'NOT_CONFIRMED':
+      case 'unconfirmed':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
+            <Clock className="w-3 h-3 text-amber-700" />
+            <span>غير مؤكد</span>
+          </span>
+        );
+      case 'CONFIRMED':
+      case 'confirmed':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-100 text-blue-900 border border-blue-200 inline-flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3 text-blue-700" />
+            <span>مؤكد</span>
+          </span>
+        );
+      case 'PREPARING':
+      case 'preparing':
+      case 'in_production':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-100 text-purple-900 border border-purple-200 inline-flex items-center gap-1">
+            <Cog className="w-3 h-3 text-purple-700" />
+            <span>قيد التجهيز</span>
+          </span>
+        );
+      case 'SHIPPED':
+      case 'shipped':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-100 text-cyan-900 border border-cyan-200 inline-flex items-center gap-1">
+            <Truck className="w-3 h-3 text-cyan-700" />
+            <span>تم الشحن</span>
+          </span>
+        );
+      case 'DELIVERED':
+      case 'delivered':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-200 inline-flex items-center gap-1">
+            <CheckCheck className="w-3 h-3 text-emerald-700" />
+            <span>تم التسليم</span>
+          </span>
+        );
+      case 'CANCELLED':
+      case 'cancelled':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-900 border border-rose-200 inline-flex items-center gap-1">
+            <XCircle className="w-3 h-3 text-rose-700" />
+            <span>ملغي</span>
+          </span>
+        );
+      default:
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-stone-100 text-stone-800 border border-stone-200">
+            {status}
+          </span>
+        );
+    }
+  };
 
-    const method = isVodafone ? 'Vodafone Cash' : isInstapay ? 'InstaPay' : isCod ? 'Cash on Delivery' : 'InstaPay / Mobile Wallet';
-
-    // Payment option selection:
-    // Option 1: Shipping fees only in advance
-    // Option 2: Full order amount + shipping in advance
-    const isShippingOnly = /شحن فقط|shipping only|deposit only|عربون/i.test(notes);
-    const paymentOption = isShippingOnly
-      ? 'Paying shipping fees only in advance (دفع مصاريف الشحن مسبقاً، والباقي عند الاستلام)'
-      : 'Full order amount + shipping in advance (سداد كامل قيمة الطلب والشحن مسبقاً)';
-
+  const parseOrderPayment = (order: BackendOrder) => {
     const total = Number(order.total_price || 0);
-    const depositPct = Number(order.deposit_percentage || 50);
-    const depositAmt = Number(order.deposit_amount || (total * depositPct) / 100);
-
-    return {
-      method,
-      paymentOption,
-      isShippingOnly,
-      total,
-      depositAmt,
-      depositPct,
-    };
+    const notes = order.customer_notes || '';
+    let method = 'إنستاباي / محفظة إلكترونية';
+    if (/vodafone/i.test(notes)) method = 'فودافون كاش';
+    else if (/instapay/i.test(notes)) method = 'إنستاباي (InstaPay)';
+    else if (/bank/i.test(notes)) method = 'تحويل بنكي';
+    return { method, total };
   };
 
   return (
     <div className="space-y-6">
-      {/* Header & Refresh */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EAE3D8]">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#EAE3D8]">
         <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-[#241710] tracking-tight">
-            Orders & Payment Verification
-          </h1>
-          <p className="text-xs text-[#8C7A6B]">
-            Review incoming orders, verify customer deposits, and transition status across the fulfillment pipeline.
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-black text-[#241710] tracking-tight">
+              إدارة الطلبات وتأكيد الدفع
+            </h1>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FAF5EB] text-[#A27B5C] border border-[#E8DEC0]">
+              {orders.length} طلب
+            </span>
+          </div>
+          <p className="text-xs text-[#8C7A6B] mt-0.5">
+            مراجعة تحويلات العملاء وتأكيد الدفع ومتابعة مراحل التجهيز والشحن حتى التسليم.
           </p>
         </div>
 
         <button
           onClick={onRefreshOrders}
           disabled={isLoading}
-          className="px-3.5 py-2 rounded-xl bg-white border border-[#EAE3D8] hover:bg-[#F5EFE6] text-xs font-semibold text-[#241710] flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 shrink-0"
+          className="px-3.5 py-2 rounded-xl bg-white border border-[#EAE3D8] text-[#241710] hover:bg-[#FAF8F5] text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs shrink-0 disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>Refresh Orders</span>
+          <span>تحديث القائمة</span>
         </button>
       </div>
 
       {statusActionSuccess && (
         <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           <span>{statusActionSuccess}</span>
         </div>
       )}
 
       {statusActionError && (
         <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+          <AlertCircle className="w-4 h-4 text-rose-600" />
           <span>{statusActionError}</span>
         </div>
       )}
 
-      {/* Toolbar: Search & Filters */}
-      <div className="p-4 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {/* Search */}
-          <div className="relative sm:col-span-1">
-            <Search className="w-4 h-4 absolute top-3 start-3 text-[#8C7A6B]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by order #, customer, phone, city..."
-              className="w-full ps-9 pe-3 py-2 text-xs rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] text-[#241710] placeholder-[#A89A8E] focus:outline-none focus:border-[#241710]"
-            />
-          </div>
+      {/* Filter Toolbar */}
+      <div className="p-4 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs flex flex-col md:flex-row items-center gap-3">
+        {/* Search */}
+        <div className="relative flex-1 w-full">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="ابحث برقم الطلب، اسم العميل، الهاتف، أو المدينة..."
+            className="w-full ps-9 pe-4 py-2.5 text-xs rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] text-[#241710] placeholder-[#8C7A6B] focus:outline-none focus:border-[#241710] transition-colors"
+          />
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute start-3 top-3 pointer-events-none" />
+        </div>
 
-          {/* Status Filter */}
-          <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] text-[#241710] focus:outline-none focus:border-[#241710]"
-            >
-              <option value="ALL">All Order Statuses</option>
-              <option value="NOT_CONFIRMED">Unconfirmed (بانتظار التأكيد)</option>
-              <option value="CONFIRMED">Confirmed (مؤكد)</option>
-              <option value="PREPARING">Preparing (قيد التجهيز)</option>
-              <option value="SHIPPED">Shipped (خرج للشحن)</option>
-              <option value="DELIVERED">Delivered (تم التسليم)</option>
-              <option value="CANCELLED">Cancelled (ملغي)</option>
-            </select>
-          </div>
-
-          {/* Results Summary */}
-          <div className="flex items-center justify-end text-xs text-[#8C7A6B]">
-            <span>
-              Showing <strong className="text-[#241710]">{filteredOrders.length}</strong> of{' '}
-              <strong className="text-[#241710]">{orders.length}</strong> orders
-            </span>
-          </div>
+        {/* Status Filter */}
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <Filter className="w-4 h-4 text-[#A27B5C] shrink-0" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full md:w-48 px-3 py-2.5 text-xs font-bold rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] text-[#241710] focus:outline-none focus:border-[#241710]"
+          >
+            <option value="ALL">جميع الحالات</option>
+            <option value="NOT_CONFIRMED">غير مؤكد (بانتظار التحويل)</option>
+            <option value="CONFIRMED">مؤكد</option>
+            <option value="PREPARING">قيد التجهيز</option>
+            <option value="SHIPPED">تم الشحن</option>
+            <option value="DELIVERED">تم التسليم</option>
+            <option value="CANCELLED">ملغي</option>
+          </select>
         </div>
       </div>
 
       {/* Orders Table */}
-      <div className="rounded-2xl bg-white border border-[#EAE3D8] shadow-xs overflow-hidden">
+      <div className="bg-white rounded-2xl border border-[#EAE3D8] shadow-xs overflow-hidden">
         {filteredOrders.length === 0 ? (
-          <div className="py-16 text-center space-y-3">
-            <ShoppingBag className="w-10 h-10 text-[#D5C6B5] mx-auto" />
-            <p className="text-sm font-semibold text-[#241710]">No orders found</p>
-            <p className="text-xs text-[#8C7A6B]">Try adjusting your search criteria or refresh the orders list.</p>
+          <div className="p-12 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-[#FAF5EB] text-[#A27B5C] flex items-center justify-center mx-auto">
+              <ShoppingBag className="w-6 h-6" />
+            </div>
+            <h3 className="text-sm font-bold text-[#241710]">لا توجد طلبات مطابقة</h3>
+            <p className="text-xs text-[#8C7A6B] max-w-sm mx-auto">
+              لم يتم العثور على أي طلب يطابق البحث أو الفلتر المحدد.
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-start">
-              <thead className="bg-[#FAF8F5] border-b border-[#EAE3D8] text-[#8C7A6B] uppercase font-bold text-[10px]">
+            <table className="w-full text-xs text-right">
+              <thead className="bg-[#FAF8F5] border-b border-[#EAE3D8] text-[#8C7A6B] text-[10px] font-bold uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-4 text-start">Order Number</th>
-                  <th className="py-3 px-3 text-start">Date & Time</th>
-                  <th className="py-3 px-3 text-start">Customer Information</th>
-                  <th className="py-3 px-3 text-start">Delivery Location</th>
-                  <th className="py-3 px-3 text-start">Items</th>
-                  <th className="py-3 px-3 text-start">Total Amount</th>
-                  <th className="py-3 px-3 text-start">Current Status</th>
-                  <th className="py-3 px-4 text-end">Action & Review</th>
+                  <th className="py-3 px-4 text-right">رقم الطلب</th>
+                  <th className="py-3 px-4 text-right">العميل</th>
+                  <th className="py-3 px-4 text-right">المدينة / العنوان</th>
+                  <th className="py-3 px-4 text-right">الحالة</th>
+                  <th className="py-3 px-4 text-right">إجمالي الطلب</th>
+                  <th className="py-3 px-4 text-left">الإجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F5EFE6]">
                 {filteredOrders.map((ord) => {
+                  const custName = ord.user
+                    ? `${ord.user.first_name || ''} ${ord.user.last_name || ''}`.trim() || ord.user.phone
+                    : 'عميل المتجر';
+                  const custPhone = ord.user?.phone || '';
+                  const city = ord.shipping_address?.city || 'غير محدد';
+                  const totalVal = Number(ord.total_price || 0);
                   const isUnconfirmed = ord.status === 'NOT_CONFIRMED' || (ord.status as string) === 'unconfirmed';
-                  const isConfirmed = ord.status === 'CONFIRMED' || (ord.status as string) === 'confirmed';
-                  const isCancelled = ord.status === 'CANCELLED' || (ord.status as string) === 'cancelled';
-                  const { method } = getOrderPaymentInfo(ord);
 
                   return (
                     <tr
                       key={ord.id}
-                      className={`hover:bg-[#FAF8F5] transition-colors ${
-                        isUnconfirmed ? 'bg-amber-50/40' : ''
+                      className={`hover:bg-[#FAF8F5]/80 transition-colors ${
+                        isUnconfirmed ? 'bg-amber-50/20' : ''
                       }`}
                     >
-                      {/* Order Number */}
-                      <td className="py-3.5 px-4 font-mono font-bold text-[#241710]">
-                        <span className="block">#{ord.order_number?.slice(0, 8) || ord.id}</span>
-                        {isUnconfirmed && (
-                          <span className="inline-block mt-0.5 text-[9px] font-bold text-amber-800 bg-amber-200/80 px-1.5 py-0.2 rounded">
-                            Action Required
-                          </span>
+                      {/* Order Number & Date */}
+                      <td className="py-3 px-4 font-mono font-bold text-[#241710]">
+                        #{ord.order_number || ord.id}
+                        <span className="block text-[10px] text-[#8C7A6B] font-sans font-normal mt-0.5">
+                          {ord.created_at ? new Date(ord.created_at).toLocaleDateString('ar-EG') : 'حديثاً'}
+                        </span>
+                      </td>
+
+                      {/* Customer */}
+                      <td className="py-3 px-4">
+                        <p className="font-bold text-[#241710]">{custName}</p>
+                        {custPhone && (
+                          <a
+                            href={`https://wa.me/${toWhatsAppNumber(custPhone)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-emerald-700 hover:underline font-mono inline-flex items-center gap-1 mt-0.5"
+                          >
+                            <MessageCircle className="w-3 h-3 text-[#25D366]" />
+                            <span>{custPhone}</span>
+                          </a>
                         )}
                       </td>
 
-                      {/* Date */}
-                      <td className="py-3 px-3 text-[#5C4A3E]">
-                        <p className="font-medium">
-                          {new Date(ord.created_at || '').toLocaleDateString('en-GB')}
-                        </p>
-                        <p className="text-[10px] text-[#8C7A6B]">
-                          {new Date(ord.created_at || '').toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </p>
+                      {/* City */}
+                      <td className="py-3 px-4 text-[#5C4A3E]">
+                        <span className="font-semibold text-xs text-[#241710] block">{city}</span>
+                        <span className="text-[10px] text-[#8C7A6B] truncate max-w-[160px] block">
+                          {ord.shipping_address?.street || ''}
+                        </span>
                       </td>
 
-                      {/* Customer Info */}
-                      <td className="py-3 px-3">
-                        <p className="font-bold text-[#241710]">
-                          {ord.user?.first_name} {ord.user?.last_name}
-                        </p>
-                        <a
-                          href={`tel:${ord.user?.phone}`}
-                          className="text-[11px] text-[#8C7A6B] hover:text-[#241710] font-mono block"
-                        >
-                          {ord.user?.phone || '—'}
-                        </a>
-                      </td>
-
-                      {/* Destination / Address */}
-                      <td className="py-3 px-3 text-[#5C4A3E]">
-                        <p className="font-semibold text-[#241710]">{ord.shipping_address?.city || 'Egypt'}</p>
-                        <p className="text-[10px] text-[#8C7A6B] truncate max-w-[140px]">
-                          {ord.shipping_address?.street || ord.shipping_address?.title || 'Standard Delivery'}
-                        </p>
-                      </td>
-
-                      {/* Items Count */}
-                      <td className="py-3 px-3 text-[#5C4A3E]">
-                        <span className="font-bold text-[#241710]">{ord.items?.length || 0}</span> item
-                        {(ord.items?.length || 0) !== 1 ? 's' : ''}
+                      {/* Status */}
+                      <td className="py-3 px-4">
+                        {getStatusBadge(ord.status)}
                       </td>
 
                       {/* Total Price */}
-                      <td className="py-3 px-3">
-                        <p className="font-bold text-[#241710]">
-                          {Number(ord.total_price || 0).toLocaleString()} EGP
-                        </p>
-                        <span className="text-[10px] text-[#8C7A6B] block truncate max-w-[110px]">
-                          {method}
-                        </span>
+                      <td className="py-3 px-4 font-bold text-[#241710] text-xs">
+                        {totalVal.toLocaleString('ar-EG')} ج.م
                       </td>
 
-                      {/* Status Badge */}
-                      <td className="py-3 px-3">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1 ${
-                            isUnconfirmed
-                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                              : isConfirmed
-                              ? 'bg-blue-100 text-blue-900 border border-blue-200'
-                              : isCancelled
-                              ? 'bg-rose-100 text-rose-900 border border-rose-200'
-                              : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                          }`}
-                        >
-                          {isUnconfirmed ? 'Unconfirmed' : ord.status}
-                        </span>
-                      </td>
-
-                      {/* Action */}
-                      <td className="py-3 px-4 text-end">
+                      {/* Actions */}
+                      <td className="py-3 px-4 text-left">
                         <button
                           onClick={() => setSelectedOrderForModal(ord)}
-                          className="px-3 py-1.5 rounded-xl bg-[#241710] hover:bg-[#3D281C] text-white text-xs font-semibold transition-colors shadow-xs"
+                          className="px-3 py-1.5 rounded-xl bg-[#FAF5EB] hover:bg-[#F2E8D7] text-[#241710] font-bold text-xs inline-flex items-center gap-1.5 transition-colors border border-[#E8DEC0]"
                         >
-                          View Details
+                          <Eye className="w-3.5 h-3.5 text-[#A27B5C]" />
+                          <span>عرض وتأكيد</span>
                         </button>
                       </td>
                     </tr>
@@ -410,259 +411,255 @@ export default function OrdersSection({
         )}
       </div>
 
-      {/* ================= ORDER DETAILS & PAYMENT CONFIRMATION MODAL ================= */}
+      {/* Detailed Order & Payment Confirmation Modal (Requirement 10) */}
       {selectedOrderForModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-3xl w-full my-8 p-5 sm:p-7 space-y-6 shadow-2xl border border-[#EAE3D8] max-h-[92vh] overflow-y-auto">
+        <div
+          dir="rtl"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in"
+        >
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-5 sm:p-7 space-y-6 border border-[#EAE3D8] shadow-2xl my-8 text-right">
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-[#EAE3D8]">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-bold text-[#241710]">
-                    Order #{selectedOrderForModal.order_number?.slice(0, 8) || selectedOrderForModal.id}
-                  </h3>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                      selectedOrderForModal.status === 'NOT_CONFIRMED' || (selectedOrderForModal.status as string) === 'unconfirmed'
-                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                        : selectedOrderForModal.status === 'CONFIRMED'
-                        ? 'bg-blue-100 text-blue-900'
-                        : 'bg-emerald-100 text-emerald-900'
-                    }`}
-                  >
-                    {selectedOrderForModal.status === 'NOT_CONFIRMED' ? 'Unconfirmed' : selectedOrderForModal.status}
-                  </span>
+            <div className="flex items-center justify-between pb-3 border-b border-[#EAE3D8]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-[#FAF5EB] text-[#A27B5C]">
+                  <ShoppingBag className="w-5 h-5" />
                 </div>
-                <p className="text-xs text-[#8C7A6B] mt-0.5">
-                  Placed on {new Date(selectedOrderForModal.created_at || '').toLocaleString()}
-                </p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-black text-[#241710]">
+                      تفاصيل الطلب #{selectedOrderForModal.order_number || selectedOrderForModal.id}
+                    </h3>
+                    {getStatusBadge(selectedOrderForModal.status)}
+                  </div>
+                  <p className="text-[11px] text-[#8C7A6B]">
+                    تاريخ الطلب:{' '}
+                    {selectedOrderForModal.created_at
+                      ? new Date(selectedOrderForModal.created_at).toLocaleString('ar-EG')
+                      : 'حديثاً'}
+                  </p>
+                </div>
               </div>
 
               <button
+                type="button"
                 onClick={() => setSelectedOrderForModal(null)}
-                className="p-1.5 rounded-lg text-[#8C7A6B] hover:bg-[#F5EFE6]"
+                className="p-1.5 rounded-lg text-[#8C7A6B] hover:text-[#241710] hover:bg-[#F5EFE6]"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* CRITICAL BUSINESS RULE SECTION: PAYMENT CONFIRMATION BOX */}
-            {(() => {
-              const { method, paymentOption, isShippingOnly, total, depositAmt, depositPct } =
-                getOrderPaymentInfo(selectedOrderForModal);
-              const isUnconfirmed =
-                selectedOrderForModal.status === 'NOT_CONFIRMED' ||
-                (selectedOrderForModal.status as string) === 'unconfirmed';
-
-              return (
-                <div
-                  className={`p-5 rounded-2xl border space-y-4 ${
-                    isUnconfirmed
-                      ? 'bg-amber-50/80 border-amber-300 shadow-xs'
-                      : 'bg-emerald-50/60 border-emerald-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-amber-800" />
-                      <h4 className="text-sm font-bold text-[#241710]">
-                        Payment Details & Verification Status
-                      </h4>
-                    </div>
-
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        isUnconfirmed
-                          ? 'bg-amber-200 text-amber-950 border border-amber-400'
-                          : 'bg-emerald-200 text-emerald-950'
-                      }`}
-                    >
-                      {isUnconfirmed ? 'Payment Verification Pending' : 'Payment Confirmed'}
+            {/* SECTION 1: بيانات العميل */}
+            <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-2.5">
+              <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
+                <UserIcon className="w-3.5 h-3.5" />
+                <span>بيانات العميل</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-[#8C7A6B] block">اسم العميل:</span>
+                  <span className="font-bold text-[#241710]">
+                    {selectedOrderForModal.user
+                      ? `${selectedOrderForModal.user.first_name || ''} ${selectedOrderForModal.user.last_name || ''}`.trim() || 'عميل المتجر'
+                      : 'عميل المتجر'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#8C7A6B] block">رقم الهاتف:</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="font-bold text-[#241710] font-mono">
+                      {selectedOrderForModal.user?.phone || 'غير مسجل'}
                     </span>
-                  </div>
-
-                  {/* Payment Metadata Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                    <div className="p-3 rounded-xl bg-white border border-[#EAE3D8]">
-                      <span className="text-[10px] text-[#8C7A6B] block">Payment Method</span>
-                      <strong className="text-sm text-[#241710]">{method}</strong>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-white border border-[#EAE3D8]">
-                      <span className="text-[10px] text-[#8C7A6B] block">Total Order Amount</span>
-                      <strong className="text-sm text-[#241710]">{total.toLocaleString()} EGP</strong>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-white border border-[#EAE3D8]">
-                      <span className="text-[10px] text-[#8C7A6B] block">Advance Requirement</span>
-                      <strong className="text-sm text-amber-900">
-                        {isShippingOnly ? 'Shipping Fee Only' : `${depositAmt.toLocaleString()} EGP (${depositPct}%)`}
-                      </strong>
-                    </div>
-                  </div>
-
-                  {/* Payment Option Selected by Customer */}
-                  <div className="p-3 rounded-xl bg-white border border-[#EAE3D8] text-xs space-y-1">
-                    <span className="text-[10px] text-[#8C7A6B] uppercase font-bold tracking-wider">
-                      Customer Payment Option Selection:
-                    </span>
-                    <p className="font-semibold text-[#241710]">{paymentOption}</p>
-                  </div>
-
-                  {/* Confirmation Action Button */}
-                  {isUnconfirmed && (
-                    <div className="pt-3 border-t border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <p className="text-xs text-amber-900">
-                        <strong>Rule:</strong> Only confirm this order once the bank, Vodafone Cash, or InstaPay deposit receipt has been validated.
-                      </p>
-
-                      <button
-                        type="button"
-                        disabled={updatingOrderId === selectedOrderForModal.id}
-                        onClick={() => handleStatusChange(selectedOrderForModal.id, 'CONFIRMED')}
-                        className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 shrink-0"
+                    {selectedOrderForModal.user?.phone && (
+                      <a
+                        href={`https://wa.me/${toWhatsAppNumber(selectedOrderForModal.user.phone)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold inline-flex items-center gap-1 hover:bg-emerald-200"
                       >
-                        <ShieldCheck className="w-4 h-4" />
-                        <span>Confirm Payment & Order</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Customer Information & Shipping Destination */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              {/* Customer Box */}
-              <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-2">
-                <div className="flex items-center gap-2 text-[#241710] font-bold">
-                  <UserIcon className="w-4 h-4 text-[#A27B5C]" />
-                  <span>Customer Contact Details</span>
-                </div>
-                <p className="font-semibold text-[#241710]">
-                  {selectedOrderForModal.user?.first_name} {selectedOrderForModal.user?.last_name}
-                </p>
-                <div className="space-y-1 text-[#5C4A3E]">
-                  <p className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-[#8C7A6B]" />
-                    <a
-                      href={`tel:${selectedOrderForModal.user?.phone}`}
-                      className="hover:underline font-mono"
-                    >
-                      {selectedOrderForModal.user?.phone || '—'}
-                    </a>
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <Mail className="w-3.5 h-3.5 text-[#8C7A6B]" />
-                    <span>{selectedOrderForModal.user?.email || '—'}</span>
-                  </p>
-                </div>
-
-                {selectedOrderForModal.user?.phone && (
-                  <div className="pt-2">
-                    <a
-                      href={`https://wa.me/${toWhatsAppNumber(selectedOrderForModal.user.phone)}?text=${encodeURIComponent(
-                        `مرحباً ${selectedOrderForModal.user.first_name}، نتواصل معك بخصوص طلبك من عالم السجاد #${selectedOrderForModal.order_number || selectedOrderForModal.id}.`
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366] text-white rounded-lg text-[11px] font-bold hover:bg-[#20ba5a] transition-colors"
-                    >
-                      Chat on WhatsApp
-                    </a>
+                        <MessageCircle className="w-3 h-3 text-[#25D366]" />
+                        <span>محادثة واتساب</span>
+                      </a>
+                    )}
                   </div>
-                )}
-              </div>
-
-              {/* Shipping Destination Box */}
-              <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-2">
-                <div className="flex items-center gap-2 text-[#241710] font-bold">
-                  <MapPin className="w-4 h-4 text-[#A27B5C]" />
-                  <span>Delivery Destination</span>
                 </div>
-                <p className="font-semibold text-[#241710]">
-                  {selectedOrderForModal.shipping_address?.city || 'Cairo'}, Egypt
-                </p>
-                <p className="text-[#5C4A3E]">
-                  {selectedOrderForModal.shipping_address?.street || 'Standard Street Address'}
-                </p>
-                {selectedOrderForModal.shipping_address?.building_number && (
-                  <p className="text-[#8C7A6B]">
-                    Building: {selectedOrderForModal.shipping_address.building_number}, Apt:{' '}
-                    {selectedOrderForModal.shipping_address.apartment_number || '—'}
-                  </p>
+                {selectedOrderForModal.customer_notes && (
+                  <div className="sm:col-span-2 pt-1 border-t border-[#EAE3D8]/60">
+                    <span className="text-[#8C7A6B] block mb-0.5 font-bold">ملاحظات العميل:</span>
+                    <p className="text-[#5C4A3E] bg-white p-2.5 rounded-lg border border-[#EAE3D8]">
+                      {selectedOrderForModal.customer_notes}
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* Ordered Products List */}
-            <div className="space-y-3">
-              <h4 className="text-xs uppercase tracking-wider font-bold text-[#241710]">
-                Ordered Pieces & Options ({selectedOrderForModal.items?.length || 0})
+            {/* SECTION 2: المنتجات المطلوبة */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>المنتجات المطلوبة في هذا الطلب</span>
               </h4>
 
-              <div className="rounded-xl border border-[#EAE3D8] divide-y divide-[#EAE3D8] overflow-hidden">
-                {selectedOrderForModal.items?.map((item) => (
-                  <div key={item.id} className="p-3.5 flex items-center justify-between gap-4 text-xs bg-white">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-[#FAF8F5] border border-[#EAE3D8] flex items-center justify-center shrink-0">
-                        <ShoppingBag className="w-5 h-5 text-[#A27B5C]" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-[#241710]">{item.product_name}</p>
-                        <div className="flex flex-wrap gap-2 text-[10px] text-[#8C7A6B] mt-0.5">
+              <div className="border border-[#EAE3D8] rounded-xl overflow-hidden">
+                <table className="w-full text-xs text-right">
+                  <thead className="bg-[#FAF8F5] text-[#8C7A6B] text-[10px] font-bold border-b border-[#EAE3D8]">
+                    <tr>
+                      <th className="py-2.5 px-3">المنتج</th>
+                      <th className="py-2.5 px-3">المواصفات / اللون</th>
+                      <th className="py-2.5 px-3">الكمية</th>
+                      <th className="py-2.5 px-3 text-left">الإجمالي</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F5EFE6]">
+                    {(selectedOrderForModal.items || []).map((item, idx) => (
+                      <tr key={idx} className="hover:bg-[#FAF8F5]/50">
+                        <td className="py-2.5 px-3 font-bold text-[#241710]">
+                          {item.product_name}
+                        </td>
+                        <td className="py-2.5 px-3 text-[#5C4A3E]">
                           {item.color_name && (
-                            <span className="flex items-center gap-1">
+                            <span className="inline-flex items-center gap-1 bg-[#FAF5EB] px-2 py-0.5 rounded text-[11px] font-bold text-[#241710]">
                               {item.color_hex_code && (
                                 <span
-                                  className="w-2 h-2 rounded-full border border-black/20"
+                                  className="w-2.5 h-2.5 rounded-full border border-black/10"
                                   style={{ backgroundColor: item.color_hex_code }}
                                 />
                               )}
-                              Color: {item.color_name}
+                              <span>{item.color_name}</span>
                             </span>
                           )}
-                          {item.selected_finish && <span>Finish: {item.selected_finish}</span>}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-end shrink-0">
-                      <p className="font-bold text-[#241710]">
-                        {Number(item.subtotal || item.product_price).toLocaleString()} EGP
-                      </p>
-                      <p className="text-[10px] text-[#8C7A6B]">
-                        Qty: {item.quantity} × {Number(item.product_price).toLocaleString()} EGP
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                        <td className="py-2.5 px-3 font-bold text-[#241710]">
+                          {item.quantity} قطع
+                        </td>
+                        <td className="py-2.5 px-3 font-bold text-[#241710] text-left">
+                          {Number(item.subtotal || item.product_price || 0).toLocaleString('ar-EG')} ج.م
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
 
-            {/* Order Status Workflow Progression */}
-            <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-3">
-              <label className="block text-xs uppercase tracking-wider font-bold text-[#241710]">
-                Advance Order Pipeline Status
-              </label>
+            {/* SECTION 3: الدفع وتأكيد الحجز (Payment Confirmation Rule) */}
+            <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black uppercase text-amber-950 flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-amber-800" />
+                  <span>بيانات الدفع ومراجعة التحويل</span>
+                </h4>
+                <span className="text-[11px] font-bold text-amber-900">
+                  طريقة التحويل: {parseOrderPayment(selectedOrderForModal).method}
+                </span>
+              </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="bg-white p-3 rounded-xl border border-amber-200/80 text-xs text-[#5C4A3E] space-y-2">
+                <p className="leading-relaxed">
+                  <strong>قاعدة العمل:</strong> يبدأ أي طلب كـ <strong>«غير مؤكد»</strong>. يقوم المشرف
+                  بمراجعة إشعار التحويل البنكي أو إنستاباي أو فودافون كاش، وبمجرد التأكد من استلام المبلغ
+                  يتم الضغط على زر التأكيد أدناه لنقله إلى <strong>«مؤكد»</strong> تمهيداً للتجهيز والشحن.
+                </p>
+
+                {selectedOrderForModal.status === 'NOT_CONFIRMED' ||
+                (selectedOrderForModal.status as string) === 'unconfirmed' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleStatusChange(selectedOrderForModal.id, 'CONFIRMED')}
+                    disabled={updatingOrderId === selectedOrderForModal.id}
+                    className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>تأكيد استلام الدفع وتغيير حالة الطلب إلى (مؤكد)</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold text-xs">
+                    <CheckCheck className="w-4 h-4 text-emerald-600" />
+                    <span>تم التحقق من استلام الدفع بالفعل لهذا الطلب</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* SECTION 4 & 5: الشحن وملخص الطلب */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Shipping Information */}
+              <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-2">
+                <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>عنوان التوصيل والشحن</span>
+                </h4>
+                <div className="text-xs text-[#241710] space-y-1">
+                  <p>
+                    <strong className="text-[#8C7A6B]">المحافظة / المدينة:</strong>{' '}
+                    {selectedOrderForModal.shipping_address?.city || 'غير محدد'}
+                  </p>
+                  <p>
+                    <strong className="text-[#8C7A6B]">الشارع:</strong>{' '}
+                    {selectedOrderForModal.shipping_address?.street || '-'}
+                  </p>
+                  <p>
+                    <strong className="text-[#8C7A6B]">العمارة / الشقة:</strong>{' '}
+                    عمارة {selectedOrderForModal.shipping_address?.building_number || '-'}، شقة{' '}
+                    {selectedOrderForModal.shipping_address?.apartment_number || '-'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Order Financial Summary */}
+              <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-2">
+                <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>ملخص الحساب الإجمالي</span>
+                </h4>
+                <div className="text-xs space-y-1.5 pt-1">
+                  <div className="flex justify-between text-[#5C4A3E]">
+                    <span>قيمة المنتجات:</span>
+                    <span className="font-bold font-mono">
+                      {Number(selectedOrderForModal.total_price || 0).toLocaleString('ar-EG')} ج.م
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[#5C4A3E]">
+                    <span>مصاريف الشحن:</span>
+                    <span className="font-bold text-emerald-700">شحن سريع</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-[#EAE3D8] text-sm font-black text-[#241710]">
+                    <span>الإجمالي النهائي:</span>
+                    <span>
+                      {Number(selectedOrderForModal.total_price || 0).toLocaleString('ar-EG')} ج.م
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 6: تحديث حالة الطلب (Order Lifecycle Status) */}
+            <div className="p-4 rounded-xl bg-white border border-[#EAE3D8] space-y-3">
+              <h4 className="text-xs font-black uppercase text-[#241710] flex items-center gap-1.5">
+                <Cog className="w-3.5 h-3.5 text-[#A27B5C]" />
+                <span>تحديث حالة الطلب في دورة الشحن</span>
+              </h4>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {ORDER_WORKFLOW.map((wf) => {
-                  const isCurrent = selectedOrderForModal.status === wf.status;
+                  const isCurrent =
+                    selectedOrderForModal.status === wf.status ||
+                    (selectedOrderForModal.status as string) === wf.status.toLowerCase();
+
                   return (
                     <button
                       key={wf.status}
                       type="button"
-                      disabled={updatingOrderId === selectedOrderForModal.id}
+                      disabled={isCurrent || updatingOrderId === selectedOrderForModal.id}
                       onClick={() => handleStatusChange(selectedOrderForModal.id, wf.status)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                      className={`p-2.5 rounded-xl text-xs font-bold transition-all border text-center ${
                         isCurrent
-                          ? `${wf.bg} ${wf.color} ${wf.border} shadow-xs ring-2 ring-black/10`
-                          : 'bg-white text-[#8C7A6B] border-[#EAE3D8] hover:border-[#D5C6B5]'
+                          ? 'bg-[#241710] text-[#FAF5EB] border-[#241710] shadow-xs'
+                          : 'bg-[#FAF8F5] text-[#5C4A3E] border-[#EAE3D8] hover:border-[#241710]'
                       }`}
                     >
-                      {isCurrent && <CheckCircle2 className="w-3.5 h-3.5" />}
-                      <span>{wf.label}</span>
+                      {wf.label}
                     </button>
                   );
                 })}
@@ -670,13 +667,13 @@ export default function OrdersSection({
             </div>
 
             {/* Modal Footer */}
-            <div className="pt-2 flex justify-end border-t border-[#EAE3D8]">
+            <div className="pt-3 border-t border-[#EAE3D8] flex justify-end">
               <button
                 type="button"
                 onClick={() => setSelectedOrderForModal(null)}
-                className="px-5 py-2.5 rounded-xl bg-[#241710] text-white text-xs font-semibold hover:bg-[#3D281C]"
+                className="px-5 py-2.5 rounded-xl bg-[#241710] text-[#FAF5EB] text-xs font-bold hover:bg-[#3D291D] transition-colors"
               >
-                Close Details
+                إغلاق النافذة
               </button>
             </div>
           </div>

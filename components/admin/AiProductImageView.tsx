@@ -16,7 +16,7 @@ import {
   RefreshCw,
   Info,
   Layers,
-  ArrowRight,
+  ArrowLeft,
   ShieldCheck,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
@@ -57,7 +57,7 @@ export default function AiProductImageView({
 
   const handleStartProcessing = async () => {
     if (!originalImageUrl) {
-      setErrorMessage('Please upload or select an original product photo first.');
+      setErrorMessage('يرجى رفع أو اختيار صورة المنتج الأصلية أولاً.');
       return;
     }
 
@@ -80,7 +80,7 @@ export default function AiProductImageView({
 
       setCurrentJob(job);
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to process AI image.');
+      setErrorMessage(err?.message || 'تعذر معالجة الصورة عبر الذكاء الاصطناعي.');
     } finally {
       setIsProcessing(false);
     }
@@ -97,10 +97,10 @@ export default function AiProductImageView({
       }
 
       setCurrentJob({ ...currentJob, approved: true });
-      setApprovalSuccess('Image approved and configured for storefront product display.');
+      setApprovalSuccess('تم اعتماد الصورة وتعيينها كصورة رئيسية للمنتج بنجاح.');
       setTimeout(() => setApprovalSuccess(null), 4000);
     } catch (err: any) {
-      alert(err?.message || 'Failed to approve image');
+      alert(err?.message || 'تعذر اعتماد الصورة');
     } finally {
       setIsApproving(false);
     }
@@ -109,111 +109,86 @@ export default function AiProductImageView({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EAE3D8]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#EAE3D8]">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-extrabold text-[#241710] tracking-tight">
-              AI Product Studio & Image Processing
+            <h1 className="text-xl sm:text-2xl font-black text-[#241710] tracking-tight">
+              استوديو تحسين صور المنتجات (AI)
             </h1>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#A27B5C]/15 text-[#865F3E]">
-              AI Studio Engine
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FAF5EB] text-[#A27B5C] border border-[#E8DEC0]">
+              معالجة احترافية
             </span>
           </div>
           <p className="text-xs text-[#8C7A6B] mt-0.5">
-            Enhance real carpet photos: clean backgrounds, reduce framing margins, and preserve woven textures.
+            تحسين صور السجاد الحقيقية: إزالة وتنسيق الخلفية، تقليص الهوامش الفارغة، وإبراز تفاصيل النسيج والألوان.
           </p>
         </div>
       </div>
-
-      {/* Backend API Connection Notice */}
-      <div className="p-4 rounded-2xl bg-[#FAF5EB] border border-[#E8DEC0] text-[#5C4A3E] text-xs flex items-start gap-3">
-        <Info className="w-5 h-5 text-[#A27B5C] shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <p className="font-bold text-[#241710]">
-            Backend API Architecture Ready: <span className="font-mono text-[11px]">POST /api/ai/enhance-product-image/</span>
-          </p>
-          <p className="text-[11px] leading-relaxed text-[#736357]">
-            This section uses the modular <span className="font-mono">aiImageService</span> abstraction layer. When your Django REST API endpoint is deployed, images will stream directly to your server-side models while preserving all client controls and side-by-side verification.
-          </p>
-        </div>
-      </div>
-
-      {errorMessage && (
-        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{errorMessage}</span>
-        </div>
-      )}
 
       {approvalSuccess && (
-        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-          <span>{approvalSuccess}</span>
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span className="font-bold">{approvalSuccess}</span>
         </div>
       )}
 
-      {/* Main Studio Workspace: 2 Columns */}
+      {errorMessage && (
+        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2 animate-in fade-in">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span className="font-bold">{errorMessage}</span>
+        </div>
+      )}
+
+      {/* Main Workspace Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Upload & Options (5 Cols) */}
+        {/* Controls Column */}
         <div className="lg:col-span-5 space-y-5">
-          {/* Step 1: Upload Original Image */}
+          {/* 1. Upload & Select Source */}
           <div className="p-5 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#A27B5C]">
-                Step 1: Original Product Photo
-              </span>
-            </div>
+            <h3 className="text-sm font-bold text-[#241710] flex items-center gap-2">
+              <Upload className="w-4 h-4 text-[#A27B5C]" />
+              <span>١. اختيار أو رفع صورة السجاد</span>
+            </h3>
 
-            {/* Live Upload Component */}
-            <div className="space-y-3">
-              <CloudinaryImageField
-                label="Upload Original Photo"
-                value={originalImageUrl}
-                onChange={(url) => setOriginalImageUrl(url)}
-                folder="alamelsgad-ai-originals"
-              />
+            <CloudinaryImageField
+              label="رفع صورة المنتج من جهازك"
+              value={originalImageUrl}
+              onChange={setOriginalImageUrl}
+              folder="alamelsgad-ai-studio"
+            />
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="url"
-                  value={originalImageUrl}
-                  onChange={(e) => setOriginalImageUrl(e.target.value)}
-                  placeholder="Or paste original photo URL..."
-                  className="flex-1 text-xs px-3 py-2 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5]"
-                />
-              </div>
-
-              {/* Sample Quick-Picks */}
-              <div>
-                <span className="text-[10px] text-[#8C7A6B] block mb-1.5 font-medium">
-                  Or select a sample carpet from archive:
-                </span>
-                <div className="flex gap-2">
-                  {sampleImages.map((s, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setOriginalImageUrl(s)}
-                      className="relative w-12 h-12 rounded-lg overflow-hidden border border-[#EAE3D8] hover:border-[#241710] focus:ring-2 focus:ring-[#241710] shrink-0"
-                    >
-                      <Image src={s} alt="sample" fill className="object-cover" referrerPolicy="no-referrer" />
-                    </button>
-                  ))}
-                </div>
+            {/* Quick Sample Selector */}
+            <div className="space-y-1.5 pt-2 border-t border-[#FAF5EB]">
+              <label className="text-[11px] font-bold text-[#8C7A6B] block">
+                أو اختر صورة تجريبية فورية:
+              </label>
+              <div className="flex gap-2">
+                {sampleImages.map((s, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setOriginalImageUrl(s)}
+                    className={`relative w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
+                      originalImageUrl === s ? 'border-[#241710] ring-2 ring-[#241710]/20' : 'border-[#EAE3D8] hover:border-[#A27B5C]'
+                    }`}
+                  >
+                    <Image src={s} alt="عينة" fill className="object-cover" />
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Target Product Association */}
-            <div className="pt-2 border-t border-[#F5EFE6]">
-              <label className="block text-xs font-bold text-[#241710] mb-1">
-                Assign to Catalog Product (Optional)
+            {/* Product Assignment Dropdown */}
+            <div className="space-y-1.5 pt-2 border-t border-[#FAF5EB]">
+              <label className="text-xs font-bold text-[#241710] block">
+                ربط الصورة بمنتج في المتجر (اختياري)
               </label>
               <select
                 value={selectedProductId}
                 onChange={(e) => setSelectedProductId(e.target.value)}
-                className="w-full text-xs px-3 py-2 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710]"
+                className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
               >
-                <option value="">-- Standalone Gallery Image --</option>
+                <option value="">-- بدون ربط مسبق (معاينة عامة) --</option>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -223,193 +198,176 @@ export default function AiProductImageView({
             </div>
           </div>
 
-          {/* Step 2: AI Parameters & Options */}
+          {/* 2. Enhancement Options */}
           <div className="p-5 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs space-y-4">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#A27B5C]">
-              Step 2: Enhancement Rules & Preservations
-            </span>
+            <h3 className="text-sm font-bold text-[#241710] flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-[#A27B5C]" />
+              <span>٢. خيارات التحسين بالذكاء الاصطناعي</span>
+            </h3>
 
-            <div className="space-y-3">
-              <label className="flex items-start gap-2.5 cursor-pointer text-xs">
+            <div className="space-y-2.5 text-xs">
+              <label className="flex items-center justify-between p-2.5 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] cursor-pointer hover:bg-[#F5EFE6] transition-colors">
+                <span className="font-bold text-[#241710]">عزل وتنسيق الخلفية المحايدة</span>
                 <input
                   type="checkbox"
                   checked={cleanBackground}
                   onChange={(e) => setCleanBackground(e.target.checked)}
-                  className="mt-0.5 rounded text-[#241710]"
+                  className="rounded text-[#241710]"
                 />
-                <div>
-                  <span className="font-bold text-[#241710] block">Clean & Consistent Studio Backdrop</span>
-                  <span className="text-[11px] text-[#8C7A6B]">Removes showroom floor glare and distractions.</span>
-                </div>
               </label>
 
-              <label className="flex items-start gap-2.5 cursor-pointer text-xs">
+              <label className="flex items-center justify-between p-2.5 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] cursor-pointer hover:bg-[#F5EFE6] transition-colors">
+                <span className="font-bold text-[#241710]">الحفاظ على ملمس وتفاصيل النسيج</span>
                 <input
                   type="checkbox"
                   checked={preserveTexture}
                   onChange={(e) => setPreserveTexture(e.target.checked)}
-                  className="mt-0.5 rounded text-[#241710]"
+                  className="rounded text-[#241710]"
                 />
-                <div>
-                  <span className="font-bold text-[#241710] block">Strict Texture & Fiber Preservation</span>
-                  <span className="text-[11px] text-[#8C7A6B]">
-                    Locks knots, fringes, pile density, and original silk/wool sheen.
-                  </span>
-                </div>
               </label>
 
-              <label className="flex items-start gap-2.5 cursor-pointer text-xs">
+              <label className="flex items-center justify-between p-2.5 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] cursor-pointer hover:bg-[#F5EFE6] transition-colors">
+                <span className="font-bold text-[#241710]">تقليص المساحات الفارغة وضبط الكادر</span>
                 <input
                   type="checkbox"
                   checked={reduceEmptySpace}
                   onChange={(e) => setReduceEmptySpace(e.target.checked)}
-                  className="mt-0.5 rounded text-[#241710]"
+                  className="rounded text-[#241710]"
                 />
-                <div>
-                  <span className="font-bold text-[#241710] block">Crop & Reduce Empty Void Framing</span>
-                  <span className="text-[11px] text-[#8C7A6B]">
-                    Centers the carpet geometry directly to maximize mobile screen presence.
-                  </span>
-                </div>
               </label>
 
-              <label className="flex items-start gap-2.5 cursor-pointer text-xs">
+              <label className="flex items-center justify-between p-2.5 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] cursor-pointer hover:bg-[#F5EFE6] transition-colors">
+                <span className="font-bold text-[#241710]">تحسين الإضاءة وتدرج الألوان الطبيعية</span>
                 <input
                   type="checkbox"
                   checked={lightingEnhance}
                   onChange={(e) => setLightingEnhance(e.target.checked)}
-                  className="mt-0.5 rounded text-[#241710]"
+                  className="rounded text-[#241710]"
                 />
-                <div>
-                  <span className="font-bold text-[#241710] block">Soft Architectural Studio Lighting</span>
-                  <span className="text-[11px] text-[#8C7A6B]">
-                    Balances shadows for true-to-life e-commerce representation.
-                  </span>
-                </div>
               </label>
             </div>
 
-            <div className="pt-2">
-              <button
-                type="button"
-                disabled={isProcessing || !originalImageUrl}
-                onClick={handleStartProcessing}
-                className="w-full py-3 rounded-xl bg-[#241710] text-white hover:bg-[#3D281C] text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
-              >
-                {isProcessing ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin text-[#EED8BE]" />
-                    <span>Processing with AI Pipeline...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 text-[#EED8BE]" />
-                    <span>Process & Enhance Image</span>
-                  </>
-                )}
-              </button>
+            {/* Aspect Ratio Selector */}
+            <div className="space-y-1.5 pt-2 border-t border-[#FAF5EB]">
+              <label className="text-xs font-bold text-[#241710] block">
+                أبعاد الصورة الناتجة:
+              </label>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                {(['4:3', '1:1', '16:9'] as const).map((ratio) => (
+                  <button
+                    key={ratio}
+                    type="button"
+                    onClick={() => setAspectRatio(ratio)}
+                    className={`py-2 rounded-xl font-bold border transition-all ${
+                      aspectRatio === ratio
+                        ? 'bg-[#241710] text-[#FAF5EB] border-[#241710]'
+                        : 'bg-[#FAF8F5] text-[#5C4A3E] border-[#EAE3D8] hover:bg-white'
+                    }`}
+                  >
+                    {ratio}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Run Button */}
+            <button
+              onClick={handleStartProcessing}
+              disabled={isProcessing || !originalImageUrl}
+              className="w-full py-3 rounded-xl bg-[#241710] hover:bg-[#3D291D] text-[#FAF5EB] text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-all disabled:opacity-50"
+            >
+              {isProcessing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-[#EED8BE]" />
+                  <span>جاري معالجة الصورة بالذكاء الاصطناعي...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-[#EED8BE]" />
+                  <span>بدء معالجة وتحسين الصورة الآن</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Right Column: Preview, Comparison & Approval (7 Cols) */}
+        {/* Preview & Results Column */}
         <div className="lg:col-span-7 space-y-5">
           <div className="p-5 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#A27B5C]">
-                Step 3 & 4: Preview & Side-by-Side Verification
-              </span>
-              {currentJob?.status === 'completed' && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                  Ready for Approval
-                </span>
+            <div className="flex items-center justify-between pb-3 border-b border-[#FAF5EB]">
+              <h3 className="text-sm font-bold text-[#241710] flex items-center gap-2">
+                <Eye className="w-4 h-4 text-[#A27B5C]" />
+                <span>المعاينة المباشرة (قبل وبعد التحسين)</span>
+              </h3>
+
+              {currentJob?.enhancedImage && (
+                <button
+                  onClick={handleApproveImage}
+                  disabled={isApproving || currentJob.approved}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-xs"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{currentJob.approved ? 'تم الاعتماد للمتجر' : 'اعتماد وتطبيق على المنتج'}</span>
+                </button>
               )}
             </div>
 
-            {/* Side-by-Side Comparison Grid */}
+            {/* Side-by-Side Images */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Original Preview */}
-              <div className="space-y-2">
-                <span className="text-xs font-bold text-[#5C4A3E] block">Original Photo</span>
-                <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] flex items-center justify-center">
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-[#8C7A6B] block">الصورة الأصلية:</span>
+                <div className="relative aspect-4/3 rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] flex items-center justify-center">
                   {originalImageUrl ? (
                     <Image
                       src={originalImageUrl}
-                      alt="Original product photo"
+                      alt="الأصلية"
                       fill
                       className="object-cover"
-                      referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <span className="text-xs text-[#8C7A6B]">Upload an image to start</span>
+                    <div className="text-center p-4 text-xs text-[#8C7A6B]">
+                      اختر أو ارفع صورة لعرض المعاينة
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* Enhanced Output Preview */}
-              <div className="space-y-2">
-                <span className="text-xs font-bold text-[#241710] flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#A27B5C]" />
-                  <span>Enhanced AI Studio Output</span>
-                </span>
-                <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] flex items-center justify-center">
-                  {isProcessing ? (
-                    <div className="text-center space-y-2 p-4">
+              {/* Enhanced Preview */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-[#A27B5C] block">النتيجة المحسّنة بالذكاء الاصطناعي:</span>
+                <div className="relative aspect-4/3 rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] flex items-center justify-center">
+                  {currentJob?.enhancedImage ? (
+                    <Image
+                      src={currentJob.enhancedImage}
+                      alt="المحسنة"
+                      fill
+                      className="object-cover"
+                    />
+                  ) : isProcessing ? (
+                    <div className="text-center p-4 space-y-2 text-xs text-[#8C7A6B]">
                       <RefreshCw className="w-6 h-6 animate-spin text-[#A27B5C] mx-auto" />
-                      <p className="text-xs font-bold text-[#241710]">Generating Studio Look...</p>
-                      <p className="text-[10px] text-[#8C7A6B]">Cleaning background & balancing light</p>
+                      <p>جاري ضبط الكادر وعزل الخلفية...</p>
                     </div>
-                  ) : currentJob?.enhancedImage ? (
-                    <>
-                      <Image
-                        src={currentJob.enhancedImage}
-                        alt="Enhanced AI product output"
-                        fill
-                        className="object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                      {currentJob.approved && (
-                        <div className="absolute top-2 end-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
-                          <Check className="w-3 h-3" /> Approved
-                        </div>
-                      )}
-                    </>
                   ) : (
-                    <span className="text-xs text-[#8C7A6B]">Click &quot;Process&quot; to preview enhancement</span>
+                    <div className="text-center p-4 text-xs text-[#8C7A6B]">
+                      ستظهر النتيجة المعالجة هنا بعد الضغط على «بدء معالجة وتحسين الصورة»
+                    </div>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Step 5 & 6: Approval Box */}
-            {currentJob?.status === 'completed' && (
-              <div className="pt-4 border-t border-[#EAE3D8] p-4 rounded-xl bg-[#FAF8F5] space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-bold text-[#241710]">Approval & Storefront Deployment</h4>
-                    <p className="text-[11px] text-[#8C7A6B]">
-                      Verify that colors and weaving authenticity are 100% accurate before approving.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={isApproving || currentJob.approved}
-                    onClick={handleApproveImage}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      currentJob.approved
-                        ? 'bg-emerald-100 text-emerald-800 cursor-default'
-                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
-                    }`}
-                  >
-                    {isApproving ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <ShieldCheck className="w-4 h-4" />
-                    )}
-                    <span>{currentJob.approved ? 'Approved for Store' : 'Approve & Use Image'}</span>
-                  </button>
+            {/* Metadata Badges if job finished */}
+            {currentJob && (
+              <div className="p-3.5 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] text-xs space-y-1">
+                <div className="flex items-center justify-between font-bold text-[#241710]">
+                  <span>معرف العملية: #{currentJob.id}</span>
+                  <span className="text-emerald-700">مكتملة بنجاح</span>
                 </div>
+                <p className="text-[11px] text-[#8C7A6B]">
+                  الأبعاد المعتمدة: {aspectRatio} · تمت معالجة عزل الخلفية وإبراز كثافة نسيج السجاد.
+                </p>
               </div>
             )}
           </div>
