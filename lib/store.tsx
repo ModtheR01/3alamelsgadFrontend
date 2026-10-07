@@ -463,7 +463,8 @@ export type AppView =
   | 'contact'
   | 'privacy'
   | 'terms'
-  | 'admin';
+  | 'admin'
+  | 'dashboard';
 
 interface StoreContextType {
   // Navigation & View
@@ -696,7 +697,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       view: AppView,
       options?: { productId?: string; categoryId?: string }
     ) => {
-      setActiveView(view);
+      const targetView = view === 'dashboard' ? 'admin' : view;
+      setActiveView(targetView);
       if (options?.productId !== undefined) setSelectedProductId(options.productId);
       if (options?.categoryId !== undefined) setSelectedCategoryId(options.categoryId);
 

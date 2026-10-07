@@ -50,7 +50,8 @@ function AlamelsgadApp() {
     wasAuthenticated.current = Boolean(user);
   }, [user, syncGuestCart]);
 
-  const canAccessAdmin = user?.role === 'ADMIN' || user?.role === 'MODERATOR';
+  const userRole = (user?.role || '').toLowerCase();
+  const canAccessAdmin = userRole === 'admin' || userRole === 'moderator';
 
   useEffect(() => {
     if (!isLoading && activeView === 'admin' && !canAccessAdmin) {
@@ -63,14 +64,17 @@ function AlamelsgadApp() {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [activeView]);
 
-  // Read URL query parameters on initial mount if any
+  // Read URL query parameters and pathname on initial mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname.replace(/^\/|\/$/g, '');
       const params = new URLSearchParams(window.location.search);
       const routeParam = params.get('route');
       const productParam = params.get('product');
 
-      if (productParam) {
+      if (pathname === 'dashboard' || pathname === 'admin' || routeParam === 'dashboard' || routeParam === 'admin') {
+        navigateTo('admin');
+      } else if (productParam) {
         navigateTo('product', { productId: productParam });
       } else if (routeParam) {
         navigateTo(routeParam as any);
@@ -80,8 +84,8 @@ function AlamelsgadApp() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FBF9F5] text-[#21160F]">
-      {/* Navigation */}
-      <Navbar />
+      {/* Navigation - storefront only */}
+      {activeView !== 'admin' && <Navbar />}
 
       {/* Main Content Body */}
       <main className="flex-1">

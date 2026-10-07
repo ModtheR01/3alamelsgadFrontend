@@ -620,6 +620,37 @@ export default function AccountView() {
              AUTHENTICATED CLIENT DASHBOARD
              ========================================================================= */
           <div className="py-6 sm:py-10 space-y-6 sm:space-y-8">
+            {/* Admin / Moderator Privileges Banner (Accessible ONLY to Admin/Moderator, hidden from Customers) */}
+            {Boolean(user?.role && (user.role.toLowerCase() === 'admin' || user.role.toLowerCase() === 'moderator')) && (
+              <div className="p-4 rounded-2xl bg-[#241710] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#EED8BE]/20 text-[#EED8BE] flex items-center justify-center font-bold text-sm shrink-0">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-bold">Administrative Access Granted</p>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#FAF5EB]/20 text-[#EED8BE]">
+                        {user.role}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-white/70">
+                      Manage products, Arwal sizing, orders, payment verification, and campaigns.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => navigateTo('admin')}
+                  className="px-4 py-2 rounded-xl bg-[#EED8BE] hover:bg-white text-[#241710] text-xs font-bold transition-all shadow-xs shrink-0 flex items-center justify-center gap-1.5"
+                >
+                  <span>Open Admin Dashboard</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Tabs */}
             <div className="flex border-b border-[#EAE4DC] gap-4 sm:gap-6 text-[11px] sm:text-xs uppercase tracking-wider font-medium overflow-x-auto scrollbar-none pb-0.5">
               <button
