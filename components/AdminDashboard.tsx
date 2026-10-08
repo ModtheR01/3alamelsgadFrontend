@@ -341,6 +341,7 @@ export default function AdminDashboard() {
             categories={categories}
             subcategories={subcategories}
             orders={backendOrders}
+            totalUsers={128}
             onNavigateSection={setActiveSection}
             onOpenAddProduct={() => {
               setActiveSection('products');

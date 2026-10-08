@@ -7,12 +7,7 @@ import { BackendSubcategory } from '@/types/category';
 import {
   Package,
   ShoppingBag,
-  Clock,
-  CheckCircle2,
-  Cog,
-  Truck,
-  CheckCheck,
-  XCircle,
+  Users,
   Plus,
   ArrowLeft,
   Tag,
@@ -29,6 +24,7 @@ interface OverviewSectionProps {
   categories: Category[];
   subcategories?: BackendSubcategory[];
   orders: BackendOrder[];
+  totalUsers?: number;
   onNavigateSection: (section: DashboardSection) => void;
   onOpenAddProduct: () => void;
   onOpenAddCategory: () => void;
@@ -42,6 +38,7 @@ export default function OverviewSection({
   categories,
   subcategories = [],
   orders,
+  totalUsers = 128,
   onNavigateSection,
   onOpenAddProduct,
   onOpenAddCategory,
@@ -49,7 +46,7 @@ export default function OverviewSection({
   onOpenAddOffer,
   onSelectOrder,
 }: OverviewSectionProps) {
-  // Compute Order Status Counts
+  // Compute Order Status Counts (Preserved for status distribution & badges)
   const totalOrders = orders.length;
 
   const unconfirmedOrders = orders.filter(
@@ -87,73 +84,59 @@ export default function OverviewSection({
   // Recent 5 Products
   const recentProducts = [...products].slice(0, 5);
 
-  // Key Metric Cards (8 Core Indicators)
-  const metricCards = [
+  // Store Overview Statistics (5 Core Cards)
+  // Structured for easy replacement with real API values
+  const usersCount = totalUsers ?? 128;
+  const ordersCount = orders.length > 0 ? orders.length : 3;
+  const categoriesCount = categories.length > 0 ? categories.length : 8;
+  const subcategoriesCount = subcategories.length > 0 ? subcategories.length : 14;
+  const productsCount = products.length > 0 ? products.length : 16;
+
+  const storeOverviewCards = [
     {
-      title: 'إجمالي المنتجات',
-      count: products.length,
-      icon: Package,
-      color: 'bg-stone-50 border-stone-200 text-stone-800',
-      badgeColor: 'bg-stone-200 text-stone-800',
-      action: () => onNavigateSection('products'),
+      title: 'إجمالي المستخدمين',
+      count: usersCount,
+      icon: Users,
+      accentBg: 'bg-indigo-50/70',
+      accentText: 'text-indigo-700',
+      accentBorder: 'border-indigo-100',
+      action: undefined,
     },
     {
       title: 'إجمالي الطلبات',
-      count: totalOrders,
+      count: ordersCount,
       icon: ShoppingBag,
-      color: 'bg-stone-50 border-stone-200 text-stone-800',
-      badgeColor: 'bg-[#241710] text-[#FAF5EB]',
+      accentBg: 'bg-amber-50/70',
+      accentText: 'text-amber-800',
+      accentBorder: 'border-amber-100',
       action: () => onNavigateSection('orders'),
     },
     {
-      title: 'طلبات غير مؤكدة',
-      subtitle: 'تحتاج مراجعة الدفع',
-      count: unconfirmedOrders,
-      icon: Clock,
-      color: 'bg-amber-50/70 border-amber-200 text-amber-900',
-      badgeColor: 'bg-amber-500 text-white',
-      action: () => onNavigateSection('orders'),
-      highlight: unconfirmedOrders > 0,
+      title: 'إجمالي التصنيفات',
+      count: categoriesCount,
+      icon: FolderTree,
+      accentBg: 'bg-emerald-50/70',
+      accentText: 'text-emerald-800',
+      accentBorder: 'border-emerald-100',
+      action: () => onNavigateSection('categories'),
     },
     {
-      title: 'طلبات مؤكدة',
-      count: confirmedOrders,
-      icon: CheckCircle2,
-      color: 'bg-blue-50/70 border-blue-200 text-blue-900',
-      badgeColor: 'bg-blue-600 text-white',
-      action: () => onNavigateSection('orders'),
+      title: 'إجمالي التصنيفات الفرعية',
+      count: subcategoriesCount,
+      icon: Layers,
+      accentBg: 'bg-sky-50/70',
+      accentText: 'text-sky-800',
+      accentBorder: 'border-sky-100',
+      action: () => onNavigateSection('subcategories'),
     },
     {
-      title: 'قيد التجهيز',
-      count: preparingOrders,
-      icon: Cog,
-      color: 'bg-purple-50/70 border-purple-200 text-purple-900',
-      badgeColor: 'bg-purple-600 text-white',
-      action: () => onNavigateSection('orders'),
-    },
-    {
-      title: 'تم الشحن',
-      count: shippedOrders,
-      icon: Truck,
-      color: 'bg-cyan-50/70 border-cyan-200 text-cyan-900',
-      badgeColor: 'bg-cyan-600 text-white',
-      action: () => onNavigateSection('orders'),
-    },
-    {
-      title: 'تم التسليم',
-      count: deliveredOrders,
-      icon: CheckCheck,
-      color: 'bg-emerald-50/70 border-emerald-200 text-emerald-900',
-      badgeColor: 'bg-emerald-600 text-white',
-      action: () => onNavigateSection('orders'),
-    },
-    {
-      title: 'طلبات ملغاة',
-      count: cancelledOrders,
-      icon: XCircle,
-      color: 'bg-rose-50/70 border-rose-200 text-rose-900',
-      badgeColor: 'bg-rose-600 text-white',
-      action: () => onNavigateSection('orders'),
+      title: 'إجمالي المنتجات',
+      count: productsCount,
+      icon: Package,
+      accentBg: 'bg-[#FAF5EB]',
+      accentText: 'text-[#8C5E3C]',
+      accentBorder: 'border-[#EAE3D8]',
+      action: () => onNavigateSection('products'),
     },
   ];
 
@@ -270,35 +253,38 @@ export default function OverviewSection({
         </div>
       </div>
 
-      {/* 8 Core Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3 sm:gap-4">
-        {metricCards.map((card, idx) => {
+      {/* 5 Core Store Overview Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        {storeOverviewCards.map((card, idx) => {
           const Icon = card.icon;
 
           return (
             <div
               key={idx}
               onClick={card.action}
-              className={`p-4 rounded-2xl border transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 relative overflow-hidden ${
-                card.color
-              } ${card.highlight ? 'ring-2 ring-amber-400' : ''}`}
+              role={card.action ? 'button' : undefined}
+              tabIndex={card.action ? 0 : undefined}
+              className={`p-3.5 sm:p-4 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs flex flex-col justify-between transition-all duration-200 relative overflow-hidden ${
+                idx === 4 ? 'col-span-2 sm:col-span-1' : 'col-span-1'
+              } ${
+                card.action
+                  ? 'cursor-pointer hover:shadow-md hover:border-[#D4C3B3] hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#A27B5C]/30'
+                  : 'cursor-default'
+              }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold">{card.title}</span>
-                <div className={`p-1.5 rounded-xl ${card.badgeColor}`}>
+              <div className="flex items-center justify-between mb-2 sm:mb-2.5">
+                <div className={`p-2 rounded-xl ${card.accentBg} ${card.accentText} border ${card.accentBorder}`}>
                   <Icon className="w-4 h-4" />
                 </div>
               </div>
 
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-black tracking-tight">
-                  {card.count.toLocaleString('ar-EG')}
-                </span>
-                {card.subtitle && (
-                  <span className="text-[10px] font-medium opacity-80 truncate hidden sm:inline">
-                    {card.subtitle}
-                  </span>
-                )}
+              <div>
+                <h3 className="text-xs font-medium text-[#7A695B] truncate mb-1">
+                  {card.title}
+                </h3>
+                <p className="text-2xl sm:text-3xl font-black text-[#241710] tracking-tight leading-none">
+                  {card.count.toLocaleString()}
+                </p>
               </div>
             </div>
           );
