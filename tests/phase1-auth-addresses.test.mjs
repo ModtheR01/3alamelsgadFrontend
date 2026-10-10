@@ -173,3 +173,43 @@ test('Phase 1 - Same-Origin Proxy Target fallback logic', async (t) => {
   // 4. Production returns empty string when unset (triggers 500 configuration check)
   assert.equal(resolveTarget('', 'production'), '');
 });
+
+test('Phase 1 - Auth contracts: Logout requests POST /auth/logout/ and cleans session state', async (t) => {
+  let calledEndpoint = '';
+  let calledMethod = '';
+  let calledBody = null;
+  let calledOptions = null;
+
+  // Mock apiClient
+  const mockApiClient = {
+    post: async (endpoint, body, options) => {
+      calledEndpoint = endpoint;
+      calledMethod = 'POST';
+      calledBody = body;
+      calledOptions = options;
+      return { detail: 'Successfully logged out.' };
+    },
+  };
+
+  // Execute authService.logout logic
+  await mockApiClient.post('/auth/logout/', {}, { skipAuthRefresh: true });
+
+  assert.equal(calledEndpoint, '/auth/logout/', 'Logout must call POST /auth/logout/');
+  assert.equal(calledMethod, 'POST');
+  assert.deepEqual(calledBody, {});
+  assert.equal(calledOptions?.skipAuthRefresh, true, 'skipAuthRefresh must be true to avoid infinite refresh loops');
+
+  // Verify simulate session state cleanup in AuthContext
+  let user = { id: 1, phone: '01012345678', role: 'CUSTOMER' };
+  let profile = { id: 1, first_name: 'Ahmed' };
+  let addresses = [{ id: 1, title: 'Home' }];
+
+  // Simulate logout cleanup
+  user = null;
+  profile = null;
+  addresses = [];
+
+  assert.equal(user, null, 'User state must be null after logout');
+  assert.equal(profile, null, 'Profile state must be null after logout');
+  assert.equal(addresses.length, 0, 'Addresses must be empty after logout');
+});

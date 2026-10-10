@@ -22,7 +22,9 @@ import {
   ShieldCheck,
   Store,
   Sparkles,
+  RefreshCw,
 } from 'lucide-react';
+import { normalizeApiError } from '@/lib/api/errors';
 
 export type DashboardSection =
   | 'overview'
@@ -55,6 +57,7 @@ export default function AdminLayout({
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const roleLabel = (user?.role || '').toLowerCase() === 'moderator' ? 'مشرف النظام' : 'مدير النظام (Admin)';
   const userName = user?.first_name
@@ -147,11 +150,19 @@ export default function AdminLayout({
   ];
 
   const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
     try {
       await logout();
-      navigateTo('home');
-    } catch {
-      navigateTo('home');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      } else {
+        navigateTo('home');
+      }
+    } catch (err) {
+      alert(`فشل تسجيل الخروج: ${normalizeApiError(err).message}`);
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -333,10 +344,15 @@ export default function AdminLayout({
 
                   <button
                     onClick={handleLogout}
-                    className="p-1.5 rounded-lg text-rose-700 hover:bg-rose-50 transition-colors"
+                    disabled={isLoggingOut}
+                    className="p-1.5 rounded-lg text-rose-700 hover:bg-rose-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="تسجيل الخروج"
                   >
-                    <LogOut className="w-4 h-4" />
+                    {isLoggingOut ? (
+                      <RefreshCw className="w-4 h-4 animate-spin text-rose-700" />
+                    ) : (
+                      <LogOut className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
 
@@ -359,10 +375,15 @@ export default function AdminLayout({
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="w-full py-2 flex justify-center text-rose-700 hover:bg-rose-50 rounded-xl transition-colors"
+                  disabled={isLoggingOut}
+                  className="w-full py-2 flex justify-center text-rose-700 hover:bg-rose-50 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="تسجيل الخروج"
                 >
-                  <LogOut className="w-4 h-4" />
+                  {isLoggingOut ? (
+                    <RefreshCw className="w-4 h-4 animate-spin text-rose-700" />
+                  ) : (
+                    <LogOut className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             )}
@@ -451,10 +472,20 @@ export default function AdminLayout({
 
                 <button
                   onClick={handleLogout}
-                  className="w-full py-2 px-3 rounded-xl text-rose-700 hover:bg-rose-50 text-xs font-bold flex items-center justify-center gap-2"
+                  disabled={isLoggingOut}
+                  className="w-full py-2 px-3 rounded-xl text-rose-700 hover:bg-rose-50 text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <LogOut className="w-4 h-4" />
-                  <span>تسجيل الخروج</span>
+                  {isLoggingOut ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-rose-700" />
+                      <span>جاري تسجيل الخروج...</span>
+                    </>
+                  ) : (
+                    <>
+                      <LogOut className="w-4 h-4" />
+                      <span>تسجيل الخروج</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

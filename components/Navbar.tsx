@@ -20,7 +20,10 @@ import {
   ChevronRight,
   Truck,
   ShieldCheck,
+  LogOut,
+  RefreshCw,
 } from 'lucide-react';
+import { normalizeApiError } from '@/lib/api/errors';
 
 export default function Navbar() {
   const {
@@ -33,7 +36,7 @@ export default function Navbar() {
     categories,
   } = useToccoStore();
 
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { language, toggleLanguage, t, isRtl } = useLanguage();
 
   const userRole = (user?.role || '').toLowerCase();
@@ -42,6 +45,22 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      setMobileMenuOpen(false);
+      navigateTo('home');
+    } catch (err) {
+      const message = normalizeApiError(err).message;
+      alert(t(`فشل تسجيل الخروج: ${message}`, `Logout failed: ${message}`));
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -228,6 +247,31 @@ export default function Navbar() {
             )}
           </button>
 
+          {/* Logout Action (Desktop) */}
+          {user && (
+            <button
+              id="nav-desktop-logout-btn"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-full transition-colors focus:outline-none touch-manipulation flex items-center gap-1.5 text-xs font-semibold shrink-0 disabled:opacity-50 ${
+                isTransparent
+                  ? 'text-rose-200 hover:text-white bg-rose-950/30 hover:bg-rose-900/50 border border-rose-400/30'
+                  : 'text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200'
+              }`}
+              title={t('تسجيل الخروج', 'Log Out')}
+              aria-label={t('تسجيل الخروج', 'Log Out')}
+            >
+              {isLoggingOut ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-600" />
+              ) : (
+                <LogOut className="w-3.5 h-3.5 text-rose-600" />
+              )}
+              <span className="hidden xl:inline text-[11px] font-bold">
+                {isLoggingOut ? t('جاري...', 'Logging out...') : t('تسجيل الخروج', 'Logout')}
+              </span>
+            </button>
+          )}
+
           {/* Shopping Bag Trigger */}
           <button
             id="nav-cart-btn"
@@ -328,6 +372,40 @@ export default function Navbar() {
                   {user?.role}
                 </span>
               </a>
+            )}
+
+            {/* User Session & Logout in Mobile Menu */}
+            {user && (
+              <div className="p-3 rounded-xl bg-[#FAF5EB] border border-[#E8DEC0] flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2.5 overflow-hidden">
+                  <div className="w-8 h-8 rounded-full bg-[#241710] text-[#EED8BE] flex items-center justify-center font-bold text-xs shrink-0">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className="text-xs font-bold text-[#241710] truncate">
+                      {user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user.phone}
+                    </p>
+                    <p className="text-[10px] text-[#8C7A6B] truncate">
+                      {user.phone ? `هاتف: ${user.phone}` : user.email || 'عميل المتجر'}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  id="nav-mobile-logout-btn"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0 shadow-xs"
+                  title={t('تسجيل الخروج', 'Log Out')}
+                >
+                  {isLoggingOut ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                  ) : (
+                    <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                  )}
+                  <span>{isLoggingOut ? t('جاري...', 'Logging out...') : t('تسجيل الخروج', 'Logout')}</span>
+                </button>
+              </div>
             )}
 
             {/* Navigation Links */}

@@ -35,6 +35,7 @@ import {
   MessageCircle,
   X,
   Copy,
+  LogOut,
 } from 'lucide-react';
 
 export default function AccountView() {
@@ -125,10 +126,12 @@ export default function AccountView() {
   const [ordersError, setOrdersError] = useState<string | null>(null);
 
   const handleLogout = async () => {
+    if (isLoggingOut) return;
     setAuthError(null);
     setIsLoggingOut(true);
     try {
       await logout();
+      navigateTo('home');
     } catch (err) {
       setAuthError(normalizeApiError(err).message);
     } finally {
@@ -644,6 +647,63 @@ export default function AccountView() {
              AUTHENTICATED CLIENT DASHBOARD
              ========================================================================= */
           <div className="py-6 sm:py-10 space-y-6 sm:space-y-8">
+            {/* Auth Error Banner if logout fails */}
+            {authError && (
+              <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{authError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAuthError(null)}
+                  className="text-red-700 hover:text-red-900 text-xs font-semibold"
+                >
+                  إغلاق
+                </button>
+              </div>
+            )}
+
+            {/* Authenticated User Header Card */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#FAF8F5] border border-[#EAE4DC] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="w-12 h-12 rounded-full bg-[#1C1A19] text-[#FAF8F5] flex items-center justify-center font-bold text-base shrink-0 shadow-xs">
+                  {user?.first_name ? user.first_name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h2 className="text-sm sm:text-base font-semibold text-[#1C1A19]">
+                    مرحباً، {user?.first_name || 'العميل'} {user?.last_name || ''}
+                  </h2>
+                  <p className="text-xs text-[#736B63] font-mono mt-0.5" dir="ltr">
+                    {user?.phone || user?.email || ''}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <button
+                  id="account-view-logout-btn"
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="px-4 py-2 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-600 hover:text-red-700 text-xs font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
+                  title="تسجيل الخروج من الحساب"
+                >
+                  {isLoggingOut ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-red-600" />
+                      <span>جاري تسجيل الخروج...</span>
+                    </>
+                  ) : (
+                    <>
+                      <LogOut className="w-3.5 h-3.5 text-red-600" />
+                      <span>تسجيل الخروج</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
             {/* Admin / Moderator Privileges Banner (Accessible ONLY to Admin/Moderator, hidden from Customers) */}
             {Boolean(user?.role && (user.role.toLowerCase() === 'admin' || user.role.toLowerCase() === 'moderator')) && (
               <div className="p-4 rounded-2xl bg-[#241710] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
