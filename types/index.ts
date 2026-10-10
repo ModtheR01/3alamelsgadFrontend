@@ -13,6 +13,8 @@ export interface ProductSize {
   name: string;
   dimensions: string;
   priceDelta: number; // in EGP
+  width?: number;
+  length?: number;
 }
 
 export interface ProductImageDraft {
@@ -70,6 +72,10 @@ export interface Category {
 
 export interface CartItem {
   id: string; // cart item unique id
+  cartItemType?: 'product' | 'arwal' | 'bundle';
+  bundleOfferId?: number;
+  rawItemId?: number;
+  isBundle?: boolean;
   productId: string;
   productName: string;
   productImage: string;
@@ -77,6 +83,7 @@ export interface CartItem {
   selectedFinish: ProductFinish;
   selectedColor: ProductColor;
   selectedSize?: ProductSize;
+  arwalConfig?: ArawalSelection;
   arawalConfig?: ArawalSelection;
   quantity: number;
   // Backend-computed pricing (from active offers), when available

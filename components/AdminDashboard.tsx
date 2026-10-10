@@ -8,6 +8,7 @@ import { BackendOrder, BackendOrderStatus } from '@/types/order';
 import { BackendOffer, OfferCreateRequest } from '@/types/offer';
 import { orderService } from '@/lib/api/services/orderService';
 import { offerService } from '@/lib/api/services/offerService';
+import { paymentService } from '@/lib/api/services/paymentService';
 import { normalizeApiError } from '@/lib/api/errors';
 import ConfirmDialog from '@/components/ConfirmDialog';
 
@@ -252,6 +253,16 @@ export default function AdminDashboard() {
     );
   };
 
+  // Handle Payment Confirmation (PATCH /api/payments/<id>/status/)
+  const handleConfirmPayment = async (order: BackendOrder) => {
+    if (order.payment?.id) {
+      await paymentService.updatePaymentStatus(order.payment.id, 'PAID');
+      await fetchBackendOrders();
+    } else {
+      await handleUpdateOrderStatus(order.id, 'CONFIRMED');
+    }
+  };
+
   // Handle Save / Delete Offers
   const handleSaveOffer = async (data: OfferCreateRequest, offerId?: number) => {
     try {
@@ -452,6 +463,7 @@ export default function AdminDashboard() {
             isLoading={isOrdersLoading}
             onRefreshOrders={fetchBackendOrders}
             onUpdateOrderStatus={handleUpdateOrderStatus}
+            onConfirmPayment={handleConfirmPayment}
             selectedOrderForModal={selectedOrderForModal}
             setSelectedOrderForModal={setSelectedOrderForModal}
           />

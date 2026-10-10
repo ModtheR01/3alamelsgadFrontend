@@ -9,24 +9,26 @@ export interface BackendUser {
   id: number;
   first_name: string;
   last_name: string;
-  email: string;
   phone: string;
+  email?: string;
   role: UserRole;
   is_active?: boolean;
   created_at?: string;
+  date_joined?: string;
 }
 
 export interface RegisterRequest {
   first_name: string;
   last_name: string;
-  email: string;
   phone: string;
   password: string;
+  email?: string;
 }
 
 export interface LoginRequest {
-  email: string;
+  phone: string;
   password: string;
+  email?: string;
 }
 
 export interface AuthResponse {
@@ -45,14 +47,14 @@ export interface LogoutResponse {
 export interface ProfileResponse {
   first_name: string;
   last_name: string;
-  email: string;
   phone: string;
+  email?: string;
 }
 
 export interface ProfileUpdateRequest {
   first_name: string;
   last_name: string;
-  phone: string;
+  phone?: string;
 }
 
 export interface ProfileUpdateResponse {
@@ -63,32 +65,37 @@ export interface ProfileUpdateResponse {
 export interface Address {
   id: number;
   title: string;
-  country: string;
+  governorate: number;
+  governorate_name_ar?: string;
+  governorate_name_en?: string;
   city: string;
   street: string;
   building_number: string;
   apartment_number: string;
   is_default: boolean;
+  country?: string;
 }
 
 export interface AddressCreateRequest {
   title: string;
-  country: string;
+  governorate: number;
   city: string;
   street: string;
   building_number: string;
   apartment_number: string;
   is_default?: boolean;
+  country?: string;
 }
 
 export interface AddressUpdateRequest {
   title?: string;
-  country?: string;
+  governorate?: number;
   city?: string;
   street?: string;
   building_number?: string;
   apartment_number?: string;
   is_default?: boolean;
+  country?: string;
 }
 
 export interface SetDefaultAddressResponse {
@@ -100,11 +107,12 @@ export interface UserManagementUser {
   id: number;
   first_name: string;
   last_name: string;
-  email: string;
   phone: string;
   role: UserRole;
   is_active: boolean;
-  created_at: string;
+  created_at?: string;
+  date_joined?: string;
+  email?: string;
 }
 
 export interface ChangeUserRoleRequest {
@@ -115,8 +123,9 @@ export interface ChangeUserRoleResponse {
   message: string;
   user: {
     id: number;
-    email: string;
     role: UserRole;
+    phone?: string;
+    email?: string;
   };
 }
 
@@ -128,7 +137,8 @@ export interface ChangeUserStatusResponse {
   message: string;
   user: {
     id: number;
-    email: string;
     is_active: boolean;
+    phone?: string;
+    email?: string;
   };
 }

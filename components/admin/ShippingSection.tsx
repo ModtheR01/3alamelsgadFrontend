@@ -19,7 +19,7 @@ export default function ShippingSection() {
   const [governorates, setGovernorates] = useState<GovernorateShipping[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | number | null>(null);
   const [editPrice, setEditPrice] = useState<string>('');
   const [editMinDays, setEditMinDays] = useState<string>('2');
   const [editMaxDays, setEditMaxDays] = useState<string>('4');
@@ -49,7 +49,7 @@ export default function ShippingSection() {
         !q ||
         g.nameAr.toLowerCase().includes(q) ||
         g.nameEn.toLowerCase().includes(q) ||
-        g.id.toLowerCase().includes(q)
+        String(g.id).toLowerCase().includes(q)
     );
   }, [governorates, searchQuery]);
 
@@ -60,7 +60,7 @@ export default function ShippingSection() {
     setEditMaxDays(String(gov.deliveryDaysMax || 4));
   };
 
-  const handleSaveEdit = async (govId: string) => {
+  const handleSaveEdit = async (govId: string | number) => {
     setIsUpdating(true);
     try {
       const updated = await shippingService.updateGovernorate(govId, {
@@ -69,7 +69,7 @@ export default function ShippingSection() {
         deliveryDaysMax: Number(editMaxDays),
       });
 
-      setGovernorates((prev) => prev.map((g) => (g.id === govId ? updated : g)));
+      setGovernorates((prev) => prev.map((g) => (String(g.id) === String(govId) ? updated : g)));
       setEditingId(null);
       setToastMessage('تم تحديث تسعيرة الشحن للمحافظة بنجاح.');
       setTimeout(() => setToastMessage(null), 3000);

@@ -14,10 +14,12 @@ import {
 export const orderService = {
   /**
    * Retrieves the current customer's orders.
-   * Endpoint: GET /api/orders/my-orders/
+   * In DRF OrderViewSet.get_queryset():
+   * Users with non-admin roles automatically get only their own orders via GET /api/orders/.
+   * Endpoint: GET /api/orders/
    */
   async getMyOrders(): Promise<BackendOrder[]> {
-    const response = await apiClient.get<PaginatedResponse<BackendOrder>>('/orders/my-orders/', {
+    const response = await apiClient.get<PaginatedResponse<BackendOrder>>('/orders/', {
       params: { page_size: 100 },
     });
     return unwrapResults<BackendOrder>(response);
@@ -45,14 +47,16 @@ export const orderService = {
   },
 
   /**
-   * Creates an order from the user's cart using the specified address.
-   * Sends { address_id, customer_notes? }. The backend computes items, prices, and clears cart.
+   * Creates an order from the user's cart using the specified address and payment parameters.
+   * Backend CheckoutSerializer expects { address_id, payment_method, payment_type, customer_notes? }.
    * Endpoint: POST /api/orders/
    */
   async createOrder(data: CreateOrderRequest): Promise<BackendOrder> {
     return apiClient.post<BackendOrder>('/orders/', {
       address_id: data.address_id,
-      customer_notes: data.customer_notes,
+      payment_method: data.payment_method,
+      payment_type: data.payment_type,
+      customer_notes: data.customer_notes || '',
     });
   },
 
@@ -60,7 +64,7 @@ export const orderService = {
    * Updates an order's status.
    * Admin and Moderator access only.
    * Endpoint: PATCH /api/orders/{id}/status/
-   * NOTE: Do NOT use PUT or general PATCH on /orders/{id}/.
+   * NOTE: Strict state machine transitions apply. Payment must be PAID before transitioning beyond NOT_CONFIRMED.
    */
   async updateOrderStatus(
     id: number | string,

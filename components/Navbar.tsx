@@ -223,7 +223,7 @@ export default function Navbar() {
             </div>
             {user && (
               <span className="hidden md:inline-block text-[11px] font-medium tracking-normal truncate max-w-[90px]">
-                {user.first_name || user.email}
+                {user.first_name || user.phone}
               </span>
             )}
           </button>

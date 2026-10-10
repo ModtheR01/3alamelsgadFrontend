@@ -16,7 +16,8 @@ import { NextRequest, NextResponse } from 'next/server';
 // (correct) or the origin already ending in "/api" (a common misconfiguration
 // that previously caused every proxied request to 404 with a doubled
 // "/api/api/..." path).
-const API_PROXY_TARGET = process.env.API_PROXY_TARGET?.replace(/\/+$/, '').replace(/\/api$/, '');
+const RAW_TARGET = process.env.API_PROXY_TARGET || (process.env.NODE_ENV !== 'production' ? 'http://127.0.0.1:8000' : '');
+const API_PROXY_TARGET = RAW_TARGET ? RAW_TARGET.replace(/\/+$/, '').replace(/\/api$/, '') : '';
 
 async function proxy(request: NextRequest) {
   if (!API_PROXY_TARGET) {

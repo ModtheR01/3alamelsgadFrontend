@@ -11,6 +11,8 @@ import { BackendOrder, BackendOrderStatus } from '@/types/order';
 import { normalizeApiError } from '@/lib/api/errors';
 import ProfileSection from './ProfileSection';
 import SafeImage from './SafeImage';
+import { shippingService } from '@/lib/api/services/shippingService';
+import { GovernorateShipping } from '@/types/shipping';
 import {
   User,
   Package,
@@ -66,7 +68,7 @@ export default function AccountView() {
   const [authFieldErrors, setAuthFieldErrors] = useState<Record<string, string[]>>({});
 
   // Login form
-  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPhone, setLoginPhone] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
   // Register form
@@ -77,10 +79,11 @@ export default function AccountView() {
   const [regPassword, setRegPassword] = useState('');
 
   // Address Modals & Forms
+  const [governoratesList, setGovernoratesList] = useState<GovernorateShipping[]>([]);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [addressTitle, setAddressTitle] = useState('');
-  const [addressCountry, setAddressCountry] = useState('Egypt');
+  const [addressGovernorateId, setAddressGovernorateId] = useState<number>(1);
   const [addressCity, setAddressCity] = useState('');
   const [addressStreet, setAddressStreet] = useState('');
   const [addressBuildingNumber, setAddressBuildingNumber] = useState('');
@@ -92,6 +95,25 @@ export default function AccountView() {
 
   // Delete Address Confirm
   const [deletingAddressId, setDeletingAddressId] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    shippingService.getGovernorates().then((govs) => {
+      if (!active) return;
+      setGovernoratesList(govs);
+      if (govs.length > 0) {
+        setAddressGovernorateId(Number(govs[0].id) || 1);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const getGovernorateName = (govId: number | string) => {
+    const found = governoratesList.find((g) => String(g.id) === String(govId));
+    return found ? found.nameAr : '';
+  };
 
   // Order Details & Proof
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -153,7 +175,7 @@ export default function AccountView() {
     setAuthLoading(true);
     try {
       await login({
-        email: loginEmail,
+        phone: loginPhone,
         password: loginPassword,
       });
       setLoginPassword('');
@@ -176,9 +198,9 @@ export default function AccountView() {
       await register({
         first_name: regFirstName,
         last_name: regLastName,
-        email: regEmail,
         phone: regPhone,
         password: regPassword,
+        ...(regEmail.trim() ? { email: regEmail.trim() } : {}),
       });
       setRegPassword('');
     } catch (err) {
@@ -193,12 +215,13 @@ export default function AccountView() {
   // Address Modal opener
   const openCreateAddressModal = () => {
     setEditingAddress(null);
-    setAddressTitle('Sahel Summer Villa');
-    setAddressCountry('Egypt');
-    setAddressCity('Matrouh');
-    setAddressStreet('Catania Village, Villa 42');
-    setAddressBuildingNumber('42');
-    setAddressApartmentNumber('1');
+    setAddressTitle('عنوان المنزل');
+    const firstGovId = governoratesList.length > 0 ? Number(governoratesList[0].id) : 1;
+    setAddressGovernorateId(firstGovId);
+    setAddressCity('المنصورة');
+    setAddressStreet('شارع المشاية');
+    setAddressBuildingNumber('12');
+    setAddressApartmentNumber('4');
     setAddressIsDefault(addresses.length === 0);
     setAddressError(null);
     setAddressFieldErrors({});
@@ -208,7 +231,7 @@ export default function AccountView() {
   const openEditAddressModal = (addr: Address) => {
     setEditingAddress(addr);
     setAddressTitle(addr.title);
-    setAddressCountry(addr.country);
+    setAddressGovernorateId(addr.governorate);
     setAddressCity(addr.city);
     setAddressStreet(addr.street);
     setAddressBuildingNumber(addr.building_number);
@@ -230,7 +253,7 @@ export default function AccountView() {
       if (editingAddress) {
         await updateAddress(editingAddress.id, {
           title: addressTitle,
-          country: addressCountry,
+          governorate: Number(addressGovernorateId),
           city: addressCity,
           street: addressStreet,
           building_number: addressBuildingNumber,
@@ -240,7 +263,7 @@ export default function AccountView() {
       } else {
         await createAddress({
           title: addressTitle,
-          country: addressCountry,
+          governorate: Number(addressGovernorateId),
           city: addressCity,
           street: addressStreet,
           building_number: addressBuildingNumber,
@@ -441,20 +464,22 @@ export default function AccountView() {
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
                   <div className="space-y-1">
                     <label className="block text-[11px] sm:text-xs uppercase tracking-wider text-[#1C1A19] font-medium">
-                      Email Address
+                      Mobile Phone / رقم الهاتف
                     </label>
                     <input
-                      type="email"
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={11}
                       required
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      placeholder="client@example.com"
+                      value={loginPhone}
+                      onChange={(e) => setLoginPhone(e.target.value)}
+                      placeholder="01012345678"
                       className={`w-full text-xs px-3.5 py-3 rounded-lg bg-[#FAF8F5] border text-[#1C1A19] focus:outline-none focus:border-[#1C1A19] ${
-                        authFieldErrors.email ? 'border-red-400' : 'border-[#D8CEBF]'
+                        authFieldErrors.phone ? 'border-red-400' : 'border-[#D8CEBF]'
                       }`}
                     />
-                    {authFieldErrors.email && (
-                      <p className="text-[10px] text-red-600">{authFieldErrors.email[0]}</p>
+                    {authFieldErrors.phone && (
+                      <p className="text-[10px] text-red-600">{authFieldErrors.phone[0]}</p>
                     )}
                   </div>
 
@@ -539,11 +564,10 @@ export default function AccountView() {
 
                   <div className="space-y-1">
                     <label className="block text-[11px] uppercase tracking-wider text-[#1C1A19] font-medium">
-                      Email Address
+                      Email Address (Optional)
                     </label>
                     <input
                       type="email"
-                      required
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
                       placeholder="anas.sayed@example.com"
@@ -909,7 +933,9 @@ export default function AccountView() {
                             </div>
                           </div>
 
-                          <h4 className="text-sm font-medium text-[#1C1A19]">{addr.city}, {addr.country}</h4>
+                          <h4 className="text-sm font-medium text-[#1C1A19]">
+                            {addr.city}{getGovernorateName(addr.governorate) ? `، ${getGovernorateName(addr.governorate)}` : (addr.country ? `، ${addr.country}` : '')}
+                          </h4>
                           <p className="text-xs text-[#736B63]">{addr.street}</p>
                           <p className="text-[11px] text-[#8F8880]">
                             Bldg {addr.building_number}, Apt {addr.apartment_number}
@@ -1009,27 +1035,31 @@ export default function AccountView() {
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="block text-[11px] uppercase tracking-wider text-[#736B63] font-medium">
-                              Country
+                              Governorate / المحافظة
                             </label>
-                            <input
-                              type="text"
+                            <select
                               required
-                              value={addressCountry}
-                              onChange={(e) => setAddressCountry(e.target.value)}
-                              placeholder="Egypt"
-                              className="w-full text-xs p-2.5 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5]"
-                            />
+                              value={addressGovernorateId}
+                              onChange={(e) => setAddressGovernorateId(Number(e.target.value))}
+                              className="w-full text-xs p-2.5 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5] text-[#1C1A19] focus:outline-none focus:border-[#1C1A19]"
+                            >
+                              {governoratesList.map((gov) => (
+                                <option key={gov.id} value={gov.id}>
+                                  {gov.nameAr} ({gov.nameEn})
+                                </option>
+                              ))}
+                            </select>
                           </div>
                           <div>
                             <label className="block text-[11px] uppercase tracking-wider text-[#736B63] font-medium">
-                              City / Governorate
+                              City / المدينة
                             </label>
                             <input
                               type="text"
                               required
                               value={addressCity}
                               onChange={(e) => setAddressCity(e.target.value)}
-                              placeholder="Cairo / Matrouh"
+                              placeholder="Mansoura / New Cairo"
                               className="w-full text-xs p-2.5 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5]"
                             />
                           </div>

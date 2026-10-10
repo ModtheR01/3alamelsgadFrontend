@@ -29,9 +29,15 @@ import {
   clearGuestCart,
   isGuestCartItemId,
 } from '@/lib/guestCart';
-import { BackendProduct, BackendProductImage } from '@/types/product';
+import { BackendProduct, BackendProductImage, BackendSize, BackendArwal } from '@/types/product';
 import { BackendCategory, BackendSubcategory } from '@/types/category';
-import { BackendCartItem } from '@/types/cart';
+import {
+  BackendCart,
+  BackendProductCartItem,
+  BackendArwalCartItem,
+  BackendCartBundle,
+  BackendCartItem,
+} from '@/types/cart';
 import { eventService } from '@/lib/api/services/eventService';
 import { dashboardService } from '@/lib/api/services/dashboardService';
 import { collaborationService } from '@/lib/api/services/collaborationService';
@@ -313,7 +319,11 @@ const DEFAULT_FALLBACK_PRODUCTS: Product[] = [
 
 export function mapBackendProduct(product: BackendProduct, subcategories: BackendSubcategory[] = []): Product {
   const subcategoryList = Array.isArray(subcategories) ? subcategories : [];
-  const rawSubcategoryIds = Array.isArray(product?.subcategory_ids) ? product.subcategory_ids : [];
+  const rawSubcategoryIds = Array.isArray(product?.subcategory_ids)
+    ? product.subcategory_ids
+    : product?.subcategory?.id
+    ? [product.subcategory.id]
+    : [];
   const subcategoryIds = rawSubcategoryIds.map((id) => String(id));
   const primarySubcategory = subcategoryList.find((subcategory) => subcategory.id === rawSubcategoryIds[0]);
   const categoryId = primarySubcategory?.category_id
@@ -327,10 +337,13 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     sort_order: image?.sort_order ?? index,
   }));
 
+  const productName = product?.name || product?.name_ar || product?.name_en || '';
+  const productDesc = product?.description || product?.description_ar || product?.description_en || '';
+
   const isArawal =
-    /أروال|arawal|رول|مشاية بالمتر|طاقة/i.test(product?.name || '') ||
-    /أروال|arawal|رول/i.test(product?.description || '') ||
-    Boolean(primarySubcategory && /أروال|arawal|رول/i.test(primarySubcategory.name || ''));
+    /أروال|arawal|رول|مشاية بالمتر|طاقة/i.test(productName) ||
+    /أروال|arawal|رول/i.test(productDesc) ||
+    Boolean(primarySubcategory && /أروال|arawal|رول/i.test(primarySubcategory.name || primarySubcategory.name_ar || ''));
 
   const parsedPrice = Number(product?.price) || 0;
   const rawDims = product?.dimensions || '';
@@ -340,26 +353,49 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
   const uniqueWidths = Array.from(new Set(parsedWidths)).sort((a, b) => a - b);
   const availableWidths = uniqueWidths.length > 0 ? uniqueWidths : isArawal ? [80] : undefined;
 
+  const mappedColors = Array.isArray(product?.colors)
+    ? product.colors.map((color) => ({
+        id: String(color.id),
+        name: color.name || color.name_ar || color.name_en || '',
+        hex: color.hex_code,
+      }))
+    : [];
+
+  const mappedSizes = Array.isArray(product?.sizes)
+    ? product.sizes.map((s) => ({
+        id: String(s.id),
+        name: `${s.width}x${s.length} سم`,
+        dimensions: `${s.width}x${s.length} سم`,
+        priceDelta: 0,
+        width: s.width,
+        length: s.length,
+      }))
+    : [];
+
+  const displayImages = imageRecords.length > 0
+    ? imageRecords.map((image) => image.image).filter(Boolean)
+    : product?.primary_image?.image
+    ? [product.primary_image.image]
+    : ['https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85'];
+
   return {
     id: String(product?.id || ''),
     slug: String(product?.id || ''),
-    name: product?.name || '',
+    name: productName,
     categoryId,
     subcategoryIds,
-    description: product?.description || '',
+    description: productDesc,
     price: parsedPrice,
     originalPrice: Number((product as any)?.original_price) || undefined,
     discountPercentage: Number((product as any)?.discount_percentage) || undefined,
-    images: imageRecords.length > 0
-      ? imageRecords.map((image) => image.image).filter(Boolean)
-      : ['https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85'],
+    images: displayImages,
     imageRecords,
-    dimensions: rawDims || (availableWidths ? availableWidths.map((w) => `${w} سم`).join('، ') : ''),
+    dimensions: rawDims || (mappedSizes.length > 0 ? mappedSizes.map((s) => s.name).join('، ') : availableWidths ? availableWidths.map((w) => `${w} سم`).join('، ') : ''),
     deliveryDays: product?.delivery_days,
     material: product?.material || '',
     finishes: Array.isArray(product?.finish) ? product.finish : [],
-    colors: Array.isArray(product?.colors) ? product.colors.map((color) => ({ id: String(color.id), name: color.name, hex: color.hex_code })) : [],
-    sizes: [],
+    colors: mappedColors,
+    sizes: mappedSizes,
     faq: Array.isArray(product?.faq) ? product.faq : [],
     leadTime: product?.delivery_days ? `${product.delivery_days} أيام` : EMPTY_SETTINGS.defaultLeadTime,
     shippingTime: 'توصيل خلال ٢-٤ أيام عمل',
@@ -371,15 +407,16 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     arawalUnitPricePerMeter: isArawal ? parsedPrice : undefined,
     availableWidths,
     createdAt: product?.created_at || new Date().toISOString(),
-    seoTitle: product?.name || '',
-    seoDescription: product?.description || '',
+    seoTitle: productName,
+    seoDescription: productDesc,
   };
 }
 
 function mapBackendCategory(category: BackendCategory): Category {
+  const catName = category.name || category.name_ar || category.name_en || '';
   return {
     id: String(category.id),
-    name: category.name,
+    name: catName,
     slug: String(category.id),
     description: '',
     image: category.image || '',
@@ -427,10 +464,106 @@ function mapBackendSpaceProject(project: BackendSpaceProject): ProjectItem {
   };
 }
 
+function mapBackendProductCartItem(item: BackendProductCartItem, products: Product[] = []): CartItem {
+  const prodId = String(item.product?.id || '');
+  const product = products.find((p) => p.id === prodId);
+  return {
+    id: String(item.id),
+    rawItemId: item.id,
+    cartItemType: 'product',
+    productId: prodId,
+    productName: item.product?.name_ar || item.product?.name_en || product?.name || '',
+    productImage: product?.images[0] || '',
+    unitPrice: Number(item.unit_price),
+    selectedFinish: product?.finishes[0] || 'MATTE',
+    selectedColor: item.selected_color
+      ? {
+          id: String(item.selected_color.id),
+          name: item.selected_color.name_ar || item.selected_color.name_en || '',
+          hex: item.selected_color.hex_code || '#000000',
+        }
+      : { id: '', name: '', hex: '#000000' },
+    selectedSize: item.selected_size
+      ? {
+          id: String(item.selected_size.id),
+          name: `${item.selected_size.width}x${item.selected_size.length} سم`,
+          dimensions: `${item.selected_size.width}x${item.selected_size.length} سم`,
+          priceDelta: 0,
+          width: item.selected_size.width,
+          length: item.selected_size.length,
+        }
+      : undefined,
+    quantity: item.quantity,
+    subtotal: item.subtotal !== undefined ? Number(item.subtotal) : Number(item.total_price),
+    originalSubtotal: item.original_subtotal !== undefined ? Number(item.original_subtotal) : Number(item.total_price),
+    discountAmount: item.discount_amount !== undefined ? Number(item.discount_amount) : 0,
+    offerName: item.applied_offers?.[0]?.name,
+  };
+}
+
+function mapBackendArwalCartItem(item: BackendArwalCartItem, products: Product[] = []): CartItem {
+  const arwalId = String(item.arwal?.id || '');
+  const product = products.find((p) => p.id === arwalId);
+  const lengthMeters = Number(item.selected_length) || 1;
+  const widthVal = item.selected_width?.width || 80;
+  const unitPricePerMeter = Number(item.price_per_length) || 0;
+  return {
+    id: `arwal-${item.id}`,
+    rawItemId: item.id,
+    cartItemType: 'arwal',
+    productId: arwalId,
+    productName: item.arwal?.name_ar || item.arwal?.name_en || product?.name || 'أروال بالمتر',
+    productImage: product?.images[0] || '',
+    unitPrice: Number(item.unit_price),
+    selectedFinish: 'MATTE',
+    selectedColor: item.selected_color
+      ? {
+          id: String(item.selected_color.id),
+          name: item.selected_color.name_ar || item.selected_color.name_en || '',
+          hex: item.selected_color.hex_code || '#000000',
+        }
+      : { id: '', name: '', hex: '#000000' },
+    arwalConfig: {
+      isArawal: true,
+      width: widthVal,
+      lengthMeters,
+      unitPricePerMeter,
+      totalPrice: Number(item.total_price),
+    },
+    quantity: item.quantity,
+    subtotal: item.subtotal !== undefined ? Number(item.subtotal) : Number(item.total_price),
+    originalSubtotal: item.original_subtotal !== undefined ? Number(item.original_subtotal) : Number(item.total_price),
+    discountAmount: item.discount_amount !== undefined ? Number(item.discount_amount) : 0,
+    offerName: item.applied_offers?.[0]?.name,
+  };
+}
+
+function mapBackendBundleCartItem(bundle: BackendCartBundle): CartItem {
+  return {
+    id: `bundle-${bundle.offer_id}`,
+    cartItemType: 'bundle',
+    bundleOfferId: bundle.offer_id,
+    isBundle: true,
+    productId: `bundle-${bundle.offer_id}`,
+    productName: bundle.name_ar || bundle.name_en || 'باقة عروض خاصة',
+    productImage: 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=800&q=80',
+    unitPrice: Number(bundle.bundle_price),
+    selectedFinish: 'MATTE',
+    selectedColor: { id: '', name: '', hex: '#000000' },
+    quantity: bundle.quantity,
+    subtotal: Number(bundle.bundle_price) * bundle.quantity,
+    originalSubtotal: Number(bundle.bundle_price) * bundle.quantity,
+    discountAmount: 0,
+    offerName: bundle.name_ar || bundle.name_en,
+  };
+}
+
 function mapBackendCartItem(item: BackendCartItem, products: Product[] = []): CartItem {
   const product = products.find((p) => p.id === String(item.product_id));
   return {
     id: String(item.id),
+    rawItemId: item.id,
+    cartItemType: 'product',
     productId: String(item.product_id),
     productName: item.product_name,
     productImage: product?.images[0] || '',
@@ -727,29 +860,75 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const refreshCart = useCallback(async () => {
     const backendCart = await cartService.getCart();
     setIsGuestCart(false);
-    setCart(backendCart.items.map((item) => mapBackendCartItem(item, products)));
+
+    const productCartItems = (backendCart.product_items || []).map((item) =>
+      mapBackendProductCartItem(item, products)
+    );
+    const arwalCartItems = (backendCart.arwal_items || []).map((item) =>
+      mapBackendArwalCartItem(item, products)
+    );
+    const bundleCartItems = (backendCart.bundles || []).map((bundle) =>
+      mapBackendBundleCartItem(bundle)
+    );
+
+    const allCartItems = [...productCartItems, ...arwalCartItems, ...bundleCartItems];
+    setCart(allCartItems);
     setCartPricing({
-      originalTotal: Number(backendCart.original_total),
-      discountTotal: Number(backendCart.discount_amount),
-      total: Number(backendCart.total_price),
-      freeShipping: backendCart.free_shipping,
+      originalTotal: Number(backendCart.subtotal || backendCart.original_total || 0),
+      discountTotal: Number(backendCart.discount || backendCart.discount_amount || 0),
+      total: Number(backendCart.total || backendCart.total_price || 0),
+      freeShipping: Boolean(backendCart.free_shipping),
     });
   }, [products]);
 
   const addToCart = useCallback(async (itemData: Omit<CartItem, 'id'>) => {
     const productId = Number(itemData.productId);
-    const colorId = itemData.selectedColor.id ? Number(itemData.selectedColor.id) : null;
-    if (!Number.isInteger(productId)) {
-      throw new Error('This product is not connected to a backend product record.');
-    }
+    const isArwal = Boolean(itemData.arwalConfig?.isArawal || itemData.cartItemType === 'arwal');
+    const isBundle = Boolean(itemData.isBundle || itemData.cartItemType === 'bundle' || itemData.bundleOfferId);
 
     try {
-      await cartService.addItem({
-        product_id: productId,
-        selected_color_id: Number.isInteger(colorId) ? colorId : null,
-        selected_finish: itemData.selectedFinish || null,
-        quantity: itemData.quantity,
-      });
+      if (isArwal) {
+        if (!Number.isInteger(productId)) {
+          throw new Error('This Arwal is not connected to a backend record.');
+        }
+        const colorId = itemData.selectedColor.id ? Number(itemData.selectedColor.id) : 1;
+        const widthVal = itemData.arwalConfig?.width || 80;
+        await cartService.addArwalItem({
+          arwal_id: productId,
+          selected_color_id: colorId,
+          selected_width_id: widthVal,
+          selected_length: itemData.arwalConfig?.lengthMeters || 1,
+          quantity: itemData.quantity,
+        });
+      } else if (isBundle) {
+        const bundleId = itemData.bundleOfferId || productId;
+        await cartService.addBundle({
+          bundle_offer_id: bundleId,
+          quantity: itemData.quantity,
+        });
+      } else {
+        if (!Number.isInteger(productId)) {
+          throw new Error('This product is not connected to a backend product record.');
+        }
+        const matchedProduct = products.find((p) => p.id === String(productId));
+        const colorId = itemData.selectedColor.id
+          ? Number(itemData.selectedColor.id)
+          : matchedProduct?.colors?.[0]?.id
+          ? Number(matchedProduct.colors[0].id)
+          : 1;
+        const sizeId = itemData.selectedSize?.id
+          ? Number(itemData.selectedSize.id)
+          : matchedProduct?.sizes?.[0]?.id
+          ? Number(matchedProduct.sizes[0].id)
+          : 1;
+
+        await cartService.addItem({
+          product_id: productId,
+          selected_color_id: colorId,
+          selected_size_id: sizeId,
+          quantity: itemData.quantity,
+        });
+      }
       await refreshCart();
     } catch (err) {
       // Not signed in: keep the item in a local guest cart instead of losing it.
@@ -763,14 +942,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
 
     setIsCartDrawerOpen(true);
-  }, [refreshCart]);
+  }, [products, refreshCart]);
 
   const removeFromCart = useCallback(async (cartItemId: string) => {
     if (isGuestCartItemId(cartItemId)) {
       setCart(removeGuestCartItem(cartItemId));
       return;
     }
-    await cartService.removeItem(Number(cartItemId));
+    if (cartItemId.startsWith('arwal-')) {
+      const rawId = Number(cartItemId.replace('arwal-', ''));
+      await cartService.removeArwalItem(rawId);
+    } else if (cartItemId.startsWith('bundle-')) {
+      const bundleOfferId = Number(cartItemId.replace('bundle-', ''));
+      await cartService.removeBundle(bundleOfferId);
+    } else {
+      await cartService.removeItem(Number(cartItemId));
+    }
     await refreshCart();
   }, [refreshCart]);
 
@@ -779,10 +966,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setCart(updateGuestCartItemQuantity(cartItemId, quantity));
       return;
     }
-    if (quantity <= 0) {
-      await cartService.removeItem(Number(cartItemId));
+    if (cartItemId.startsWith('arwal-')) {
+      const rawId = Number(cartItemId.replace('arwal-', ''));
+      if (quantity <= 0) {
+        await cartService.removeArwalItem(rawId);
+      } else {
+        await cartService.updateArwalItem(rawId, { quantity });
+      }
+    } else if (cartItemId.startsWith('bundle-')) {
+      const bundleOfferId = Number(cartItemId.replace('bundle-', ''));
+      if (quantity <= 0) {
+        await cartService.removeBundle(bundleOfferId);
+      } else {
+        await cartService.updateBundle(bundleOfferId, { quantity });
+      }
     } else {
-      await cartService.updateItem(Number(cartItemId), { quantity });
+      const rawId = Number(cartItemId);
+      if (quantity <= 0) {
+        await cartService.removeItem(rawId);
+      } else {
+        await cartService.updateItem(rawId, { quantity });
+      }
     }
     await refreshCart();
   }, [refreshCart]);
@@ -808,14 +1012,43 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     for (const item of guestItems) {
       const productId = Number(item.productId);
       if (!Number.isInteger(productId)) continue;
-      const colorId = item.selectedColor.id ? Number(item.selectedColor.id) : null;
+
       try {
-        await cartService.addItem({
-          product_id: productId,
-          selected_color_id: Number.isInteger(colorId) ? colorId : null,
-          selected_finish: item.selectedFinish || null,
-          quantity: item.quantity,
-        });
+        if (item.arwalConfig?.isArawal) {
+          const colorId = item.selectedColor.id ? Number(item.selectedColor.id) : 1;
+          const widthVal = item.arwalConfig.width || 80;
+          await cartService.addArwalItem({
+            arwal_id: productId,
+            selected_color_id: colorId,
+            selected_width_id: widthVal,
+            selected_length: item.arwalConfig.lengthMeters || 1,
+            quantity: item.quantity,
+          });
+        } else if (item.bundleOfferId) {
+          await cartService.addBundle({
+            bundle_offer_id: item.bundleOfferId,
+            quantity: item.quantity,
+          });
+        } else {
+          const matchedProduct = products.find((p) => p.id === String(productId));
+          const colorId = item.selectedColor.id
+            ? Number(item.selectedColor.id)
+            : matchedProduct?.colors?.[0]?.id
+            ? Number(matchedProduct.colors[0].id)
+            : 1;
+          const sizeId = item.selectedSize?.id
+            ? Number(item.selectedSize.id)
+            : matchedProduct?.sizes?.[0]?.id
+            ? Number(matchedProduct.sizes[0].id)
+            : 1;
+
+          await cartService.addItem({
+            product_id: productId,
+            selected_color_id: colorId,
+            selected_size_id: sizeId,
+            quantity: item.quantity,
+          });
+        }
       } catch {
         // Skip items that fail to sync (e.g. product no longer available) and continue with the rest.
       }
@@ -824,7 +1057,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     clearGuestCart();
     setIsGuestCart(false);
     await refreshCart();
-  }, [refreshCart]);
+  }, [products, refreshCart]);
 
   // Cart calculations
   // Prefer the backend's offer-aware total (accounts for active discounts); the guest
@@ -912,10 +1145,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const colorIds = productToSave.colors
       .map((color) => Number(color.id))
       .filter((id) => Number.isInteger(id));
+    const sizeIds = (productToSave.sizes || [])
+      .map((size: any) => Number(size.id))
+      .filter((id) => Number.isInteger(id));
 
     const payload = {
       name: productToSave.name.trim(),
+      name_ar: productToSave.name.trim(),
+      name_en: (productToSave as any).name_en || productToSave.name.trim(),
       description: productToSave.description.trim(),
+      description_ar: productToSave.description.trim(),
+      description_en: (productToSave as any).description_en || productToSave.description.trim(),
       dimensions: productToSave.dimensions.trim(),
       price: productToSave.price || 0,
       delivery_days: productToSave.deliveryDays ?? null,
@@ -923,6 +1163,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       finish: productToSave.finishes,
       faq: (productToSave.faq || []).filter((item) => item.question.trim() || item.answer.trim()),
       subcategory_ids: subcategoryIds,
+      size_ids: sizeIds,
       color_ids: colorIds,
       featured: productToSave.isFeatured,
     };
@@ -977,7 +1218,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Admin CRUD for Categories
   const saveCategory = useCallback(async (categoryToSave: Category) => {
-    const payload = { name: categoryToSave.name, image: categoryToSave.image || null };
+    const payload = {
+      name: categoryToSave.name,
+      name_ar: categoryToSave.name,
+      name_en: (categoryToSave as any).name_en || categoryToSave.name,
+      image: categoryToSave.image || null,
+    };
     const categoryId = Number(categoryToSave.id);
     const saved = Number.isInteger(categoryId)
       ? await categoryService.updateCategory(categoryId, payload)
@@ -998,7 +1244,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Admin CRUD for Subcategories
   const saveSubcategory = useCallback(
-    async (subToSave: { id?: number | string; category_id: number | string; name: string; image?: string | null }) => {
+    async (subToSave: { id?: number | string; category_id: number | string; name: string; name_en?: string; image?: string | null }) => {
       const numericCatId =
         typeof subToSave.category_id === 'number'
           ? subToSave.category_id
@@ -1009,6 +1255,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const saved = await subcategoryService.updateSubcategory(numericSubId, {
             category_id: numericCatId,
             name: subToSave.name,
+            name_ar: subToSave.name,
+            name_en: subToSave.name_en || subToSave.name,
             image: subToSave.image || null,
           });
           setSubcategories((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
@@ -1017,6 +1265,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const created = await subcategoryService.createSubcategory({
           category_id: numericCatId,
           name: subToSave.name,
+          name_ar: subToSave.name,
+          name_en: subToSave.name_en || subToSave.name,
           image: subToSave.image || null,
         });
         setSubcategories((prev) => [...prev, created]);
@@ -1035,6 +1285,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             id: Date.now(),
             category_id: numericCatId,
             name: subToSave.name,
+            name_ar: subToSave.name,
+            name_en: subToSave.name_en || subToSave.name,
             image: subToSave.image || null,
             public_id: null,
             created_at: new Date().toISOString(),

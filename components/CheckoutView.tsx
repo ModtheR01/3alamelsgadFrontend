@@ -9,6 +9,8 @@ import { orderService } from '@/lib/api/services/orderService';
 import { cartService } from '@/lib/api/services/cartService';
 import { normalizeApiError } from '@/lib/api/errors';
 import { BRAND_CONFIG } from '@/lib/brandConfig';
+import { shippingService } from '@/lib/api/services/shippingService';
+import { GovernorateShipping } from '@/types/shipping';
 import Image from '@/components/SafeImage';
 import {
   ShieldCheck,
@@ -56,8 +58,36 @@ export default function CheckoutView() {
 
   // Governorate & Address state
   const [selectedGovernorateId, setSelectedGovernorateId] = useState<string>('cairo');
+  const [remoteGovernorates, setRemoteGovernorates] = useState<GovernorateShipping[]>([]);
+
+  React.useEffect(() => {
+    let active = true;
+    shippingService.getGovernorates().then((data) => {
+      if (active && data && data.length > 0) {
+        setRemoteGovernorates(data);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const selectedGov = BRAND_CONFIG.governorates.find((g) => g.id === selectedGovernorateId) || BRAND_CONFIG.governorates[0];
   const shippingCost = selectedGov.shippingCost;
+
+  const resolvedGovId = React.useMemo(() => {
+    const matched = remoteGovernorates.find(
+      (rg) =>
+        String(rg.id) === String(selectedGovernorateId) ||
+        rg.nameEn.toLowerCase() === selectedGov.nameEn.toLowerCase() ||
+        rg.nameAr === selectedGov.nameAr
+    );
+    if (matched && Number.isInteger(Number(matched.id))) {
+      return Number(matched.id);
+    }
+    const parsed = Number(selectedGovernorateId);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+  }, [remoteGovernorates, selectedGovernorateId, selectedGov]);
 
   const [addressTitle, setAddressTitle] = useState('عنوان المنزل');
   const [city, setCity] = useState(() => defaultAddr?.city || legacyUser?.savedAddresses?.[0]?.city || 'القاهرة');
@@ -122,7 +152,7 @@ export default function CheckoutView() {
 
         const newAddr = await createAddress({
           title: addressTitle.trim() || 'عنوان التوصيل',
-          country: selectedGov.nameAr,
+          governorate: resolvedGovId,
           city: city.trim(),
           street: street.trim(),
           building_number: buildingNumber.trim() || '1',
@@ -137,16 +167,41 @@ export default function CheckoutView() {
       // Synchronize backend cart if needed
       try {
         const bCart = await cartService.getCart();
-        if (!bCart || !bCart.items || bCart.items.length === 0) {
+        const hasItems =
+          (bCart.product_items && bCart.product_items.length > 0) ||
+          (bCart.arwal_items && bCart.arwal_items.length > 0) ||
+          (bCart.bundles && bCart.bundles.length > 0) ||
+          (bCart.items && bCart.items.length > 0);
+        if (!hasItems) {
           for (const item of cart) {
-            const numProdId = parseInt(item.productId.replace(/\D/g, '')) || 1;
-            const numColorId = item.selectedColor?.id ? Number(item.selectedColor.id) : null;
-            await cartService.addItem({
-              product_id: numProdId,
-              selected_color_id: numColorId && Number.isInteger(numColorId) ? numColorId : null,
-              selected_finish: item.selectedFinish,
-              quantity: item.quantity,
-            });
+            if (item.arwalConfig?.isArawal || item.cartItemType === 'arwal') {
+              const numArwalId = parseInt(item.productId.replace(/\D/g, '')) || 1;
+              const numColorId = item.selectedColor?.id ? Number(item.selectedColor.id) : 1;
+              const widthVal = item.arwalConfig?.width || 80;
+              await cartService.addArwalItem({
+                arwal_id: numArwalId,
+                selected_color_id: numColorId,
+                selected_width_id: widthVal,
+                selected_length: item.arwalConfig?.lengthMeters || 1,
+                quantity: item.quantity,
+              });
+            } else if (item.isBundle || item.cartItemType === 'bundle' || item.bundleOfferId) {
+              const bundleId = item.bundleOfferId || parseInt(item.productId.replace(/\D/g, '')) || 1;
+              await cartService.addBundle({
+                bundle_offer_id: bundleId,
+                quantity: item.quantity,
+              });
+            } else {
+              const numProdId = parseInt(item.productId.replace(/\D/g, '')) || 1;
+              const numColorId = item.selectedColor?.id ? Number(item.selectedColor.id) : 1;
+              const numSizeId = item.selectedSize?.id ? Number(item.selectedSize.id) : 1;
+              await cartService.addItem({
+                product_id: numProdId,
+                selected_color_id: numColorId,
+                selected_size_id: numSizeId,
+                quantity: item.quantity,
+              });
+            }
           }
         }
       } catch {
@@ -155,7 +210,7 @@ export default function CheckoutView() {
 
       // Build customer notes with ARAWAL specs and payment option
       const arawalSpecs = cart
-        .filter((item) => item.arawalConfig)
+        .filter((item) => item.arwalConfig)
         .map(
           (item) =>
             `[أروال بالمتر: ${item.productName} - عرض ${item.arawalConfig?.width} سم × طول ${item.arawalConfig?.lengthMeters} م @ ${item.arawalConfig?.unitPricePerMeter} ج.م/م]`
@@ -174,9 +229,26 @@ export default function CheckoutView() {
         .filter(Boolean)
         .join(' | ');
 
-      // Create backend order (API expects { address_id, customer_notes })
+      // Map paymentMethod and paymentOption to backend DRF choices:
+      // Backend PaymentMethod choices: 'CASH_ON_DELIVERY' | 'ELECTRONIC_WALLET' | 'INSTAPAY'
+      let backendPaymentMethod: 'CASH_ON_DELIVERY' | 'ELECTRONIC_WALLET' | 'INSTAPAY';
+      if (paymentMethod === 'instapay') {
+        backendPaymentMethod = 'INSTAPAY';
+      } else if (paymentMethod === 'vodafone_cash') {
+        backendPaymentMethod = 'ELECTRONIC_WALLET';
+      } else {
+        backendPaymentMethod = 'CASH_ON_DELIVERY';
+      }
+
+      // Backend PaymentType choices: 'SHIPPING_ONLY' | 'FULL_ORDER'
+      const backendPaymentType: 'SHIPPING_ONLY' | 'FULL_ORDER' =
+        paymentOption === 'OPTION_A' ? 'SHIPPING_ONLY' : 'FULL_ORDER';
+
+      // Create backend order (API expects { address_id, payment_method, payment_type, customer_notes })
       const createdOrder = await orderService.createOrder({
         address_id: targetAddressId,
+        payment_method: backendPaymentMethod,
+        payment_type: backendPaymentType,
         customer_notes: finalCustomerNotes,
       });
 

@@ -34,7 +34,13 @@ export const categoryService = {
    * POST /categories/
    */
   async createCategory(data: CategoryCreateRequest): Promise<BackendCategory> {
-    return apiClient.post<BackendCategory>('/categories/', data);
+    const payload = {
+      name_ar: (data.name_ar || data.name || '').trim(),
+      name_en: (data.name_en || data.name || '').trim(),
+      image: data.image ?? null,
+      public_id: data.public_id ?? null,
+    };
+    return apiClient.post<BackendCategory>('/categories/', payload);
   },
 
   /**
@@ -46,10 +52,15 @@ export const categoryService = {
     data: CategoryUpdateRequest,
     method: 'PUT' | 'PATCH' = 'PATCH'
   ): Promise<BackendCategory> {
+    const payload: Record<string, any> = {};
+    if (data.name_ar || data.name) payload.name_ar = (data.name_ar || data.name || '').trim();
+    if (data.name_en || data.name) payload.name_en = (data.name_en || data.name || '').trim();
+    if (data.image !== undefined) payload.image = data.image;
+    if (data.public_id !== undefined) payload.public_id = data.public_id;
     if (method === 'PUT') {
-      return apiClient.put<BackendCategory>(`/categories/${id}/`, data);
+      return apiClient.put<BackendCategory>(`/categories/${id}/`, payload);
     }
-    return apiClient.patch<BackendCategory>(`/categories/${id}/`, data);
+    return apiClient.patch<BackendCategory>(`/categories/${id}/`, payload);
   },
 
   /**
@@ -115,7 +126,14 @@ export const subcategoryService = {
    * POST /subcategories/
    */
   async createSubcategory(data: SubcategoryCreateRequest): Promise<BackendSubcategory> {
-    return apiClient.post<BackendSubcategory>('/subcategories/', data);
+    const payload = {
+      category_id: data.category_id,
+      name_ar: (data.name_ar || data.name || '').trim(),
+      name_en: (data.name_en || data.name || '').trim(),
+      image: data.image ?? null,
+      public_id: data.public_id ?? null,
+    };
+    return apiClient.post<BackendSubcategory>('/subcategories/', payload);
   },
 
   /**
@@ -127,10 +145,16 @@ export const subcategoryService = {
     data: SubcategoryUpdateRequest,
     method: 'PUT' | 'PATCH' = 'PATCH'
   ): Promise<BackendSubcategory> {
+    const payload: Record<string, any> = {};
+    if (data.category_id !== undefined) payload.category_id = data.category_id;
+    if (data.name_ar || data.name) payload.name_ar = (data.name_ar || data.name || '').trim();
+    if (data.name_en || data.name) payload.name_en = (data.name_en || data.name || '').trim();
+    if (data.image !== undefined) payload.image = data.image;
+    if (data.public_id !== undefined) payload.public_id = data.public_id;
     if (method === 'PUT') {
-      return apiClient.put<BackendSubcategory>(`/subcategories/${id}/`, data);
+      return apiClient.put<BackendSubcategory>(`/subcategories/${id}/`, payload);
     }
-    return apiClient.patch<BackendSubcategory>(`/subcategories/${id}/`, data);
+    return apiClient.patch<BackendSubcategory>(`/subcategories/${id}/`, payload);
   },
 
   /**

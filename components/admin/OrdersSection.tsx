@@ -33,6 +33,7 @@ interface OrdersSectionProps {
   isLoading: boolean;
   onRefreshOrders: () => Promise<void>;
   onUpdateOrderStatus: (orderId: number | string, newStatus: BackendOrderStatus) => Promise<void>;
+  onConfirmPayment?: (order: BackendOrder) => Promise<void>;
   selectedOrderForModal: BackendOrder | null;
   setSelectedOrderForModal: (order: BackendOrder | null) => void;
 }
@@ -59,7 +60,7 @@ export const ORDER_WORKFLOW: {
     border: 'border-blue-300',
   },
   {
-    status: 'PREPARING' as any,
+    status: 'PROCESSING',
     label: 'قيد التجهيز والسرفلة',
     color: 'text-purple-900',
     bg: 'bg-purple-100',
@@ -93,6 +94,7 @@ export default function OrdersSection({
   isLoading,
   onRefreshOrders,
   onUpdateOrderStatus,
+  onConfirmPayment,
   selectedOrderForModal,
   setSelectedOrderForModal,
 }: OrdersSectionProps) {
@@ -122,6 +124,7 @@ export default function OrdersSection({
       const isConfirmed =
         ord.status === 'CONFIRMED' || (ord.status as string) === 'confirmed';
       const isPreparing =
+        ord.status === 'PROCESSING' ||
         (ord.status as string) === 'PREPARING' ||
         (ord.status as string) === 'preparing' ||
         (ord.status as string) === 'in_production';
@@ -136,6 +139,7 @@ export default function OrdersSection({
         statusFilter === 'ALL' ||
         (statusFilter === 'NOT_CONFIRMED' && isUnconfirmed) ||
         (statusFilter === 'CONFIRMED' && isConfirmed) ||
+        (statusFilter === 'PROCESSING' && isPreparing) ||
         (statusFilter === 'PREPARING' && isPreparing) ||
         (statusFilter === 'SHIPPED' && isShipped) ||
         (statusFilter === 'DELIVERED' && isDelivered) ||
@@ -163,6 +167,33 @@ export default function OrdersSection({
     }
   };
 
+  const handleConfirmPaymentClick = async () => {
+    if (!selectedOrderForModal) return;
+    setUpdatingOrderId(selectedOrderForModal.id);
+    setStatusActionError(null);
+    setStatusActionSuccess(null);
+    try {
+      if (onConfirmPayment) {
+        await onConfirmPayment(selectedOrderForModal);
+      } else {
+        await onUpdateOrderStatus(selectedOrderForModal.id, 'CONFIRMED');
+      }
+      setStatusActionSuccess('تم تأكيد الدفع وتحديث حالة الطلب إلى (مؤكد).');
+      setSelectedOrderForModal({
+        ...selectedOrderForModal,
+        status: 'CONFIRMED',
+        payment: selectedOrderForModal.payment
+          ? { ...selectedOrderForModal.payment, status: 'PAID' }
+          : undefined,
+      });
+      setTimeout(() => setStatusActionSuccess(null), 3000);
+    } catch (err: any) {
+      setStatusActionError(err?.message || 'تعذر تأكيد الدفع');
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'NOT_CONFIRMED':
@@ -181,6 +212,7 @@ export default function OrdersSection({
             <span>مؤكد</span>
           </span>
         );
+      case 'PROCESSING':
       case 'PREPARING':
       case 'preparing':
       case 'in_production':
@@ -300,7 +332,7 @@ export default function OrdersSection({
             <option value="ALL">جميع الحالات</option>
             <option value="NOT_CONFIRMED">غير مؤكد (بانتظار التحويل)</option>
             <option value="CONFIRMED">مؤكد</option>
-            <option value="PREPARING">قيد التجهيز</option>
+            <option value="PROCESSING">قيد التجهيز</option>
             <option value="SHIPPED">تم الشحن</option>
             <option value="DELIVERED">تم التسليم</option>
             <option value="CANCELLED">ملغي</option>
@@ -566,7 +598,7 @@ export default function OrdersSection({
                 (selectedOrderForModal.status as string) === 'unconfirmed' ? (
                   <button
                     type="button"
-                    onClick={() => handleStatusChange(selectedOrderForModal.id, 'CONFIRMED')}
+                    onClick={handleConfirmPaymentClick}
                     disabled={updatingOrderId === selectedOrderForModal.id}
                     className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs"
                   >

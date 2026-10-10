@@ -156,6 +156,7 @@ export default function OverviewSection({
             مؤكد
           </span>
         );
+      case 'PROCESSING':
       case 'PREPARING':
       case 'preparing':
       case 'in_production':

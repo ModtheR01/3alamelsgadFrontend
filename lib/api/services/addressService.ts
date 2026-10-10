@@ -54,8 +54,8 @@ export const addressService = {
    * Delete an address
    * DELETE /user/addresses/<id>/
    */
-  async deleteAddress(id: number): Promise<{ message: string }> {
-    return apiClient.delete<{ message: string }>(`/user/addresses/${id}/`);
+  async deleteAddress(id: number): Promise<void> {
+    await apiClient.delete<void>(`/user/addresses/${id}/`);
   },
 
   /**

@@ -195,11 +195,13 @@ export default function UserManagement() {
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-[#8F8880] text-[11px]">
-                      {new Date(u.created_at).toLocaleDateString('en-GB', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
+                      {u.created_at
+                        ? new Date(u.created_at).toLocaleDateString('en-GB', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })
+                        : '—'}
                     </td>
                   </tr>
                 ))}

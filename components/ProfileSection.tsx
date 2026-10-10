@@ -139,35 +139,22 @@ export default function ProfileSection({
             </div>
           </div>
 
-          {/* Email is READ-ONLY as required */}
+          {/* Mobile Phone is verified primary identifier and read-only */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <label className="block text-[11px] uppercase tracking-wider text-[#736B63] font-medium">
-                Email Address
+                Mobile Phone Number / رقم الهاتف
               </label>
             </div>
             <input
-              type="email"
+              type="tel"
               disabled
-              value={user.email}
+              value={user.phone}
               className="w-full text-xs px-3.5 py-2.5 rounded-lg border border-[#EAE4DC] bg-[#EFEBE3]/60 text-[#736B63] font-mono cursor-not-allowed"
             />
             <p className="text-[10px] text-[#8F8880]">
-              Email address cannot be changed here.
+              Mobile phone is your primary account identifier and cannot be modified.
             </p>
-          </div>
-
-          <div className="space-y-1">
-            <label className="block text-[11px] uppercase tracking-wider text-[#736B63] font-medium">
-              Mobile Phone Number
-            </label>
-            <input
-              type="tel"
-              required
-              value={profilePhone}
-              onChange={(e) => setProfilePhone(e.target.value)}
-              className="w-full text-xs px-3.5 py-2.5 rounded-lg border border-[#D8CEBF] bg-[#FAF8F5] text-[#1C1A19] focus:outline-none focus:border-[#1C1A19]"
-            />
           </div>
 
           <div className="pt-2 flex justify-end border-t border-[#EAE4DC]">
