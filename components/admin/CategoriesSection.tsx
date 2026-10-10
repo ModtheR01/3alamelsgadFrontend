@@ -322,6 +322,13 @@ export default function CategoriesSection({
                   label="صورة غلاف التصنيف"
                   value={editingCategory.image}
                   onChange={(url) => setEditingCategory({ ...editingCategory, image: url })}
+                  onUploadResult={(result) =>
+                    setEditingCategory({
+                      ...editingCategory,
+                      image: result.secure_url || result.url,
+                      public_id: result.public_id,
+                    })
+                  }
                   folder="alamelsgad-categories"
                 />
               </div>

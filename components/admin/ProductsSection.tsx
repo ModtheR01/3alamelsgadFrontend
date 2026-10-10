@@ -201,9 +201,16 @@ export default function ProductsSection({
 
   const handleAddImageUrl = (url: string) => {
     if (!editingProduct || !url.trim()) return;
+    const cleanUrl = url.trim();
+    const newDraft = {
+      image: cleanUrl,
+      is_primary: editingProduct.images.length === 0,
+      sort_order: editingProduct.images.length,
+    };
     setEditingProduct({
       ...editingProduct,
-      images: [...editingProduct.images, url.trim()],
+      images: [...editingProduct.images, cleanUrl],
+      imageRecords: [...(editingProduct.imageRecords || []), newDraft],
     });
   };
 
@@ -212,13 +219,35 @@ export default function ProductsSection({
     const images = [...editingProduct.images];
     const [selected] = images.splice(index, 1);
     images.unshift(selected);
-    setEditingProduct({ ...editingProduct, images });
+
+    let imageRecords = editingProduct.imageRecords ? [...editingProduct.imageRecords] : [];
+    if (imageRecords.length === editingProduct.images.length) {
+      const [selectedRecord] = imageRecords.splice(index, 1);
+      imageRecords.unshift(selectedRecord);
+      imageRecords = imageRecords.map((rec, idx) => ({
+        ...rec,
+        is_primary: idx === 0,
+        sort_order: idx,
+      }));
+    }
+
+    setEditingProduct({ ...editingProduct, images, imageRecords });
   };
 
   const handleRemoveImage = (index: number) => {
     if (!editingProduct) return;
     const images = editingProduct.images.filter((_, i) => i !== index);
-    setEditingProduct({ ...editingProduct, images });
+    let imageRecords = editingProduct.imageRecords
+      ? editingProduct.imageRecords.filter((_, i) => i !== index)
+      : undefined;
+    if (imageRecords) {
+      imageRecords = imageRecords.map((rec, idx) => ({
+        ...rec,
+        is_primary: idx === 0,
+        sort_order: idx,
+      }));
+    }
+    setEditingProduct({ ...editingProduct, images, imageRecords });
   };
 
   const handleImageFileUpload = async (files: FileList | File[]) => {
@@ -237,6 +266,8 @@ export default function ProductsSection({
 
     try {
       const uploadedUrls: string[] = [];
+      const newDrafts: { image: string; public_id: string; is_primary: boolean; sort_order: number }[] = [];
+
       for (let i = 0; i < fileArray.length; i++) {
         const file = fileArray[i];
         try {
@@ -244,21 +275,28 @@ export default function ProductsSection({
             folder: 'alamelsgad-products',
             onProgress: (p) => setImageUploadProgress(Math.round(((i + p / 100) / fileArray.length) * 100)),
           });
-          uploadedUrls.push(res.secure_url || res.url);
-        } catch {
-          // Local fallback preview for development
-          const reader = new FileReader();
-          const dataUrl = await new Promise<string>((resolve) => {
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
+          const url = res.secure_url || res.url;
+          uploadedUrls.push(url);
+          newDrafts.push({
+            image: url,
+            public_id: res.public_id,
+            is_primary: editingProduct.images.length === 0 && i === 0,
+            sort_order: editingProduct.images.length + i,
           });
-          uploadedUrls.push(dataUrl);
+        } catch (uploadError: any) {
+          const msg = uploadError?.message || 'فشل رفع الصورة إلى Cloudinary.';
+          setFormError(msg);
+          break;
         }
       }
-      setEditingProduct({
-        ...editingProduct,
-        images: [...editingProduct.images, ...uploadedUrls],
-      });
+
+      if (uploadedUrls.length > 0) {
+        setEditingProduct({
+          ...editingProduct,
+          images: [...editingProduct.images, ...uploadedUrls],
+          imageRecords: [...(editingProduct.imageRecords || []), ...newDrafts],
+        });
+      }
     } finally {
       setIsImageUploading(false);
       setImageUploadProgress(0);

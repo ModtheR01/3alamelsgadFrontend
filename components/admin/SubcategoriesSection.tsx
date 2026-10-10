@@ -27,6 +27,7 @@ interface SubcategoriesSectionProps {
     category_id: number | string;
     name: string;
     image?: string | null;
+    public_id?: string | null;
   }) => Promise<void>;
   onDeleteSubcategory: (id: number | string) => Promise<void>;
   onRequestDeleteConfirm: (
@@ -56,10 +57,12 @@ export default function SubcategoriesSection({
     name: string;
     category_id: string | number;
     image: string;
+    public_id?: string;
   }>({
     name: '',
     category_id: categories[0]?.id || 1,
     image: '',
+    public_id: undefined,
   });
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -129,6 +132,7 @@ export default function SubcategoriesSection({
       name: '',
       category_id: defaultParentId || categories[0]?.id || 1,
       image: '',
+      public_id: undefined,
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -140,6 +144,7 @@ export default function SubcategoriesSection({
       name: sub.name,
       category_id: sub.category_id,
       image: sub.image || '',
+      public_id: sub.public_id || undefined,
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -160,6 +165,7 @@ export default function SubcategoriesSection({
         category_id: formData.category_id,
         name: formData.name.trim(),
         image: formData.image || null,
+        public_id: formData.public_id || null,
       });
       setIsModalOpen(false);
       setEditingSubcategory(null);
@@ -599,6 +605,13 @@ export default function SubcategoriesSection({
                   label="صورة التصنيف الفرعي (اختياري)"
                   value={formData.image}
                   onChange={(url) => setFormData({ ...formData, image: url })}
+                  onUploadResult={(result) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      image: result.secure_url || result.url,
+                      public_id: result.public_id,
+                    }))
+                  }
                   folder="alamelsgad-subcategories"
                 />
               </div>

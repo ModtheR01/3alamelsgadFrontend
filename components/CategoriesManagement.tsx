@@ -1087,7 +1087,7 @@ export default function CategoriesManagement() {
                 <CloudinaryImageField
                   label="Cover Image"
                   value={categoryFormData.image || ''}
-                  folder="tocco/categories"
+                  folder="alamelsgad-categories"
                   onChange={(image) =>
                     setCategoryFormData({
                       ...categoryFormData,
@@ -1208,7 +1208,7 @@ export default function CategoriesManagement() {
                 <CloudinaryImageField
                   label="Image"
                   value={subcategoryFormData.image || ''}
-                  folder="tocco/subcategories"
+                  folder="alamelsgad-subcategories"
                   onChange={(image) =>
                     setSubcategoryFormData({
                       ...subcategoryFormData,

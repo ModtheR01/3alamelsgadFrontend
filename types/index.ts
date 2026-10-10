@@ -18,6 +18,7 @@ export interface ProductSize {
 }
 
 export interface ProductImageDraft {
+  id?: number;
   image: string;
   public_id?: string;
   is_primary?: boolean;
@@ -64,6 +65,7 @@ export interface Category {
   slug: string;
   description: string;
   image: string;
+  public_id?: string;
   isFeatured: boolean;
   displayOrder: number;
   order?: number;

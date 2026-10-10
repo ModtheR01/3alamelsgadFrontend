@@ -331,6 +331,7 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     : '';
   const rawImages = Array.isArray(product?.images) ? product.images : [];
   const imageRecords = rawImages.map((image: BackendProductImage, index) => ({
+    id: image?.id,
     image: image?.image || '',
     public_id: image?.public_id,
     is_primary: image?.is_primary,
@@ -420,6 +421,7 @@ function mapBackendCategory(category: BackendCategory): Category {
     slug: String(category.id),
     description: '',
     image: category.image || '',
+    public_id: category.public_id || undefined,
     isFeatured: false,
     displayOrder: category.id,
     isVisible: true,
@@ -660,7 +662,14 @@ interface StoreContextType {
   toggleProductFeatured: (productId: string) => Promise<void>;
   saveCategory: (category: Category) => void;
   deleteCategory: (categoryId: string) => void;
-  saveSubcategory: (subcategory: { id?: number | string; category_id: number | string; name: string; image?: string | null }) => Promise<void>;
+  saveSubcategory: (subcategory: {
+    id?: number | string;
+    category_id: number | string;
+    name: string;
+    name_en?: string;
+    image?: string | null;
+    public_id?: string | null;
+  }) => Promise<void>;
   deleteSubcategory: (subcategoryId: number | string) => Promise<void>;
 
   saveEvent: (event: EventItem) => void;
@@ -1172,7 +1181,49 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ? await productService.updateProduct(productId, payload)
       : await productService.createProduct(payload);
 
-    if (!Number.isInteger(productId) && productToSave.images.length > 0) {
+    if (Number.isInteger(productId)) {
+      const existingImages = Array.isArray(saved.images) ? saved.images : [];
+      const currentUrls = new Set(productToSave.images);
+
+      // 1. Delete removed images from backend (which triggers backend Cloudinary deletion)
+      const imagesToDelete = existingImages.filter((img) => !currentUrls.has(img.image));
+      for (const img of imagesToDelete) {
+        try {
+          await productImageService.deleteProductImage(img.id);
+        } catch {
+          // Continue if already removed
+        }
+      }
+
+      // 2. Create newly uploaded images
+      const existingUrls = new Set(existingImages.map((img) => img.image));
+      const newlyAddedDrafts = (productToSave.imageRecords || []).filter(
+        (rec) => rec.image && !existingUrls.has(rec.image)
+      );
+
+      for (let i = 0; i < newlyAddedDrafts.length; i++) {
+        const draft = newlyAddedDrafts[i];
+        try {
+          await productImageService.createProductImage({
+            product: productId,
+            image: draft.image,
+            public_id: draft.public_id || '',
+            is_primary: productToSave.images.indexOf(draft.image) === 0,
+            sort_order: existingImages.length + i,
+          });
+        } catch {
+          // Continue
+        }
+      }
+
+      // 3. Refresh product to ensure images and primary status match backend state
+      try {
+        const refreshed = await productService.getProduct(productId);
+        saved = refreshed;
+      } catch {
+        // Keep saved
+      }
+    } else if (productToSave.images.length > 0) {
       const createdImages = await Promise.all(
         productToSave.images.map((imageUrl, index) => {
           const imageRecord = productToSave.imageRecords?.find((record) => record.image === imageUrl);
@@ -1223,6 +1274,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       name_ar: categoryToSave.name,
       name_en: (categoryToSave as any).name_en || categoryToSave.name,
       image: categoryToSave.image || null,
+      public_id: categoryToSave.public_id || (categoryToSave as any).public_id || undefined,
     };
     const categoryId = Number(categoryToSave.id);
     const saved = Number.isInteger(categoryId)
@@ -1244,70 +1296,48 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Admin CRUD for Subcategories
   const saveSubcategory = useCallback(
-    async (subToSave: { id?: number | string; category_id: number | string; name: string; name_en?: string; image?: string | null }) => {
+    async (subToSave: {
+      id?: number | string;
+      category_id: number | string;
+      name: string;
+      name_en?: string;
+      image?: string | null;
+      public_id?: string | null;
+    }) => {
       const numericCatId =
         typeof subToSave.category_id === 'number'
           ? subToSave.category_id
           : parseInt(String(subToSave.category_id).replace(/\D/g, '') || '1', 10);
       const numericSubId = subToSave.id ? Number(subToSave.id) : undefined;
-      try {
-        if (numericSubId && Number.isInteger(numericSubId) && numericSubId < 1000000000) {
-          const saved = await subcategoryService.updateSubcategory(numericSubId, {
-            category_id: numericCatId,
-            name: subToSave.name,
-            name_ar: subToSave.name,
-            name_en: subToSave.name_en || subToSave.name,
-            image: subToSave.image || null,
-          });
-          setSubcategories((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
-          return;
-        }
-        const created = await subcategoryService.createSubcategory({
+      if (numericSubId && Number.isInteger(numericSubId) && numericSubId < 1000000000) {
+        const saved = await subcategoryService.updateSubcategory(numericSubId, {
           category_id: numericCatId,
           name: subToSave.name,
           name_ar: subToSave.name,
           name_en: subToSave.name_en || subToSave.name,
           image: subToSave.image || null,
+          public_id: subToSave.public_id || undefined,
         });
-        setSubcategories((prev) => [...prev, created]);
-      } catch {
-        // Local fallback for offline preview
-        if (subToSave.id) {
-          setSubcategories((prev) =>
-            prev.map((s) =>
-              String(s.id) === String(subToSave.id)
-                ? { ...s, name: subToSave.name, category_id: numericCatId, image: subToSave.image || null }
-                : s
-            )
-          );
-        } else {
-          const mockSub: BackendSubcategory = {
-            id: Date.now(),
-            category_id: numericCatId,
-            name: subToSave.name,
-            name_ar: subToSave.name,
-            name_en: subToSave.name_en || subToSave.name,
-            image: subToSave.image || null,
-            public_id: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            deleted_at: null,
-          };
-          setSubcategories((prev) => [...prev, mockSub]);
-        }
+        setSubcategories((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
+        return;
       }
+      const created = await subcategoryService.createSubcategory({
+        category_id: numericCatId,
+        name: subToSave.name,
+        name_ar: subToSave.name,
+        name_en: subToSave.name_en || subToSave.name,
+        image: subToSave.image || null,
+        public_id: subToSave.public_id || undefined,
+      });
+      setSubcategories((prev) => [...prev, created]);
     },
     []
   );
 
   const deleteSubcategory = useCallback(async (subId: number | string) => {
-    try {
-      const numId = Number(subId);
-      if (Number.isInteger(numId) && numId < 1000000000) {
-        await subcategoryService.deleteSubcategory(numId);
-      }
-    } catch {
-      // Local fallback
+    const numId = Number(subId);
+    if (Number.isInteger(numId) && numId < 1000000000) {
+      await subcategoryService.deleteSubcategory(numId);
     }
     setSubcategories((prev) => prev.filter((s) => String(s.id) !== String(subId)));
   }, []);
