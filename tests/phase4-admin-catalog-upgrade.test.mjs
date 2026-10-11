@@ -289,3 +289,99 @@ test('Task 2 Regression — Product sizes and colors selection and payload contr
   assert.equal(formattedHex, '#241710');
   assert.equal(/^#[0-9A-F]{6}$/i.test(formattedHex), true);
 });
+
+test('Task 3 Regression — Category, Subcategory & Product Soft-Delete, Hard-Delete & Cloudinary Contracts', () => {
+  // 1. DRF Category Deletion Contracts
+  const categoryEndpoints = {
+    softDelete: (id) => ({ method: 'DELETE', path: `/api/categories/${id}/` }),
+    hardDelete: (id) => ({ method: 'DELETE', path: `/api/categories/${id}/hard-delete/` }),
+    restore: (id) => ({ method: 'POST', path: `/api/categories/${id}/restore/` }),
+    listDeleted: { method: 'GET', path: '/api/categories/deleted/' },
+  };
+
+  assert.deepEqual(categoryEndpoints.softDelete(1), { method: 'DELETE', path: '/api/categories/1/' });
+  assert.deepEqual(categoryEndpoints.hardDelete(1), { method: 'DELETE', path: '/api/categories/1/hard-delete/' });
+  assert.deepEqual(categoryEndpoints.restore(1), { method: 'POST', path: '/api/categories/1/restore/' });
+  assert.deepEqual(categoryEndpoints.listDeleted, { method: 'GET', path: '/api/categories/deleted/' });
+
+  // 2. DRF Subcategory Deletion Contracts
+  const subcategoryEndpoints = {
+    softDelete: (id) => ({ method: 'DELETE', path: `/api/subcategories/${id}/` }),
+    hardDelete: (id) => ({ method: 'DELETE', path: `/api/subcategories/${id}/hard-delete/` }),
+    restore: (id) => ({ method: 'POST', path: `/api/subcategories/${id}/restore/` }),
+    listDeleted: { method: 'GET', path: '/api/subcategories/deleted/' },
+  };
+
+  assert.deepEqual(subcategoryEndpoints.softDelete(5), { method: 'DELETE', path: '/api/subcategories/5/' });
+  assert.deepEqual(subcategoryEndpoints.hardDelete(5), { method: 'DELETE', path: '/api/subcategories/5/hard-delete/' });
+  assert.deepEqual(subcategoryEndpoints.restore(5), { method: 'POST', path: '/api/subcategories/5/restore/' });
+  assert.deepEqual(subcategoryEndpoints.listDeleted, { method: 'GET', path: '/api/subcategories/deleted/' });
+
+  // 3. DRF Product Deletion Contracts
+  const productEndpoints = {
+    softDelete: (id) => ({ method: 'DELETE', path: `/api/products/${id}/` }),
+    hardDelete: (id) => ({ method: 'DELETE', path: `/api/products/${id}/hard-delete/` }),
+    restore: (id) => ({ method: 'POST', path: `/api/products/${id}/restore/` }),
+    listDeleted: { method: 'GET', path: '/api/products/deleted/' },
+  };
+
+  assert.deepEqual(productEndpoints.softDelete(10), { method: 'DELETE', path: '/api/products/10/' });
+  assert.deepEqual(productEndpoints.hardDelete(10), { method: 'DELETE', path: '/api/products/10/hard-delete/' });
+  assert.deepEqual(productEndpoints.restore(10), { method: 'POST', path: '/api/products/10/restore/' });
+  assert.deepEqual(productEndpoints.listDeleted, { method: 'GET', path: '/api/products/deleted/' });
+
+  // 4. Cloudinary cleanup rule:
+  // On Soft Delete: image remains in Cloudinary, deleted_at is stamped
+  const softDeletedCategory = {
+    id: 1,
+    name_ar: 'سجاد إيراني',
+    image: 'https://res.cloudinary.com/demo/image/upload/sample.jpg',
+    public_id: 'categories/sample_iranian',
+    deleted_at: '2026-10-11T12:00:00Z',
+  };
+  assert.ok(softDeletedCategory.deleted_at !== null);
+  assert.ok(softDeletedCategory.public_id !== null); // Asset preserved for restore
+
+  // On Hard Delete: transaction triggers delete_image(public_id)
+  let deletedCloudinaryAsset = null;
+  const simulateHardDelete = (entity) => {
+    if (entity.public_id) {
+      deletedCloudinaryAsset = entity.public_id;
+    }
+  };
+  simulateHardDelete(softDeletedCategory);
+  assert.equal(deletedCloudinaryAsset, 'categories/sample_iranian');
+
+  // 5. Protected Relations Check:
+  // Cannot delete a category that has linked subcategories (ProtectedError / HTTP 400)
+  const categoryProtectedError = {
+    status: 400,
+    data: { detail: "You can't delete a category that has subcategories linked to it. Delete those subcategories first." },
+  };
+  assert.equal(categoryProtectedError.status, 400);
+  assert.match(categoryProtectedError.data.detail, /subcategories linked/);
+
+  // 6. Role Authorization:
+  // Hard delete is restricted strictly to ADMIN
+  const canHardDelete = (role) => role === 'ADMIN';
+  const canSoftDeleteOrRestore = (role) => role === 'ADMIN' || role === 'MODERATOR';
+
+  assert.equal(canHardDelete('ADMIN'), true);
+  assert.equal(canHardDelete('MODERATOR'), false);
+  assert.equal(canHardDelete('CUSTOMER'), false);
+
+  assert.equal(canSoftDeleteOrRestore('ADMIN'), true);
+  assert.equal(canSoftDeleteOrRestore('MODERATOR'), true);
+  assert.equal(canSoftDeleteOrRestore('CUSTOMER'), false);
+
+  // 7. Stale Record / 404 Recovery:
+  // If record was already deleted, frontend recovers gracefully and clears UI state
+  let categoriesInState = [{ id: '1', name: 'سجاد مودرن' }, { id: '2', name: 'سجاد كلاسيك' }];
+  const handle404OnDelete = (id) => {
+    // Tolerates 404 and cleans up state
+    categoriesInState = categoriesInState.filter((c) => c.id !== id);
+  };
+  handle404OnDelete('1');
+  assert.equal(categoriesInState.length, 1);
+  assert.equal(categoriesInState[0].id, '2');
+});

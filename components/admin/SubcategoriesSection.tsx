@@ -1,8 +1,8 @@
-'use client';
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Category } from '@/types';
 import { BackendSubcategory } from '@/types/category';
+import { subcategoryService } from '@/lib/api/services/categoryService';
+import { normalizeApiError } from '@/lib/api/errors';
 import {
   Layers,
   Plus,
@@ -10,11 +10,15 @@ import {
   Filter,
   Edit2,
   Trash2,
+  Archive,
+  RotateCcw,
+  RefreshCw,
   FolderTree,
   X,
   Check,
   CornerDownLeft,
   Sparkles,
+  AlertTriangle,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 import CloudinaryImageField from '@/components/CloudinaryImageField';
@@ -30,10 +34,19 @@ interface SubcategoriesSectionProps {
     public_id?: string | null;
   }) => Promise<void>;
   onDeleteSubcategory: (id: number | string) => Promise<void>;
+  onHardDeleteSubcategory?: (id: number | string) => Promise<void>;
+  onRestoreSubcategory?: (id: number | string) => Promise<void>;
+  isAdmin?: boolean;
   onRequestDeleteConfirm: (
     title: string,
     description: string,
-    onConfirm: () => void | Promise<void>
+    onConfirm: () => void | Promise<void>,
+    options?: {
+      confirmLabel?: string;
+      cancelLabel?: string;
+      variant?: 'danger' | 'warning' | 'info';
+      icon?: 'delete' | 'archive' | 'restore';
+    }
   ) => void;
   isModalOpen?: boolean;
   setIsModalOpen?: (open: boolean) => void;
@@ -44,10 +57,18 @@ export default function SubcategoriesSection({
   subcategories,
   onSaveSubcategory,
   onDeleteSubcategory,
+  onHardDeleteSubcategory,
+  onRestoreSubcategory,
+  isAdmin = false,
   onRequestDeleteConfirm,
   isModalOpen: controlledModalOpen,
   setIsModalOpen: setControlledModalOpen,
 }: SubcategoriesSectionProps) {
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [archivedSubcategories, setArchivedSubcategories] = useState<BackendSubcategory[]>([]);
+  const [isLoadingArchived, setIsLoadingArchived] = useState(false);
+  const [archivedError, setArchivedError] = useState<string | null>(null);
+
   const [internalModalOpen, setInternalModalOpen] = useState(false);
   const isModalOpen = controlledModalOpen !== undefined ? controlledModalOpen : internalModalOpen;
   const setIsModalOpen = setControlledModalOpen || setInternalModalOpen;
@@ -179,12 +200,75 @@ export default function SubcategoriesSection({
     }
   };
 
-  const handleDelete = (sub: BackendSubcategory) => {
+  const fetchArchivedSubcategories = useCallback(async () => {
+    setIsLoadingArchived(true);
+    setArchivedError(null);
+    try {
+      const data = await subcategoryService.getDeletedSubcategories();
+      setArchivedSubcategories(data || []);
+    } catch (err: any) {
+      setArchivedError(normalizeApiError(err).message);
+      setArchivedSubcategories([]);
+    } finally {
+      setIsLoadingArchived(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'archived') {
+      fetchArchivedSubcategories();
+    }
+  }, [activeTab, fetchArchivedSubcategories]);
+
+  const filteredArchivedSubcategories = useMemo(() => {
+    return archivedSubcategories.filter((sub) => {
+      const subName = sub?.name || sub?.name_ar || sub?.name_en || '';
+      const matchesSearch = subName.toLowerCase().includes(searchQuery.toLowerCase().trim());
+      const parentCat = getCategoryInfo(sub.category_id);
+      const matchesParent =
+        selectedParentFilter === 'all' ||
+        String(sub.category_id) === String(selectedParentFilter) ||
+        (parentCat && String(parentCat.id) === String(selectedParentFilter));
+      return matchesSearch && matchesParent;
+    });
+  }, [archivedSubcategories, searchQuery, selectedParentFilter, getCategoryInfo]);
+
+  const handleArchive = (sub: BackendSubcategory) => {
     const subName = sub.name || sub.name_ar || sub.name_en || `تصنيف #${sub.id}`;
     onRequestDeleteConfirm(
-      'حذف التصنيف الفرعي',
-      `هل أنت متأكد من رغبتك في حذف التصنيف الفرعي «${subName}» نهائياً من المتجر؟`,
-      () => onDeleteSubcategory(sub.id)
+      `أرشفة التصنيف الفرعي: «${subName}»`,
+      `هل أنت متأكد من رغبتك في أرشفة هذا التصنيف الفرعي؟ سيتم إخفاؤه من واجهة المتجر مع الاحتفاظ ببياناته وصوره وإمكانية استعادته لاحقاً.`,
+      async () => {
+        await onDeleteSubcategory(sub.id);
+        if (archivedSubcategories.length > 0) {
+          fetchArchivedSubcategories().catch(() => {});
+        }
+      },
+      {
+        confirmLabel: 'أرشفة ونقل للأرشيف',
+        variant: 'warning',
+        icon: 'archive',
+      }
+    );
+  };
+
+  const handleHardDelete = (sub: BackendSubcategory) => {
+    const subName = sub.name || sub.name_ar || sub.name_en || `تصنيف #${sub.id}`;
+    onRequestDeleteConfirm(
+      `حذف نهائي للتصنيف الفرعي: «${subName}»`,
+      `تحذير: سيتم حذف هذا التصنيف الفرعي نهائياً من قاعدة البيانات وإزالة جميع صوره المرتبطة على السحابة (Cloudinary) بشكل دائم. تأكد من عدم وجود منتجات مرتبطة به.`,
+      async () => {
+        if (onHardDeleteSubcategory) {
+          await onHardDeleteSubcategory(sub.id);
+        } else {
+          await subcategoryService.hardDeleteSubcategory(Number(sub.id));
+        }
+      },
+      {
+        confirmLabel: 'حذف نهائي دائم',
+        variant: 'danger',
+        icon: 'delete',
+      }
     );
   };
 
@@ -212,6 +296,43 @@ export default function SubcategoriesSection({
         >
           <Plus className="w-4 h-4 text-[#EED8BE]" />
           <span>إضافة تصنيف فرعي جديد</span>
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-[#EAE3D8] pb-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('active')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${
+            activeTab === 'active'
+              ? 'bg-[#241710] text-[#FAF5EB] shadow-xs'
+              : 'text-[#736B63] hover:text-[#241710] hover:bg-[#FAF8F5]'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>التصنيفات الفرعية النشطة</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] bg-white/20">
+            {subcategories.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('archived')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${
+            activeTab === 'archived'
+              ? 'bg-[#241710] text-[#FAF5EB] shadow-xs'
+              : 'text-[#736B63] hover:text-[#241710] hover:bg-[#FAF8F5]'
+          }`}
+        >
+          <Archive className="w-4 h-4" />
+          <span>الأرشيف والمحذوفات</span>
+          {archivedSubcategories.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-900 font-mono">
+              {archivedSubcategories.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -275,8 +396,11 @@ export default function SubcategoriesSection({
         </div>
       </div>
 
-      {/* VIEW MODE 1: VISUAL HIERARCHY TREE VIEW (Category └── Subcategory) */}
-      {viewMode === 'hierarchy' && (
+      {/* ACTIVE SUBCATEGORIES TAB */}
+      {activeTab === 'active' && (
+        <>
+          {/* VIEW MODE 1: VISUAL HIERARCHY TREE VIEW (Category └── Subcategory) */}
+          {viewMode === 'hierarchy' && (
         <div className="space-y-4">
           {Array.from(subcategoriesByCategory.entries()).map(([catId, { category, subs }]) => (
             <div
@@ -393,12 +517,22 @@ export default function SubcategoriesSection({
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDelete(sub)}
-                            className="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-50 transition-colors"
-                            title="حذف التصنيف الفرعي"
+                            onClick={() => handleArchive(sub)}
+                            className="p-1.5 rounded-lg text-amber-700 hover:text-amber-900 hover:bg-amber-50 transition-colors"
+                            title="أرشفة التصنيف الفرعي (حفظ بالأرشيف وإخفاء)"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Archive className="w-3.5 h-3.5" />
                           </button>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => handleHardDelete(sub)}
+                              className="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-50 transition-colors"
+                              title="حذف نهائي دائم (مدير النظام فقط)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -516,12 +650,22 @@ export default function SubcategoriesSection({
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDelete(sub)}
-                              className="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-50 transition-colors"
-                              title="حذف التصنيف الفرعي"
+                              onClick={() => handleArchive(sub)}
+                              className="p-1.5 rounded-lg text-amber-700 hover:text-amber-900 hover:bg-amber-50 transition-colors"
+                              title="أرشفة التصنيف الفرعي"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Archive className="w-4 h-4" />
                             </button>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleHardDelete(sub)}
+                                className="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-50 transition-colors"
+                                title="حذف نهائي دائم (مدير النظام فقط)"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -529,6 +673,167 @@ export default function SubcategoriesSection({
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  )}
+
+      {/* ARCHIVED SUBCATEGORIES TAB */}
+      {activeTab === 'archived' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-2xl text-xs text-amber-950">
+            <div className="flex items-center gap-2">
+              <Archive className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>
+                التصنيفات الفرعية المؤرشفة محفوظة في النظام ومخفية عن معروضات المتجر. يمكنك استعادتها أو حذفها نهائياً لتنظيف السحابة.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={fetchArchivedSubcategories}
+              disabled={isLoadingArchived}
+              className="px-3 py-1.5 rounded-xl bg-white border border-amber-200 text-amber-900 text-xs font-bold hover:bg-amber-100 flex items-center gap-1.5 shrink-0 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingArchived ? 'animate-spin' : ''}`} />
+              <span>تحديث الأرشيف</span>
+            </button>
+          </div>
+
+          {archivedError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold">
+              {archivedError}
+            </div>
+          )}
+
+          {isLoadingArchived ? (
+            <div className="p-12 text-center text-xs text-[#8C7A6B]">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto text-[#A27B5C] mb-2" />
+              جاري تحميل التصنيفات الفرعية المؤرشفة...
+            </div>
+          ) : filteredArchivedSubcategories.length === 0 ? (
+            <div className="p-12 bg-white rounded-2xl border border-[#EAE3D8] text-center space-y-2">
+              <Archive className="w-8 h-8 text-[#8C7A6B] mx-auto opacity-40" />
+              <p className="text-sm font-bold text-[#241710]">لا توجد تصنيفات فرعية مؤرشفة</p>
+              <p className="text-xs text-[#8C7A6B]">جميع التصنيفات الفرعية نشطة ومعروضة حالياً في المتجر.</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-amber-200/80 shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-right">
+                  <thead className="bg-[#FAF8F5] border-b border-[#EAE3D8] text-[#8C7A6B] text-[10px] font-bold uppercase tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4 text-right">التصنيف الفرعي</th>
+                      <th className="py-3 px-4 text-right">التصنيف الرئيسي</th>
+                      <th className="py-3 px-4 text-right">تاريخ الأرشفة</th>
+                      <th className="py-3 px-4 text-left">الإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F5EFE6]">
+                    {filteredArchivedSubcategories.map((sub) => {
+                      const parentCat = getCategoryInfo(sub.category_id);
+                      const parentName = parentCat?.name || `تصنيف #${sub.category_id}`;
+                      const subName = sub.name || sub.name_ar || sub.name_en || `تصنيف #${sub.id}`;
+
+                      return (
+                        <tr key={sub.id} className="hover:bg-[#FAF8F5]/80 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] shrink-0 p-0.5 flex items-center justify-center">
+                                {sub.image ? (
+                                  <Image
+                                    src={sub.image}
+                                    alt={subName}
+                                    fill
+                                    className="object-contain grayscale"
+                                  />
+                                ) : (
+                                  <Layers className="w-4 h-4 text-[#A27B5C]" />
+                                )}
+                              </div>
+                              <div>
+                                <span className="font-bold text-xs text-[#241710] block">{subName}</span>
+                                <span className="text-[10px] text-[#8C7A6B] font-mono">معرف #{sub.id}</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4 font-bold text-[#241710]">
+                            <span className="px-2.5 py-1 rounded-lg bg-[#FAF5EB] text-[#241710] border border-[#E8DEC0] text-xs">
+                              {parentName}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-xs text-[#8C7A6B]">
+                            {sub.deleted_at ? new Date(sub.deleted_at).toLocaleDateString('ar-EG') : 'غير محدد'}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-left">
+                            <div className="inline-flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onRequestDeleteConfirm(
+                                    `استعادة التصنيف الفرعي: «${subName}»`,
+                                    'هل ترغب في استعادة هذا التصنيف الفرعي وإعادته إلى قائمة التصنيفات النشطة؟',
+                                    async () => {
+                                      if (onRestoreSubcategory) {
+                                        await onRestoreSubcategory(sub.id);
+                                      } else {
+                                        await subcategoryService.restoreSubcategory(Number(sub.id));
+                                      }
+                                      await fetchArchivedSubcategories();
+                                    },
+                                    {
+                                      confirmLabel: 'تأكيد الاستعادة',
+                                      variant: 'info',
+                                      icon: 'restore',
+                                    }
+                                  )
+                                }
+                                className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>استعادة</span>
+                              </button>
+
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    onRequestDeleteConfirm(
+                                      `حذف نهائي للتصنيف الفرعي المؤرشف: «${subName}»`,
+                                      'تحذير: سيتم حذف هذا التصنيف الفرعي المؤرشف وجميع صوره على Cloudinary بشكل نهائي ولا يمكن استعادته أبداً.',
+                                      async () => {
+                                        if (onHardDeleteSubcategory) {
+                                          await onHardDeleteSubcategory(sub.id);
+                                        } else {
+                                          await subcategoryService.hardDeleteSubcategory(Number(sub.id));
+                                        }
+                                        await fetchArchivedSubcategories();
+                                      },
+                                      {
+                                        confirmLabel: 'حذف نهائي دائم',
+                                        variant: 'danger',
+                                        icon: 'delete',
+                                      }
+                                    )
+                                  }
+                                  className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>حذف نهائي</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

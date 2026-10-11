@@ -1,16 +1,21 @@
-'use client';
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Category } from '@/types';
+import { BackendCategory } from '@/types/category';
+import { categoryService } from '@/lib/api/services/categoryService';
+import { normalizeApiError } from '@/lib/api/errors';
 import {
   FolderTree,
   Plus,
   Search,
   Edit2,
   Trash2,
+  Archive,
+  RotateCcw,
+  RefreshCw,
   Check,
   X,
   Layers,
+  AlertTriangle,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 import CloudinaryImageField from '@/components/CloudinaryImageField';
@@ -20,7 +25,20 @@ interface CategoriesSectionProps {
   productCountsByCategory: Record<string, number>;
   onSaveCategory: (category: Category) => Promise<void> | void;
   onDeleteCategory: (categoryId: string) => Promise<void> | void;
-  onRequestDeleteConfirm: (title: string, message: string, onConfirm: () => void | Promise<void>) => void;
+  onHardDeleteCategory?: (categoryId: string) => Promise<void> | void;
+  onRestoreCategory?: (categoryId: string) => Promise<void> | void;
+  isAdmin?: boolean;
+  onRequestDeleteConfirm: (
+    title: string,
+    message: string,
+    onConfirm: () => void | Promise<void>,
+    options?: {
+      confirmLabel?: string;
+      cancelLabel?: string;
+      variant?: 'danger' | 'warning' | 'info';
+      icon?: 'delete' | 'archive' | 'restore';
+    }
+  ) => void;
   editingCategory: Category | null;
   setEditingCategory: (c: Category | null) => void;
   isModalOpen: boolean;
@@ -32,15 +50,55 @@ export default function CategoriesSection({
   productCountsByCategory,
   onSaveCategory,
   onDeleteCategory,
+  onHardDeleteCategory,
+  onRestoreCategory,
+  isAdmin = false,
   onRequestDeleteConfirm,
   editingCategory,
   setEditingCategory,
   isModalOpen,
   setIsModalOpen,
 }: CategoriesSectionProps) {
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [archivedCategories, setArchivedCategories] = useState<BackendCategory[]>([]);
+  const [isLoadingArchived, setIsLoadingArchived] = useState(false);
+  const [archivedError, setArchivedError] = useState<string | null>(null);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const fetchArchivedCategories = useCallback(async () => {
+    setIsLoadingArchived(true);
+    setArchivedError(null);
+    try {
+      const data = await categoryService.getDeletedCategories();
+      setArchivedCategories(data || []);
+    } catch (err: any) {
+      setArchivedError(normalizeApiError(err).message);
+      setArchivedCategories([]);
+    } finally {
+      setIsLoadingArchived(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'archived') {
+      fetchArchivedCategories();
+    }
+  }, [activeTab, fetchArchivedCategories]);
+
+  const filteredArchivedCategories = useMemo(() => {
+    return archivedCategories.filter((c) => {
+      const q = searchQuery.toLowerCase().trim();
+      const name = c.name || c.name_ar || c.name_en || '';
+      return (
+        !q ||
+        name.toLowerCase().includes(q) ||
+        (c.slug && c.slug.toLowerCase().includes(q))
+      );
+    });
+  }, [archivedCategories, searchQuery]);
 
   const filteredCategories = useMemo(() => {
     return categories.filter((c) => {
@@ -123,6 +181,43 @@ export default function CategoriesSection({
         </button>
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-[#EAE3D8] pb-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('active')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${
+            activeTab === 'active'
+              ? 'bg-[#241710] text-[#FAF5EB] shadow-xs'
+              : 'text-[#736B63] hover:text-[#241710] hover:bg-[#FAF8F5]'
+          }`}
+        >
+          <FolderTree className="w-4 h-4" />
+          <span>التصنيفات النشطة</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] bg-white/20">
+            {categories.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('archived')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${
+            activeTab === 'archived'
+              ? 'bg-[#241710] text-[#FAF5EB] shadow-xs'
+              : 'text-[#736B63] hover:text-[#241710] hover:bg-[#FAF8F5]'
+          }`}
+        >
+          <Archive className="w-4 h-4" />
+          <span>الأرشيف والمحذوفات</span>
+          {archivedCategories.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-900 font-mono">
+              {archivedCategories.length}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Search Toolbar */}
       <div className="p-4 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative flex-1 w-full max-w-md">
@@ -131,99 +226,296 @@ export default function CategoriesSection({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ابحث عن تصنيف رئيسي بالاسم أو الوصف..."
+            placeholder={
+              activeTab === 'active'
+                ? 'ابحث عن تصنيف رئيسي نشط بالاسم أو الوصف...'
+                : 'ابحث في التصنيفات المؤرشفة...'
+            }
             className="w-full ps-9 pe-3 py-2.5 text-xs rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] text-[#241710] placeholder-[#8C7A6B] focus:outline-none focus:border-[#241710]"
           />
         </div>
 
         <span className="text-xs text-[#8C7A6B]">
-          الإجمالي: <strong className="text-[#241710]">{categories.length}</strong> تصنيف رئيسي
+          الإجمالي:{' '}
+          <strong className="text-[#241710]">
+            {activeTab === 'active' ? categories.length : archivedCategories.length}
+          </strong>{' '}
+          {activeTab === 'active' ? 'تصنيف نشط' : 'تصنيف في الأرشيف'}
         </span>
       </div>
 
-      {/* Categories Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filteredCategories.map((cat) => {
-          const productCount = productCountsByCategory[cat.id] || 0;
+      {/* ACTIVE CATEGORIES TAB */}
+      {activeTab === 'active' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredCategories.map((cat) => {
+            const productCount = productCountsByCategory[cat.id] || 0;
 
-          return (
-            <div
-              key={cat.id}
-              className="rounded-2xl border border-[#EAE3D8] bg-white overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
-            >
-              {/* Category Cover Image */}
-              <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#FAF8F5]">
-                <Image
-                  src={cat.image}
-                  alt={cat.name}
-                  fill
-                  className="object-contain group-hover:scale-105 transition-transform duration-500 p-2"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+            return (
+              <div
+                key={cat.id}
+                className="rounded-2xl border border-[#EAE3D8] bg-white overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
+              >
+                {/* Category Cover Image */}
+                <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#FAF8F5]">
+                  <Image
+                    src={cat.image}
+                    alt={cat.name}
+                    fill
+                    className="object-contain group-hover:scale-105 transition-transform duration-500 p-2"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
-                <div className="absolute top-3 start-3 flex items-center gap-1.5">
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      cat.isVisible !== false
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-stone-600 text-white'
-                    }`}
-                  >
-                    {cat.isVisible !== false ? 'ظاهر بالمتجر' : 'مخفي'}
-                  </span>
-                  {cat.isFeatured && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">
-                      مميز
+                  <div className="absolute top-3 start-3 flex items-center gap-1.5">
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        cat.isVisible !== false
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-stone-600 text-white'
+                      }`}
+                    >
+                      {cat.isVisible !== false ? 'ظاهر بالمتجر' : 'مخفي'}
                     </span>
-                  )}
+                    {cat.isFeatured && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                        مميز
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="absolute bottom-3 start-3 end-3 text-white">
+                    <h3 className="font-bold text-sm leading-tight drop-shadow-sm">{cat.name}</h3>
+                    <p className="text-[10px] text-white/80 font-mono mt-0.5">{cat.slug}</p>
+                  </div>
                 </div>
 
-                <div className="absolute bottom-3 start-3 end-3 text-white">
-                  <h3 className="font-bold text-sm leading-tight drop-shadow-sm">{cat.name}</h3>
-                  <p className="text-[10px] text-white/80 font-mono mt-0.5">{cat.slug}</p>
-                </div>
-              </div>
+                {/* Category Details */}
+                <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                  <p className="text-xs text-[#5C4A3E] line-clamp-2 leading-relaxed">
+                    {cat.description || 'لا يوجد وصف مضاف لهذا التصنيف.'}
+                  </p>
 
-              {/* Category Details */}
-              <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
-                <p className="text-xs text-[#5C4A3E] line-clamp-2 leading-relaxed">
-                  {cat.description || 'لا يوجد وصف مضاف لهذا التصنيف.'}
-                </p>
+                  <div className="pt-3 border-t border-[#F5EFE6] flex items-center justify-between text-xs">
+                    <span className="text-[#8C7A6B]">
+                      عدد المنتجات: <strong className="text-[#241710] font-bold">{productCount}</strong> منتج
+                    </span>
 
-                <div className="pt-3 border-t border-[#F5EFE6] flex items-center justify-between text-xs">
-                  <span className="text-[#8C7A6B]">
-                    عدد المنتجات: <strong className="text-[#241710] font-bold">{productCount}</strong> منتج
-                  </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(cat)}
+                        className="p-1.5 rounded-lg text-[#241710] hover:bg-[#F5EFE6] transition-colors"
+                        title="تعديل التصنيف"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleOpenEdit(cat)}
-                      className="p-1.5 rounded-lg text-[#241710] hover:bg-[#F5EFE6] transition-colors"
-                      title="تعديل التصنيف"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() =>
-                        onRequestDeleteConfirm(
-                          `حذف التصنيف: «${cat.name}»`,
-                          'هل أنت متأكد من رغبتك في حذف هذا التصنيف؟ ستبقى المنتجات المرتبطة به في النظام.',
-                          () => onDeleteCategory(cat.id)
-                        )
-                      }
-                      className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
-                      title="حذف التصنيف"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      {/* Archive (Soft delete) */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onRequestDeleteConfirm(
+                            `أرشفة التصنيف: «${cat.name}»`,
+                            'هل ترغب في نقل هذا التصنيف إلى الأرشيف وإخفائه من المتجر؟ ستبقى بياناته وصوره محفوظة، ويمكنك استعادته في أي وقت لاحقاً.',
+                            async () => {
+                              await onDeleteCategory(cat.id);
+                              if (archivedCategories.length > 0) {
+                                fetchArchivedCategories().catch(() => {});
+                              }
+                            },
+                            {
+                              confirmLabel: 'أرشفة ونقل للأرشيف',
+                              variant: 'warning',
+                              icon: 'archive',
+                            }
+                          )
+                        }
+                        className="p-1.5 rounded-lg text-amber-700 hover:bg-amber-50 transition-colors"
+                        title="أرشفة التصنيف (حفظ بالأرشيف وإخفاء)"
+                      >
+                        <Archive className="w-4 h-4" />
+                      </button>
+
+                      {/* Permanent Hard Delete (Admin only) */}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onRequestDeleteConfirm(
+                              `حذف نهائي للتصنيف: «${cat.name}»`,
+                              'تحذير: سيتم حذف هذا التصنيف نهائياً من قاعدة البيانات وإزالة جميع صوره المرتبطة على السحابة (Cloudinary) بشكل دائم. لا يمكن التراجع عن هذا الإجراء.',
+                              async () => {
+                                if (onHardDeleteCategory) {
+                                  await onHardDeleteCategory(cat.id);
+                                } else {
+                                  await categoryService.hardDeleteCategory(Number(cat.id));
+                                }
+                              },
+                              {
+                                confirmLabel: 'حذف نهائي دائم',
+                                variant: 'danger',
+                                icon: 'delete',
+                              }
+                            )
+                          }
+                          className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
+                          title="حذف نهائي دائم (مدير النظام فقط)"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ARCHIVED CATEGORIES TAB */}
+      {activeTab === 'archived' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-2xl text-xs text-amber-950">
+            <div className="flex items-center gap-2">
+              <Archive className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>
+                التصنيفات المؤرشفة مخفية من المتجر العام ولكن صورها وبياناتها محفوظة بالكامل. يمكنك استعادتها في أي وقت، أو حذفها نهائياً لتنظيف السحابة.
+              </span>
             </div>
-          );
-        })}
-      </div>
+            <button
+              type="button"
+              onClick={fetchArchivedCategories}
+              disabled={isLoadingArchived}
+              className="px-3 py-1.5 rounded-xl bg-white border border-amber-200 text-amber-900 text-xs font-bold hover:bg-amber-100 flex items-center gap-1.5 shrink-0 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingArchived ? 'animate-spin' : ''}`} />
+              <span>تحديث الأرشيف</span>
+            </button>
+          </div>
+
+          {archivedError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold">
+              {archivedError}
+            </div>
+          )}
+
+          {isLoadingArchived ? (
+            <div className="p-12 text-center text-xs text-[#8C7A6B]">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto text-[#A27B5C] mb-2" />
+              جاري تحميل التصنيفات المؤرشفة...
+            </div>
+          ) : filteredArchivedCategories.length === 0 ? (
+            <div className="p-12 bg-white rounded-2xl border border-[#EAE3D8] text-center space-y-2">
+              <Archive className="w-8 h-8 text-[#8C7A6B] mx-auto opacity-40" />
+              <p className="text-sm font-bold text-[#241710]">لا توجد تصنيفات مؤرشفة</p>
+              <p className="text-xs text-[#8C7A6B]">جميع التصنيفات الرئيسية نشطة ومعروضة حالياً.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredArchivedCategories.map((archived) => {
+                const catName = archived.name || archived.name_ar || archived.name_en || `تصنيف #${archived.id}`;
+                return (
+                  <div
+                    key={archived.id}
+                    className="rounded-2xl border border-amber-200/90 bg-white overflow-hidden shadow-xs flex flex-col justify-between"
+                  >
+                    <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#FAF8F5]">
+                      {archived.image ? (
+                        <Image
+                          src={archived.image}
+                          alt={catName}
+                          fill
+                          className="object-contain p-2 grayscale contrast-75"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-stone-400">
+                          <FolderTree className="w-8 h-8" />
+                        </div>
+                      )}
+                      <div className="absolute top-3 start-3">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-600 text-white flex items-center gap-1 shadow-xs">
+                          <Archive className="w-3 h-3" />
+                          <span>مؤرشف</span>
+                        </span>
+                      </div>
+                      <div className="absolute bottom-3 start-3 end-3 bg-black/60 backdrop-blur-xs p-2 rounded-xl text-white">
+                        <h3 className="font-bold text-xs">{catName}</h3>
+                        <p className="text-[10px] text-white/70 font-mono mt-0.5">{archived.slug || `معرف #${archived.id}`}</p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 space-y-3">
+                      <div className="text-[11px] text-[#8C7A6B]">
+                        تاريخ الأرشفة: {archived.deleted_at ? new Date(archived.deleted_at).toLocaleDateString('ar-EG') : 'غير محدد'}
+                      </div>
+
+                      <div className="pt-3 border-t border-[#F5EFE6] flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onRequestDeleteConfirm(
+                              `استعادة التصنيف: «${catName}»`,
+                              'هل ترغب في استعادة هذا التصنيف وإعادته إلى قائمة التصنيفات النشطة والمعروضة في المتجر؟',
+                              async () => {
+                                if (onRestoreCategory) {
+                                  await onRestoreCategory(String(archived.id));
+                                } else {
+                                  await categoryService.restoreCategory(archived.id);
+                                }
+                                await fetchArchivedCategories();
+                              },
+                              {
+                                confirmLabel: 'تأكيد الاستعادة',
+                                variant: 'info',
+                                icon: 'restore',
+                              }
+                            )
+                          }
+                          className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>استعادة التصنيف</span>
+                        </button>
+
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onRequestDeleteConfirm(
+                                `حذف نهائي للتصنيف المؤرشف: «${catName}»`,
+                                'تحذير: سيتم حذف هذا التصنيف المؤرشف وجميع صوره على Cloudinary بشكل نهائي ولا يمكن استعادته أبداً.',
+                                async () => {
+                                  if (onHardDeleteCategory) {
+                                    await onHardDeleteCategory(String(archived.id));
+                                  } else {
+                                    await categoryService.hardDeleteCategory(archived.id);
+                                  }
+                                  await fetchArchivedCategories();
+                                },
+                                {
+                                  confirmLabel: 'حذف نهائي دائم',
+                                  variant: 'danger',
+                                  icon: 'delete',
+                                }
+                              )
+                            }
+                            className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>حذف نهائي</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Add / Edit Category Modal */}
       {isModalOpen && editingCategory && (

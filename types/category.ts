@@ -7,10 +7,12 @@ export interface BackendCategory {
   name: string;
   name_ar?: string;
   name_en?: string;
+  slug?: string;
   image: string | null;
   public_id: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface BackendSubcategoryCategory {

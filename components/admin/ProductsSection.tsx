@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Product, Category, ProductColor } from '@/types';
 import { BackendSubcategory } from '@/types/category';
 import {
@@ -11,6 +9,9 @@ import {
   ArrowUpDown,
   Edit2,
   Trash2,
+  Archive,
+  RotateCcw,
+  RefreshCw,
   Eye,
   Star,
   Check,
@@ -29,7 +30,8 @@ import {
 import Image from '@/components/SafeImage';
 import { uploadDirectToCloudinary } from '@/lib/api/cloudinary';
 import { productService } from '@/lib/api/services/productService';
-import { BackendSize, BackendColor } from '@/types/product';
+import { BackendProduct, BackendSize, BackendColor } from '@/types/product';
+import { normalizeApiError } from '@/lib/api/errors';
 
 interface ProductsSectionProps {
   products: Product[];
@@ -37,8 +39,21 @@ interface ProductsSectionProps {
   subcategories?: BackendSubcategory[];
   onSaveProduct: (product: Product) => Promise<void> | void;
   onDeleteProduct: (productId: string) => Promise<void> | void;
+  onHardDeleteProduct?: (productId: string) => Promise<void> | void;
+  onRestoreProduct?: (productId: string) => Promise<void> | void;
+  isAdmin?: boolean;
   onToggleFeatured: (productId: string) => void;
-  onRequestDeleteConfirm: (title: string, message: string, onConfirm: () => void | Promise<void>) => void;
+  onRequestDeleteConfirm: (
+    title: string,
+    message: string,
+    onConfirm: () => void | Promise<void>,
+    options?: {
+      confirmLabel?: string;
+      cancelLabel?: string;
+      variant?: 'danger' | 'warning' | 'info';
+      icon?: 'delete' | 'archive' | 'restore';
+    }
+  ) => void;
   editingProduct: Product | null;
   setEditingProduct: (p: Product | null) => void;
   isModalOpen: boolean;
@@ -53,6 +68,9 @@ export default function ProductsSection({
   subcategories = [],
   onSaveProduct,
   onDeleteProduct,
+  onHardDeleteProduct,
+  onRestoreProduct,
+  isAdmin = false,
   onToggleFeatured,
   onRequestDeleteConfirm,
   editingProduct,
@@ -60,6 +78,30 @@ export default function ProductsSection({
   isModalOpen,
   setIsModalOpen,
 }: ProductsSectionProps) {
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [archivedProducts, setArchivedProducts] = useState<BackendProduct[]>([]);
+  const [isLoadingArchived, setIsLoadingArchived] = useState(false);
+  const [archivedError, setArchivedError] = useState<string | null>(null);
+
+  const fetchArchivedProducts = useCallback(async () => {
+    setIsLoadingArchived(true);
+    setArchivedError(null);
+    try {
+      const data = await productService.getDeletedProducts();
+      setArchivedProducts(data || []);
+    } catch (err: any) {
+      setArchivedError(normalizeApiError(err).message);
+      setArchivedProducts([]);
+    } finally {
+      setIsLoadingArchived(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'archived') {
+      fetchArchivedProducts();
+    }
+  }, [activeTab, fetchArchivedProducts]);
   // Filters, Search, Sort & Pagination
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -590,8 +632,48 @@ export default function ProductsSection({
         </button>
       </div>
 
-      {/* Search, Filter & Sort Toolbar */}
-      <div className="p-4 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs space-y-3">
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-[#EAE3D8] pb-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('active')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${
+            activeTab === 'active'
+              ? 'bg-[#241710] text-[#FAF5EB] shadow-xs'
+              : 'text-[#736B63] hover:text-[#241710] hover:bg-[#FAF8F5]'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          <span>المنتجات النشطة</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] bg-white/20">
+            {products.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('archived')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${
+            activeTab === 'archived'
+              ? 'bg-[#241710] text-[#FAF5EB] shadow-xs'
+              : 'text-[#736B63] hover:text-[#241710] hover:bg-[#FAF8F5]'
+          }`}
+        >
+          <Archive className="w-4 h-4" />
+          <span>المنتجات المؤرشفة</span>
+          {archivedProducts.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-900 font-mono">
+              {archivedProducts.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ACTIVE PRODUCTS TAB */}
+      {activeTab === 'active' && (
+        <>
+          {/* Search, Filter & Sort Toolbar */}
+          <div className="p-4 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row items-center gap-3">
           {/* Search Input */}
           <div className="relative flex-1 w-full">
@@ -854,20 +936,60 @@ export default function ProductsSection({
                             <Edit2 className="w-4 h-4" />
                           </button>
 
+                          {/* Archive (Soft delete) */}
                           <button
                             type="button"
                             onClick={() =>
                               onRequestDeleteConfirm(
-                                `حذف المنتج: «${p.name}»`,
-                                'هل أنت متأكد من رغبتك في حذف هذا المنتج نهائياً من قاعدة البيانات؟',
-                                () => onDeleteProduct(p.id)
+                                `أرشفة المنتج: «${p.name}»`,
+                                'هل ترغب في نقل هذا المنتج إلى الأرشيف وإخفائه من المتجر؟ ستبقى بياناته وصوره محفوظة، ويمكنك استعادته في أي وقت لاحقاً.',
+                                async () => {
+                                  await onDeleteProduct(p.id);
+                                  if (archivedProducts.length > 0) {
+                                    fetchArchivedProducts().catch(() => {});
+                                  }
+                                },
+                                {
+                                  confirmLabel: 'أرشفة ونقل للأرشيف',
+                                  variant: 'warning',
+                                  icon: 'archive',
+                                }
                               )
                             }
-                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
-                            title="حذف المنتج"
+                            className="p-1.5 rounded-lg text-amber-700 hover:text-amber-900 hover:bg-amber-50 transition-colors"
+                            title="أرشفة المنتج (إخفاء ونقل للأرشيف)"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Archive className="w-4 h-4" />
                           </button>
+
+                          {/* Hard Delete (Admin only) */}
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onRequestDeleteConfirm(
+                                  `حذف نهائي للمنتج: «${p.name}»`,
+                                  'تحذير: سيتم حذف هذا المنتج نهائياً من قاعدة البيانات وإزالة جميع صوره المرتبطة على السحابة (Cloudinary) بشكل دائم. لا يمكن التراجع عن هذا الإجراء.',
+                                  async () => {
+                                    if (onHardDeleteProduct) {
+                                      await onHardDeleteProduct(p.id);
+                                    } else {
+                                      await productService.hardDeleteProduct(Number(p.id));
+                                    }
+                                  },
+                                  {
+                                    confirmLabel: 'حذف نهائي دائم',
+                                    variant: 'danger',
+                                    icon: 'delete',
+                                  }
+                                )
+                              }
+                              className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="حذف نهائي دائم (مدير النظام فقط)"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -909,6 +1031,164 @@ export default function ProductsSection({
           </div>
         )}
       </div>
+    </>
+  )}
+
+      {/* ARCHIVED PRODUCTS TAB */}
+      {activeTab === 'archived' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-2xl text-xs text-amber-950">
+            <div className="flex items-center gap-2">
+              <Archive className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>
+                المنتجات المؤرشفة مخفية من المتجر العام وسلة المشتريات، ولكن صورها وتفاصيلها محفوظة في النظام. يمكنك استعادتها في أي وقت، أو حذفها نهائياً لتنظيف السحابة.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={fetchArchivedProducts}
+              disabled={isLoadingArchived}
+              className="px-3 py-1.5 rounded-xl bg-white border border-amber-200 text-amber-900 text-xs font-bold hover:bg-amber-100 flex items-center gap-1.5 shrink-0 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingArchived ? 'animate-spin' : ''}`} />
+              <span>تحديث الأرشيف</span>
+            </button>
+          </div>
+
+          {archivedError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold">
+              {archivedError}
+            </div>
+          )}
+
+          {isLoadingArchived ? (
+            <div className="p-12 text-center text-xs text-[#8C7A6B]">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto text-[#A27B5C] mb-2" />
+              جاري تحميل المنتجات المؤرشفة...
+            </div>
+          ) : archivedProducts.length === 0 ? (
+            <div className="p-12 bg-white rounded-2xl border border-[#EAE3D8] text-center space-y-2">
+              <Archive className="w-8 h-8 text-[#8C7A6B] mx-auto opacity-40" />
+              <p className="text-sm font-bold text-[#241710]">لا توجد منتجات مؤرشفة</p>
+              <p className="text-xs text-[#8C7A6B]">جميع منتجات الكتالوج نشطة ومعروضة حالياً.</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-amber-200/80 shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-right">
+                  <thead className="bg-[#FAF8F5] border-b border-[#EAE3D8] text-[#8C7A6B] text-[10px] font-bold uppercase tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4 text-right">المنتج</th>
+                      <th className="py-3 px-4 text-right">السعر</th>
+                      <th className="py-3 px-4 text-right">تاريخ الأرشفة</th>
+                      <th className="py-3 px-4 text-left">الإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F5EFE6]">
+                    {archivedProducts.map((archived) => {
+                      const prodName = archived.name || archived.name_ar || archived.name_en || `منتج #${archived.id}`;
+                      const primaryImg =
+                        archived.images?.[0]?.image ||
+                        (archived as any).image ||
+                        'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=400&q=80';
+
+                      return (
+                        <tr key={archived.id} className="hover:bg-[#FAF8F5]/80 transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] shrink-0 p-1 flex items-center justify-center">
+                                <Image
+                                  src={primaryImg}
+                                  alt={prodName}
+                                  fill
+                                  className="object-contain grayscale"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                              <div>
+                                <p className="font-bold text-[#241710] text-xs leading-snug">{prodName}</p>
+                                <span className="text-[10px] text-[#8C7A6B] font-mono">معرف #{archived.id}</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-4 font-mono font-bold text-[#241710]">
+                            {Number(archived.price || 0).toLocaleString('ar-EG')} ج.م
+                          </td>
+
+                          <td className="py-3 px-4 text-xs text-[#8C7A6B]">
+                            {archived.deleted_at ? new Date(archived.deleted_at).toLocaleDateString('ar-EG') : 'غير محدد'}
+                          </td>
+
+                          <td className="py-3 px-4 text-left">
+                            <div className="inline-flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onRequestDeleteConfirm(
+                                    `استعادة المنتج: «${prodName}»`,
+                                    'هل ترغب في استعادة هذا المنتج وإعادته إلى قائمة المنتجات النشطة في المتجر؟',
+                                    async () => {
+                                      if (onRestoreProduct) {
+                                        await onRestoreProduct(String(archived.id));
+                                      } else {
+                                        await productService.restoreProduct(archived.id);
+                                      }
+                                      await fetchArchivedProducts();
+                                    },
+                                    {
+                                      confirmLabel: 'تأكيد الاستعادة',
+                                      variant: 'info',
+                                      icon: 'restore',
+                                    }
+                                  )
+                                }
+                                className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>استعادة</span>
+                              </button>
+
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    onRequestDeleteConfirm(
+                                      `حذف نهائي للمنتج المؤرشف: «${prodName}»`,
+                                      'تحذير: سيتم حذف هذا المنتج المؤرشف وجميع صوره على Cloudinary بشكل نهائي ولا يمكن استعادته أبداً.',
+                                      async () => {
+                                        if (onHardDeleteProduct) {
+                                          await onHardDeleteProduct(String(archived.id));
+                                        } else {
+                                          await productService.hardDeleteProduct(archived.id);
+                                        }
+                                        await fetchArchivedProducts();
+                                      },
+                                      {
+                                        confirmLabel: 'حذف نهائي دائم',
+                                        variant: 'danger',
+                                        icon: 'delete',
+                                      }
+                                    )
+                                  }
+                                  className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>حذف نهائي</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Add / Edit Product Modal - Compact Professional Two-Column Redesign */}
       {isModalOpen && editingProduct && (

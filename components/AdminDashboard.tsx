@@ -33,16 +33,24 @@ export default function AdminDashboard() {
     settings,
     saveProduct,
     deleteProduct,
+    hardDeleteProduct,
+    restoreProduct,
     toggleProductFeatured,
     saveCategory,
     deleteCategory,
+    hardDeleteCategory,
+    restoreCategory,
     saveSubcategory,
     deleteSubcategory,
+    hardDeleteSubcategory,
+    restoreSubcategory,
+    refreshCatalog,
     updateSettings,
     navigateTo,
   } = useToccoStore();
 
   const { user, isLoading: isAuthLoading } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
 
   // Defense-in-depth: redirect if non-admin user mounts the dashboard
   useEffect(() => {
@@ -76,13 +84,18 @@ export default function AdminDashboard() {
 
   const [selectedOrderForModal, setSelectedOrderForModal] = useState<BackendOrder | null>(null);
 
-  // Generic Confirm Delete Dialog
+  // Generic Confirm Action / Delete Dialog
   const [pendingDelete, setPendingDelete] = useState<{
     title: string;
     description: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    variant?: 'danger' | 'warning' | 'info';
+    icon?: 'delete' | 'archive' | 'restore';
     onConfirm: () => void | Promise<void>;
   } | null>(null);
   const [isDeleteProcessing, setIsDeleteProcessing] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Fetch real Backend Orders
   const fetchBackendOrders = useCallback(async () => {
@@ -197,19 +210,41 @@ export default function AdminDashboard() {
   const requestDeleteConfirm = (
     title: string,
     description: string,
-    onConfirm: () => void | Promise<void>
+    onConfirm: () => void | Promise<void>,
+    options?: {
+      confirmLabel?: string;
+      cancelLabel?: string;
+      variant?: 'danger' | 'warning' | 'info';
+      icon?: 'delete' | 'archive' | 'restore';
+    }
   ) => {
-    setPendingDelete({ title, description, onConfirm });
+    setDeleteError(null);
+    setPendingDelete({
+      title,
+      description,
+      confirmLabel: options?.confirmLabel,
+      cancelLabel: options?.cancelLabel,
+      variant: options?.variant,
+      icon: options?.icon,
+      onConfirm,
+    });
   };
 
   const handleExecuteDelete = async () => {
     if (!pendingDelete || isDeleteProcessing) return;
     setIsDeleteProcessing(true);
+    setDeleteError(null);
     try {
       await pendingDelete.onConfirm();
       setPendingDelete(null);
+      setDeleteError(null);
     } catch (err: any) {
-      alert(normalizeApiError(err).message);
+      const normalized = normalizeApiError(err);
+      setDeleteError(normalized.message);
+      if (normalized.status === 404) {
+        refreshCatalog().catch(() => {});
+        handleRefreshAll().catch(() => {});
+      }
     } finally {
       setIsDeleteProcessing(false);
     }
@@ -303,6 +338,9 @@ export default function AdminDashboard() {
             subcategories={subcategories}
             onSaveProduct={saveProduct}
             onDeleteProduct={deleteProduct}
+            onHardDeleteProduct={hardDeleteProduct}
+            onRestoreProduct={restoreProduct}
+            isAdmin={isAdmin}
             onToggleFeatured={toggleProductFeatured}
             onRequestDeleteConfirm={requestDeleteConfirm}
             editingProduct={editingProduct}
@@ -319,6 +357,9 @@ export default function AdminDashboard() {
             productCountsByCategory={productCountsByCategory}
             onSaveCategory={saveCategory}
             onDeleteCategory={deleteCategory}
+            onHardDeleteCategory={hardDeleteCategory}
+            onRestoreCategory={restoreCategory}
+            isAdmin={isAdmin}
             onRequestDeleteConfirm={requestDeleteConfirm}
             editingCategory={editingCategory}
             setEditingCategory={setEditingCategory}
@@ -334,6 +375,9 @@ export default function AdminDashboard() {
             subcategories={subcategories}
             onSaveSubcategory={saveSubcategory}
             onDeleteSubcategory={deleteSubcategory}
+            onHardDeleteSubcategory={hardDeleteSubcategory}
+            onRestoreSubcategory={restoreSubcategory}
+            isAdmin={isAdmin}
             onRequestDeleteConfirm={requestDeleteConfirm}
           />
         )}
@@ -396,17 +440,22 @@ export default function AdminDashboard() {
         {activeSection === 'users' && <UserManagement />}
       </AdminLayout>
 
-      {/* Confirmation Dialog for Destructive Actions */}
+      {/* Confirmation Dialog for Destructive / Archive Actions */}
       <ConfirmDialog
         isOpen={Boolean(pendingDelete)}
         title={pendingDelete?.title || ''}
         description={pendingDelete?.description || ''}
-        confirmLabel="نعم، حذف نهائي"
-        cancelLabel="إلغاء"
-        variant="danger"
+        confirmLabel={pendingDelete?.confirmLabel || 'تأكيد'}
+        cancelLabel={pendingDelete?.cancelLabel || 'إلغاء'}
+        variant={pendingDelete?.variant || 'danger'}
+        icon={pendingDelete?.icon || 'delete'}
+        error={deleteError}
         isLoading={isDeleteProcessing}
         onConfirm={handleExecuteDelete}
-        onCancel={() => setPendingDelete(null)}
+        onCancel={() => {
+          setPendingDelete(null);
+          setDeleteError(null);
+        }}
       />
     </>
   );

@@ -659,9 +659,13 @@ interface StoreContextType {
   // Admin CRUD operations
   saveProduct: (product: Product) => void;
   deleteProduct: (productId: string) => void;
+  hardDeleteProduct: (productId: string) => Promise<void>;
+  restoreProduct: (productId: string) => Promise<void>;
   toggleProductFeatured: (productId: string) => Promise<void>;
   saveCategory: (category: Category) => void;
   deleteCategory: (categoryId: string) => void;
+  hardDeleteCategory: (categoryId: string) => Promise<void>;
+  restoreCategory: (categoryId: string) => Promise<void>;
   saveSubcategory: (subcategory: {
     id?: number | string;
     category_id: number | string;
@@ -671,6 +675,9 @@ interface StoreContextType {
     public_id?: string | null;
   }) => Promise<void>;
   deleteSubcategory: (subcategoryId: number | string) => Promise<void>;
+  hardDeleteSubcategory: (subcategoryId: number | string) => Promise<void>;
+  restoreSubcategory: (subcategoryId: number | string) => Promise<void>;
+  refreshCatalog: () => Promise<void>;
 
   saveEvent: (event: EventItem) => void;
   deleteEvent: (eventId: string) => void;
@@ -1258,12 +1265,50 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, [subcategories]);
 
+  const refreshCatalog = useCallback(async () => {
+    try {
+      const [backendProducts, backendCategories, backendSubcategories] = await Promise.all([
+        productService.getProducts(),
+        categoryService.getCategories(),
+        subcategoryService.getSubcategories(),
+      ]);
+      const subcatList = Array.isArray(backendSubcategories) ? backendSubcategories : [];
+      setSubcategories(subcatList);
+      setCategories((Array.isArray(backendCategories) ? backendCategories : []).map(mapBackendCategory));
+      setProducts((Array.isArray(backendProducts) ? backendProducts : []).map((p) => mapBackendProduct(p, subcatList)));
+    } catch {
+      // Retain current state if refresh fails
+    }
+  }, []);
+
   const deleteProduct = useCallback(async (productId: string) => {
     const numericId = Number(productId);
     if (!Number.isInteger(numericId)) throw new Error('Product is not connected to a backend record.');
-    await productService.deleteProduct(numericId);
+    try {
+      await productService.deleteProduct(numericId);
+    } catch (err: any) {
+      if (err?.status === 404 || err?.response?.status === 404) {
+        setProducts((prev) => prev.filter((p) => p.id !== productId));
+        return;
+      }
+      throw err;
+    }
     setProducts((prev) => prev.filter((p) => p.id !== productId));
   }, []);
+
+  const hardDeleteProduct = useCallback(async (productId: string) => {
+    const numericId = Number(productId);
+    if (!Number.isInteger(numericId)) throw new Error('Product is not connected to a backend record.');
+    await productService.hardDeleteProduct(numericId);
+    setProducts((prev) => prev.filter((p) => p.id !== productId));
+  }, []);
+
+  const restoreProduct = useCallback(async (productId: string) => {
+    const numericId = Number(productId);
+    if (!Number.isInteger(numericId)) throw new Error('Product is not connected to a backend record.');
+    await productService.restoreProduct(numericId);
+    await refreshCatalog();
+  }, [refreshCatalog]);
 
   const toggleProductFeatured = useCallback(async (productId: string) => {
     const product = products.find((item) => item.id === productId);
@@ -1299,9 +1344,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const deleteCategory = useCallback(async (categoryId: string) => {
     const numericId = Number(categoryId);
     if (!Number.isInteger(numericId)) throw new Error('Category is not connected to a backend record.');
-    await categoryService.deleteCategory(numericId);
+    try {
+      await categoryService.deleteCategory(numericId);
+    } catch (err: any) {
+      if (err?.status === 404 || err?.response?.status === 404) {
+        setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+        return;
+      }
+      throw err;
+    }
     setCategories((prev) => prev.filter((c) => c.id !== categoryId));
   }, []);
+
+  const hardDeleteCategory = useCallback(async (categoryId: string) => {
+    const numericId = Number(categoryId);
+    if (!Number.isInteger(numericId)) throw new Error('Category is not connected to a backend record.');
+    await categoryService.hardDeleteCategory(numericId);
+    setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+  }, []);
+
+  const restoreCategory = useCallback(async (categoryId: string) => {
+    const numericId = Number(categoryId);
+    if (!Number.isInteger(numericId)) throw new Error('Category is not connected to a backend record.');
+    await categoryService.restoreCategory(numericId);
+    await refreshCatalog();
+  }, [refreshCatalog]);
 
   // Admin CRUD for Subcategories
   const saveSubcategory = useCallback(
@@ -1363,10 +1430,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const deleteSubcategory = useCallback(async (subId: number | string) => {
     const numId = Number(subId);
     if (Number.isInteger(numId) && numId < 1000000000) {
-      await subcategoryService.deleteSubcategory(numId);
+      try {
+        await subcategoryService.deleteSubcategory(numId);
+      } catch (err: any) {
+        if (err?.status === 404 || err?.response?.status === 404) {
+          setSubcategories((prev) => prev.filter((s) => String(s.id) !== String(subId)));
+          return;
+        }
+        throw err;
+      }
     }
     setSubcategories((prev) => prev.filter((s) => String(s.id) !== String(subId)));
   }, []);
+
+  const hardDeleteSubcategory = useCallback(async (subId: number | string) => {
+    const numId = Number(subId);
+    if (Number.isInteger(numId) && numId < 1000000000) {
+      await subcategoryService.hardDeleteSubcategory(numId);
+    }
+    setSubcategories((prev) => prev.filter((s) => String(s.id) !== String(subId)));
+  }, []);
+
+  const restoreSubcategory = useCallback(async (subId: number | string) => {
+    const numId = Number(subId);
+    if (Number.isInteger(numId) && numId < 1000000000) {
+      await subcategoryService.restoreSubcategory(numId);
+    }
+    await refreshCatalog();
+  }, [refreshCatalog]);
 
   // Admin CRUD for Events
   const saveEvent = useCallback(async (eventToSave: EventItem) => {
@@ -1606,11 +1697,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         updatePaymentStatus,
         saveProduct,
         deleteProduct,
+        hardDeleteProduct,
+        restoreProduct,
         toggleProductFeatured,
         saveCategory,
         deleteCategory,
+        hardDeleteCategory,
+        restoreCategory,
         saveSubcategory,
         deleteSubcategory,
+        hardDeleteSubcategory,
+        restoreSubcategory,
+        refreshCatalog,
         saveEvent,
         deleteEvent,
         saveProject,
