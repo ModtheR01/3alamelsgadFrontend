@@ -69,15 +69,16 @@ export default function OffersSection({
 
   const handleOpenEdit = (offer: BackendOffer) => {
     setEditingOfferId(offer.id);
-    setOfferName(offer.name);
+    setOfferName(offer.name_ar || offer.name || offer.name_en || '');
     setOfferType(offer.offer_type);
     setPercentageValue(offer.percentage ? String(offer.percentage) : '20');
     setBundlePriceValue(offer.bundle_price ? String(offer.bundle_price) : '1000');
-    const pIds = offer.products.map((p) => p.product_id);
+    const prods = offer.products || (offer as any).offer_products || [];
+    const pIds = prods.map((p: any) => p.product_id);
     setSelectedProductIds(pIds);
     const qtys: Record<number, number> = {};
-    offer.products.forEach((p) => {
-      qtys[p.product_id] = p.quantity;
+    prods.forEach((p: any) => {
+      qtys[p.product_id] = p.quantity || 1;
     });
     setBundleProductQuantities(qtys);
     setStartsAt(offer.starts_at ? offer.starts_at.slice(0, 10) : '');
@@ -121,14 +122,21 @@ export default function OffersSection({
       return;
     }
 
+    const trimmedTitle = offerName.trim();
     const payload: OfferCreateRequest = {
-      name: offerName.trim(),
+      name: trimmedTitle,
+      name_ar: trimmedTitle,
+      name_en: trimmedTitle,
       offer_type: offerType,
       percentage: offerType === 'PERCENTAGE' ? Number(percentageValue) : null,
       bundle_price: offerType === 'BUNDLE' ? Number(bundlePriceValue) : null,
       products: selectedProductIds.map((id) => ({
         product_id: id,
         quantity: bundleProductQuantities[id] || 1,
+      })),
+      offer_products: selectedProductIds.map((id) => ({
+        product_id: id,
+        ...(offerType === 'BUNDLE' ? { quantity: bundleProductQuantities[id] || 1 } : {}),
       })),
       starts_at: startsAt ? new Date(startsAt).toISOString() : null,
       ends_at: endsAt ? new Date(endsAt).toISOString() : null,
@@ -221,7 +229,7 @@ export default function OffersSection({
                   </div>
 
                   <div>
-                    <h3 className="font-bold text-sm text-[#241710]">{offer.name}</h3>
+                    <h3 className="font-bold text-sm text-[#241710]">{offer.name_ar || offer.name || offer.name_en}</h3>
                     <div className="mt-2 text-2xl font-black text-[#A27B5C]">
                       {isPercentage && `خصم ${offer.percentage}٪`}
                       {isBundle && `${Number(offer.bundle_price || 0).toLocaleString('ar-EG')} ج.م`}
@@ -231,7 +239,9 @@ export default function OffersSection({
                   <div className="text-xs text-[#5C4A3E] space-y-1.5 pt-3 border-t border-[#F5EFE6]">
                     <p className="flex items-center justify-between">
                       <span className="text-[#8C7A6B]">المنتجات المشمولة:</span>
-                      <strong className="text-[#241710]">{offer.products?.length || 0} منتج</strong>
+                      <strong className="text-[#241710]">
+                        {(offer.products || (offer as any).offer_products)?.length || 0} منتج
+                      </strong>
                     </p>
                     {offer.starts_at && (
                       <p className="text-[11px] text-[#8C7A6B] flex items-center gap-1.5">
@@ -255,7 +265,7 @@ export default function OffersSection({
                   <button
                     onClick={() =>
                       onRequestDeleteConfirm(
-                        `حذف العرض: «${offer.name}»`,
+                        `حذف العرض: «${offer.name_ar || offer.name || offer.name_en}»`,
                         'هل أنت متأكد من رغبتك في حذف هذا العرض الترويجي؟ لن يتم تطبيق الخصم في سلة المشتريات بعد الحذف.',
                         () => onDeleteOffer(offer.id)
                       )
