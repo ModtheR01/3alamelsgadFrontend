@@ -7,6 +7,8 @@ import { useLanguage } from '@/lib/context/LanguageContext';
 import { PaymentMethod } from '@/types';
 import { orderService } from '@/lib/api/services/orderService';
 import { cartService } from '@/lib/api/services/cartService';
+import { addressService } from '@/lib/api/services/addressService';
+import { Address } from '@/types/auth';
 import { normalizeApiError } from '@/lib/api/errors';
 import { shippingService } from '@/lib/api/services/shippingService';
 import { GovernorateShipping } from '@/types/shipping';
@@ -216,16 +218,59 @@ export default function CheckoutView() {
           return;
         }
 
-        const newAddr = await createAddress({
-          title: addressTitle.trim() || 'عنوان التوصيل',
-          governorate: Number(selectedNewGov.id),
-          city: city.trim(),
-          street: street.trim(),
-          building_number: buildingNumber.trim() || '1',
-          apartment_number: apartmentNumber.trim() || '1',
-          is_default: authAddresses.length === 0,
-        });
-        targetAddressId = newAddr.id;
+        const selectedGovNum = Number(selectedNewGov.id);
+        const trimmedCity = city.trim();
+        const trimmedStreet = street.trim();
+        const trimmedBuilding = buildingNumber.trim() || '1';
+        const trimmedApartment = apartmentNumber.trim() || '1';
+        const trimmedTitle = addressTitle.trim() || 'عنوان التوصيل';
+
+        // Check if an existing saved address has the exact matching details
+        const existingMatch = authAddresses.find(
+          (a) =>
+            Number(a.governorate) === selectedGovNum &&
+            a.city.trim().toLowerCase() === trimmedCity.toLowerCase() &&
+            a.street.trim().toLowerCase() === trimmedStreet.toLowerCase() &&
+            (a.building_number || '1').trim() === trimmedBuilding &&
+            (a.apartment_number || '1').trim() === trimmedApartment
+        );
+
+        if (existingMatch) {
+          targetAddressId = existingMatch.id;
+        } else {
+          try {
+            const newAddr = await createAddress({
+              title: trimmedTitle,
+              governorate: selectedGovNum,
+              city: trimmedCity,
+              street: trimmedStreet,
+              building_number: trimmedBuilding,
+              apartment_number: trimmedApartment,
+              is_default: authAddresses.length === 0,
+            });
+            targetAddressId = newAddr.id;
+          } catch (addrErr: any) {
+            const normAddrErr = normalizeApiError(addrErr);
+            const errStr = (normAddrErr.message || '').toLowerCase();
+            if (errStr.includes('already exists') || errStr.includes('موجود بالفعل')) {
+              // Address already exists in DB; fetch latest addresses to find it
+              const latestAddrs: Address[] = await addressService.getAddresses().catch(() => []);
+              const match = latestAddrs.find(
+                (a: Address) =>
+                  Number(a.governorate) === selectedGovNum &&
+                  a.city.trim().toLowerCase() === trimmedCity.toLowerCase() &&
+                  a.street.trim().toLowerCase() === trimmedStreet.toLowerCase()
+              );
+              if (match) {
+                targetAddressId = match.id;
+              } else {
+                throw addrErr;
+              }
+            } else {
+              throw addrErr;
+            }
+          }
+        }
       } else {
         const chosen = authAddresses.find((a) => a.id === selectedAddressId);
         const isGovActive = chosen && activeGovernorates.some((g) => Number(g.id) === Number(chosen.governorate));
@@ -246,15 +291,17 @@ export default function CheckoutView() {
       try {
         const bCart = await cartService.getCart();
         const hasItems =
-          (bCart.product_items && bCart.product_items.length > 0) ||
-          (bCart.arwal_items && bCart.arwal_items.length > 0) ||
-          (bCart.bundles && bCart.bundles.length > 0) ||
-          (bCart.items && bCart.items.length > 0);
-        if (!hasItems) {
+          (bCart?.product_items && bCart.product_items.length > 0) ||
+          (bCart?.arwal_items && bCart.arwal_items.length > 0) ||
+          (bCart?.bundles && bCart.bundles.length > 0) ||
+          (bCart?.items && bCart.items.length > 0);
+        if (!hasItems && cart && cart.length > 0) {
           for (const item of cart) {
             if (item.arwalConfig?.isArawal || item.cartItemType === 'arwal') {
-              const numArwalId = parseInt(item.productId.replace(/\D/g, '')) || 1;
-              const numColorId = item.selectedColor?.id ? Number(item.selectedColor.id) : 1;
+              const numArwalId = parseInt(String(item.productId).replace(/\D/g, '')) || 1;
+              const numColorId = item.selectedColor?.id
+                ? parseInt(String(item.selectedColor.id).replace(/\D/g, '')) || 1
+                : 1;
               const widthVal = item.arwalConfig?.width || 80;
               await cartService.addArwalItem({
                 arwal_id: numArwalId,
@@ -264,15 +311,19 @@ export default function CheckoutView() {
                 quantity: item.quantity,
               });
             } else if (item.isBundle || item.cartItemType === 'bundle' || item.bundleOfferId) {
-              const bundleId = item.bundleOfferId || parseInt(item.productId.replace(/\D/g, '')) || 1;
+              const bundleId = item.bundleOfferId || parseInt(String(item.productId).replace(/\D/g, '')) || 1;
               await cartService.addBundle({
                 bundle_offer_id: bundleId,
                 quantity: item.quantity,
               });
             } else {
-              const numProdId = parseInt(item.productId.replace(/\D/g, '')) || 1;
-              const numColorId = item.selectedColor?.id ? Number(item.selectedColor.id) : 1;
-              const numSizeId = item.selectedSize?.id ? Number(item.selectedSize.id) : 1;
+              const numProdId = parseInt(String(item.productId).replace(/\D/g, '')) || 1;
+              const numColorId = item.selectedColor?.id
+                ? parseInt(String(item.selectedColor.id).replace(/\D/g, '')) || 1
+                : 1;
+              const numSizeId = item.selectedSize?.id
+                ? parseInt(String(item.selectedSize.id).replace(/\D/g, '')) || 1
+                : 1;
               await cartService.addItem({
                 product_id: numProdId,
                 selected_color_id: numColorId,
@@ -282,8 +333,8 @@ export default function CheckoutView() {
             }
           }
         }
-      } catch {
-        // Proceed to order creation
+      } catch (syncErr) {
+        console.warn('Backend cart synchronization notice:', syncErr);
       }
 
       // Build customer notes with ARAWAL specs and payment option
@@ -335,7 +386,7 @@ export default function CheckoutView() {
       const remainingCartItems = [...cart];
       const orderWithFinishes = {
         ...createdOrder,
-        items: createdOrder.items.map((orderItem) => {
+        items: (createdOrder.items || []).map((orderItem) => {
           const orderColorHex = orderItem.color_hex_code?.toUpperCase();
           const matchesCartItem = (
             cartItem: typeof cart[number],
@@ -345,11 +396,14 @@ export default function CheckoutView() {
             const parsedProductId = Number(cartItem.productId);
             const cartProductId = Number.isInteger(parsedProductId)
               ? parsedProductId
-              : Number(cartItem.productId.replace(/\D/g, '')) || 1;
+              : Number(String(cartItem.productId).replace(/\D/g, '')) || 1;
+            const backendItemId = orderItem.product_id ?? (orderItem as any).product ?? (orderItem as any).arwal;
+            const cartColorHex = cartItem.selectedColor?.hex?.toUpperCase();
             return (
-              cartProductId === orderItem.product_id &&
+              backendItemId !== undefined &&
+              cartProductId === backendItemId &&
               (!requireQuantityMatch || cartItem.quantity === orderItem.quantity) &&
-              (!requireColorMatch || !orderColorHex || cartItem.selectedColor.hex.toUpperCase() === orderColorHex)
+              (!requireColorMatch || !orderColorHex || cartColorHex === orderColorHex)
             );
           };
           let cartItemIndex = remainingCartItems.findIndex((item) => matchesCartItem(item, true, true));
@@ -365,7 +419,20 @@ export default function CheckoutView() {
       navigateTo('confirmation');
     } catch (err: any) {
       const normalized = normalizeApiError(err);
-      setApiError(normalized.message);
+      let errorMsg = normalized.message;
+      if (errorMsg.includes('This address already exists') || errorMsg.includes('already exists')) {
+        errorMsg = t('هذا العنوان مسجل بالفعل في حسابك.', 'This address already exists in your account.');
+      } else if (
+        errorMsg.includes('The address must have an active governorate') ||
+        errorMsg.includes('Selected governorate is not active')
+      ) {
+        errorMsg = t('المحافظة المحددة غير متاحة للشحن حالياً.', 'The selected governorate is currently not available for shipping.');
+      } else if (errorMsg.includes('Your cart is empty') || errorMsg.toLowerCase().includes('cart:')) {
+        errorMsg = t('سلة المشتريات فارغة. يرجى إضافة منتجات لإتمام الطلب.', 'Your cart is empty. Please add items to place an order.');
+      } else if (errorMsg.includes('The address does not exist')) {
+        errorMsg = t('العنوان المحدد غير موجود أو غير مرتبط بحسابك.', 'The selected address does not exist or does not belong to your account.');
+      }
+      setApiError(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -516,7 +583,12 @@ export default function CheckoutView() {
 
                   <button
                     type="button"
-                    onClick={() => setUserSelectedAddressId('new')}
+                    onClick={() => {
+                      setUserSelectedAddressId('new');
+                      if (defaultAddr && street === defaultAddr.street) {
+                        setStreet('');
+                      }
+                    }}
                     className={`w-full p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                       selectedAddressId === 'new'
                         ? 'border-[#251811] bg-[#FAF5EB] text-[#251811]'
@@ -606,6 +678,19 @@ export default function CheckoutView() {
 
                   {/* Address Details Fields */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label className="text-xs font-bold text-[#251811]">
+                        {t('تسمية العنوان (اختياري):', 'Address Label (Optional):')}
+                      </label>
+                      <input
+                        type="text"
+                        value={addressTitle}
+                        onChange={(e) => setAddressTitle(e.target.value)}
+                        placeholder={t('مثال: عنوان المنزل / العمل / الشاطئ', 'e.g. Home / Work / Beach house')}
+                        className="w-full p-2.5 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-xs font-medium text-[#251811] focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
+                      />
+                    </div>
+
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-[#251811]">
                         {t('المدينة / الحي / المركز:', 'City / District:')}

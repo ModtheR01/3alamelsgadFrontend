@@ -83,28 +83,46 @@ export function normalizeApiError(error: unknown, fallbackStatus?: number): Norm
       status = errObj.status;
     }
 
-    // 1. DRF { "detail": "..." }
+    // 1. DRF { "detail": "..." } or { "detail": ["..."] }
     if (typeof errObj.detail === 'string') {
       message = errObj.detail;
+      fieldErrors['detail'] = [errObj.detail];
     } else if (Array.isArray(errObj.detail) && errObj.detail.length > 0) {
       message = String(errObj.detail[0]);
+      fieldErrors['detail'] = errObj.detail.map(String);
     }
 
-    // 2. { "message": "..." }
+    // 2. { "message": "..." } or { "message": ["..."] }
     if (typeof errObj.message === 'string') {
       message = errObj.message;
+      fieldErrors['message'] = [errObj.message];
+    } else if (Array.isArray(errObj.message) && errObj.message.length > 0) {
+      message = String(errObj.message[0]);
+      fieldErrors['message'] = errObj.message.map(String);
+    }
+
+    // 2b. { "error": "..." } or { "error": ["..."] }
+    if (typeof errObj.error === 'string') {
+      message = errObj.error;
+      fieldErrors['error'] = [errObj.error];
+    } else if (Array.isArray(errObj.error) && errObj.error.length > 0) {
+      message = String(errObj.error[0]);
+      fieldErrors['error'] = errObj.error.map(String);
     }
 
     // 3. DRF { "non_field_errors": ["..."] }
     if (Array.isArray(errObj.non_field_errors) && errObj.non_field_errors.length > 0) {
       message = String(errObj.non_field_errors[0]);
       fieldErrors['non_field_errors'] = errObj.non_field_errors.map(String);
+    } else if (typeof errObj.non_field_errors === 'string') {
+      message = errObj.non_field_errors;
+      fieldErrors['non_field_errors'] = [errObj.non_field_errors];
     }
 
     // 4. Field-level validation errors { "email": ["..."], "password": ["..."] }
     let hasFieldErrors = false;
     for (const [key, value] of Object.entries(errObj)) {
-      if (['detail', 'message', 'status', 'statusCode'].includes(key)) {
+      if (['detail', 'message', 'error', 'status', 'statusCode', 'non_field_errors'].includes(key)) {
         continue;
       }
 
@@ -113,14 +131,32 @@ export function normalizeApiError(error: unknown, fallbackStatus?: number): Norm
         fieldErrors[key] = errorStrings;
         hasFieldErrors = true;
         // If message is still default, pick first field error for context
-        if (message === 'An unexpected error occurred. Please try again.') {
+        if (message === 'An unexpected error occurred. Please try again.' && errorStrings.length > 0) {
           message = `${formatFieldName(key)}: ${errorStrings[0]}`;
         }
-      } else if (typeof value === 'string' && key !== 'message' && key !== 'detail') {
+      } else if (typeof value === 'string') {
         fieldErrors[key] = [value];
         hasFieldErrors = true;
         if (message === 'An unexpected error occurred. Please try again.') {
           message = `${formatFieldName(key)}: ${value}`;
+        }
+      } else if (typeof value === 'object' && value !== null) {
+        for (const [subKey, subVal] of Object.entries(value)) {
+          const combinedKey = `${key}_${subKey}`;
+          if (Array.isArray(subVal)) {
+            const subErrors = subVal.map(String);
+            fieldErrors[combinedKey] = subErrors;
+            hasFieldErrors = true;
+            if (message === 'An unexpected error occurred. Please try again.' && subErrors.length > 0) {
+              message = `${formatFieldName(combinedKey)}: ${subErrors[0]}`;
+            }
+          } else if (typeof subVal === 'string') {
+            fieldErrors[combinedKey] = [subVal];
+            hasFieldErrors = true;
+            if (message === 'An unexpected error occurred. Please try again.') {
+              message = `${formatFieldName(combinedKey)}: ${subVal}`;
+            }
+          }
         }
       }
     }
@@ -128,7 +164,9 @@ export function normalizeApiError(error: unknown, fallbackStatus?: number): Norm
 
   // HTTP Status-specific overrides if message is still too generic
   if (status) {
-    if (status === 401 && message === 'An unexpected error occurred. Please try again.') {
+    if (status === 400 && message === 'An unexpected error occurred. Please try again.') {
+      message = 'بيانات الطلب غير صالحة. يرجى مراجعة البيانات المدخلة وإعادة المحاولة.';
+    } else if (status === 401 && message === 'An unexpected error occurred. Please try again.') {
       message = 'Your session has expired or you are unauthorized. Please sign in.';
     } else if (status === 403 && message === 'An unexpected error occurred. Please try again.') {
       message = 'You do not have permission to perform this action.';
