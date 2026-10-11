@@ -8,7 +8,6 @@ import { PaymentMethod } from '@/types';
 import { orderService } from '@/lib/api/services/orderService';
 import { cartService } from '@/lib/api/services/cartService';
 import { normalizeApiError } from '@/lib/api/errors';
-import { BRAND_CONFIG } from '@/lib/brandConfig';
 import { shippingService } from '@/lib/api/services/shippingService';
 import { GovernorateShipping } from '@/types/shipping';
 import Image from '@/components/SafeImage';
@@ -48,46 +47,98 @@ export default function CheckoutView() {
 
   const defaultAddr = authAddresses.find((a) => a.is_default) || authAddresses[0];
 
-  const [userSelectedAddressId, setUserSelectedAddressId] = useState<number | 'new' | null>(null);
-  const selectedAddressId: number | 'new' =
-    userSelectedAddressId !== null
-      ? userSelectedAddressId
-      : defaultAddr
-      ? defaultAddr.id
-      : 'new';
-
-  // Governorate & Address state
-  const [selectedGovernorateId, setSelectedGovernorateId] = useState<string>('cairo');
+  // Remote Governorates state
   const [remoteGovernorates, setRemoteGovernorates] = useState<GovernorateShipping[]>([]);
+  const [isGovsLoading, setIsGovsLoading] = useState<boolean>(true);
+  const [govsError, setGovsError] = useState<string | null>(null);
+
+  const fetchGovernorates = React.useCallback(async () => {
+    setIsGovsLoading(true);
+    setGovsError(null);
+    try {
+      const data = await shippingService.getGovernorates();
+      setRemoteGovernorates(data || []);
+    } catch (err: any) {
+      const normalized = normalizeApiError(err);
+      setGovsError(normalized.message || t('تعذر تحميل بيانات المحافظات والتوصيل.', 'Failed to load delivery governorates.'));
+      setRemoteGovernorates([]);
+    } finally {
+      setIsGovsLoading(false);
+    }
+  }, [t]);
 
   React.useEffect(() => {
-    let active = true;
-    shippingService.getGovernorates().then((data) => {
-      if (active && data && data.length > 0) {
-        setRemoteGovernorates(data);
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
+    fetchGovernorates();
+  }, [fetchGovernorates]);
 
-  const selectedGov = BRAND_CONFIG.governorates.find((g) => g.id === selectedGovernorateId) || BRAND_CONFIG.governorates[0];
-  const shippingCost = selectedGov.shippingCost;
+  const activeGovernorates = React.useMemo(() => {
+    return remoteGovernorates.filter((g) => g.is_active !== false);
+  }, [remoteGovernorates]);
 
-  const resolvedGovId = React.useMemo(() => {
-    const matched = remoteGovernorates.find(
-      (rg) =>
-        String(rg.id) === String(selectedGovernorateId) ||
-        rg.nameEn.toLowerCase() === selectedGov.nameEn.toLowerCase() ||
-        rg.nameAr === selectedGov.nameAr
-    );
-    if (matched && Number.isInteger(Number(matched.id))) {
-      return Number(matched.id);
+  // Find default or first saved address with an active governorate in the database
+  const validDefaultAddr = React.useMemo(() => {
+    if (!authAddresses || authAddresses.length === 0) return null;
+    const defaultCandidate = authAddresses.find((a) => a.is_default);
+    if (defaultCandidate && activeGovernorates.some((g) => Number(g.id) === Number(defaultCandidate.governorate))) {
+      return defaultCandidate;
     }
-    const parsed = Number(selectedGovernorateId);
-    return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
-  }, [remoteGovernorates, selectedGovernorateId, selectedGov]);
+    return authAddresses.find((a) => activeGovernorates.some((g) => Number(g.id) === Number(a.governorate))) || null;
+  }, [authAddresses, activeGovernorates]);
+
+  const [userSelectedAddressId, setUserSelectedAddressId] = useState<number | 'new' | null>(null);
+
+  const selectedAddressId: number | 'new' = React.useMemo(() => {
+    if (userSelectedAddressId !== null) {
+      return userSelectedAddressId;
+    }
+    if (validDefaultAddr) {
+      return validDefaultAddr.id;
+    }
+    return 'new';
+  }, [userSelectedAddressId, validDefaultAddr]);
+
+  const selectedSavedAddress = React.useMemo(() => {
+    if (selectedAddressId === 'new') return null;
+    return authAddresses.find((a) => a.id === selectedAddressId) || null;
+  }, [selectedAddressId, authAddresses]);
+
+  // Selected governorate for manual/new address entry
+  const [selectedGovernorateId, setSelectedGovernorateId] = useState<string>('');
+
+  React.useEffect(() => {
+    if (activeGovernorates.length > 0) {
+      const exists = activeGovernorates.some((g) => String(g.id) === String(selectedGovernorateId));
+      if (!exists) {
+        setSelectedGovernorateId(String(activeGovernorates[0].id));
+      }
+    } else {
+      setSelectedGovernorateId('');
+    }
+  }, [activeGovernorates, selectedGovernorateId]);
+
+  const selectedNewGov = React.useMemo(() => {
+    return (
+      activeGovernorates.find((g) => String(g.id) === String(selectedGovernorateId)) ||
+      activeGovernorates[0] ||
+      null
+    );
+  }, [activeGovernorates, selectedGovernorateId]);
+
+  // Current active governorate for the chosen address mode
+  const currentGov = React.useMemo(() => {
+    if (selectedSavedAddress) {
+      return activeGovernorates.find((g) => Number(g.id) === Number(selectedSavedAddress.governorate)) || null;
+    }
+    return selectedNewGov;
+  }, [selectedSavedAddress, activeGovernorates, selectedNewGov]);
+
+  const shippingCost = React.useMemo(() => {
+    if (!currentGov) return 0;
+    return Number(currentGov.shipping_price ?? currentGov.shippingCost ?? 0);
+  }, [currentGov]);
+
+  const currentGovNameAr = currentGov?.nameAr || currentGov?.name_ar || '';
+  const currentGovNameEn = currentGov?.nameEn || currentGov?.name_en || '';
 
   const [addressTitle, setAddressTitle] = useState('عنوان المنزل');
   const [city, setCity] = useState(() => defaultAddr?.city || legacyUser?.savedAddresses?.[0]?.city || 'القاهرة');
@@ -139,11 +190,26 @@ export default function CheckoutView() {
       return;
     }
 
+    if (activeGovernorates.length === 0) {
+      setApiError(
+        t(
+          'لا توجد محافظات متاحة للشحن حالياً. يرجى التواصل مع الإدارة.',
+          'No shipping governorates available. Please contact support.'
+        )
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       let targetAddressId: number;
 
       if (selectedAddressId === 'new' || authAddresses.length === 0) {
+        if (!selectedNewGov) {
+          setApiError(t('يرجى اختيار محافظة صالحة للشحن.', 'Please select a valid shipping governorate.'));
+          setIsSubmitting(false);
+          return;
+        }
         if (!city.trim() || !street.trim()) {
           setApiError(t('يرجى كتابة المدينة والشارع لتوصيل السجاد.', 'Please provide your delivery city and street address.'));
           setIsSubmitting(false);
@@ -152,7 +218,7 @@ export default function CheckoutView() {
 
         const newAddr = await createAddress({
           title: addressTitle.trim() || 'عنوان التوصيل',
-          governorate: resolvedGovId,
+          governorate: Number(selectedNewGov.id),
           city: city.trim(),
           street: street.trim(),
           building_number: buildingNumber.trim() || '1',
@@ -161,6 +227,18 @@ export default function CheckoutView() {
         });
         targetAddressId = newAddr.id;
       } else {
+        const chosen = authAddresses.find((a) => a.id === selectedAddressId);
+        const isGovActive = chosen && activeGovernorates.some((g) => Number(g.id) === Number(chosen.governorate));
+        if (!chosen || !isGovActive) {
+          setApiError(
+            t(
+              'العنوان المحدد مرتبط بمحافظة غير متاحة للشحن حالياً. يرجى اختيار عنوان آخر أو إدخال عنوان جديد.',
+              'The selected address is linked to an unavailable governorate. Please choose another address or enter a new one.'
+            )
+          );
+          setIsSubmitting(false);
+          return;
+        }
         targetAddressId = Number(selectedAddressId);
       }
 
@@ -222,7 +300,9 @@ export default function CheckoutView() {
           ? '[خطة السداد: دفع الشحن مسبقاً وقيمة السجاد عند الاستلام]'
           : '[خطة السداد: سداد كامل قيمة الطلب والشحن مسبقاً]';
 
-      const govNote = `[المحافظة: ${selectedGov.nameAr} - الشحن: ${shippingCost} ج.م]`;
+      const govNote = currentGovNameAr
+        ? `[المحافظة: ${currentGovNameAr} - الشحن: ${shippingCost} ج.م]`
+        : '';
       const methodNote = `[طريقة الدفع: ${paymentMethod === 'instapay' ? 'إنستاباي' : paymentMethod === 'vodafone_cash' ? 'محفظة إلكترونية/فودافون كاش' : 'دفع عند الاستلام'}]`;
 
       const finalCustomerNotes = [orderNote.trim(), methodNote, paymentPlanNote, govNote, arawalSpecs]
@@ -365,90 +445,223 @@ export default function CheckoutView() {
                 </h2>
               </div>
 
-              {/* Governorate Selector */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#251811]">
-                  {t('اختر المحافظة (لحساب مصاريف الشحن بدقة):', 'Select Governorate (for exact shipping fee):')}
-                </label>
-                <select
-                  value={selectedGovernorateId}
-                  onChange={(e) => {
-                    setSelectedGovernorateId(e.target.value);
-                    const gov = BRAND_CONFIG.governorates.find((g) => g.id === e.target.value);
-                    if (gov) setCity(gov.nameAr);
-                  }}
-                  className="w-full p-3 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-sm font-semibold text-[#251811] focus:ring-1 focus:ring-[#A27B5C] focus:outline-none"
-                >
-                  {BRAND_CONFIG.governorates.map((gov) => (
-                    <option key={gov.id} value={gov.id}>
-                      {gov.nameAr} ({gov.nameEn}) — {t('مصاريف الشحن:', 'Shipping:')} {gov.shippingCost} {t('ج.م', 'EGP')}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-[#8A796B]">
-                  {t(
-                    `قيمة الشحن لمحافظة ${selectedGov.nameAr} هي ${shippingCost} ج.م تُضاف إلى إجمالي الطلب.`,
-                    `Shipping fee to ${selectedGov.nameEn} is ${shippingCost} EGP added to order total.`
+              {/* Saved Addresses list if logged in user has saved addresses */}
+              {authUser && authAddresses.length > 0 && (
+                <div className="space-y-3 pb-4 border-b border-[#F0E8DC]">
+                  <label className="block text-xs font-bold text-[#251811]">
+                    {t('اختر من العناوين المسجلة بحسابك:', 'Select from your saved addresses:')}
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {authAddresses.map((addr) => {
+                      const isSelected = selectedAddressId === addr.id;
+                      const addrGov = activeGovernorates.find((g) => Number(g.id) === Number(addr.governorate));
+                      const isGovActive = Boolean(addrGov);
+
+                      return (
+                        <div
+                          key={addr.id}
+                          onClick={() => {
+                            if (isGovActive) {
+                              setUserSelectedAddressId(addr.id);
+                            }
+                          }}
+                          className={`p-3.5 rounded-xl border text-start transition-all relative ${
+                            !isGovActive
+                              ? 'border-dashed border-amber-300 bg-amber-50/40 opacity-80 cursor-not-allowed'
+                              : isSelected
+                              ? 'border-[#251811] bg-[#FAF5EB] ring-2 ring-[#A27B5C]/20 shadow-xs cursor-pointer'
+                              : 'border-[#E0D5C6] bg-white hover:border-[#A27B5C] cursor-pointer'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-xs text-[#251811]">{addr.title}</span>
+                              {addr.is_default && (
+                                <span className="text-[10px] font-semibold text-[#A27B5C] bg-[#FAF5EB] border border-[#E8DEC0] px-1.5 py-0.5 rounded-full">
+                                  {t('الافتراضي', 'Default')}
+                                </span>
+                              )}
+                            </div>
+                            {isSelected && isGovActive && (
+                              <CheckCircle2 className="w-4 h-4 text-[#A27B5C]" />
+                            )}
+                          </div>
+
+                          <p className="text-xs text-[#5C4A3E] leading-relaxed">
+                            {addr.building_number ? `عمارة ${addr.building_number}، ` : ''}
+                            {addr.street}، {addr.city}
+                          </p>
+
+                          <div className="mt-2 pt-2 border-t border-[#F0E8DC]/80 flex items-center justify-between text-[11px]">
+                            {isGovActive && addrGov ? (
+                              <>
+                                <span className="text-[#8A796B]">
+                                  {t('المحافظة:', 'Gov:')} <strong className="text-[#251811]">{addrGov.nameAr}</strong>
+                                </span>
+                                <span className="font-bold text-[#A27B5C]">
+                                  {addrGov.shippingCost} {t('ج.م', 'EGP')}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-amber-700 font-medium flex items-center gap-1 text-[10px]">
+                                <AlertCircle className="w-3 h-3 text-amber-600 shrink-0" />
+                                {t('المحافظة غير مفعلة للشحن حالياً', 'Governorate not active for shipping')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setUserSelectedAddressId('new')}
+                    className={`w-full p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                      selectedAddressId === 'new'
+                        ? 'border-[#251811] bg-[#FAF5EB] text-[#251811]'
+                        : 'border-dashed border-[#DED4C7] text-[#7A6A5E] hover:border-[#251811] hover:text-[#251811] bg-[#FAF8F5]'
+                    }`}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{t('توصيل إلى عنوان جديد', 'Deliver to a new address')}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Address Form for New Address or Guest/No saved addresses */}
+              {(selectedAddressId === 'new' || authAddresses.length === 0) && (
+                <div className="space-y-4">
+                  {authUser && authAddresses.length > 0 && (
+                    <h3 className="text-xs font-bold text-[#251811] pb-1">
+                      {t('بيانات العنوان الجديد:', 'New Address Details:')}
+                    </h3>
                   )}
-                </p>
-              </div>
 
-              {/* Address Details Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#251811]">
-                    {t('المدينة / الحي / المركز:', 'City / District:')}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder={t('مثال: المنصورة / حي الجامعة', 'e.g. Mansoura / Nasr City')}
-                    className="w-full p-2.5 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-xs font-medium text-[#251811] focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
-                  />
-                </div>
+                  {/* Governorate Loading State */}
+                  {isGovsLoading && (
+                    <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#E8DEC0] flex items-center gap-2 text-xs text-[#7A6A5E]">
+                      <Loader2 className="w-4 h-4 animate-spin text-[#A27B5C]" />
+                      <span>{t('جاري تحميل المحافظات وأسعار الشحن...', 'Loading governorates and shipping fees...')}</span>
+                    </div>
+                  )}
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#251811]">
-                    {t('اسم الشارع بالتفصيل:', 'Street Address:')}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={street}
-                    onChange={(e) => setStreet(e.target.value)}
-                    placeholder={t('اسم الشارع والعلامة المميزة', 'Street name and landmarks')}
-                    className="w-full p-2.5 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-xs font-medium text-[#251811] focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
-                  />
-                </div>
+                  {/* Governorate Error State with Retry */}
+                  {govsError && (
+                    <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                        <span>{govsError}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={fetchGovernorates}
+                        className="px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-800 font-bold text-xs self-start sm:self-auto transition-colors"
+                      >
+                        {t('إعادة المحاولة', 'Retry')}
+                      </button>
+                    </div>
+                  )}
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#251811]">
-                    {t('رقم العمارة / المنزل:', 'Building Number:')}
-                  </label>
-                  <input
-                    type="text"
-                    value={buildingNumber}
-                    onChange={(e) => setBuildingNumber(e.target.value)}
-                    placeholder="12"
-                    className="w-full p-2.5 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-xs font-medium text-[#251811] focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
-                  />
-                </div>
+                  {/* Governorate Empty State */}
+                  {!isGovsLoading && !govsError && activeGovernorates.length === 0 && (
+                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                      <span>{t('لا توجد محافظات متاحة للشحن حالياً. يرجى التواصل مع الإدارة.', 'No shipping governorates currently available. Please contact support.')}</span>
+                    </div>
+                  )}
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#251811]">
-                    {t('رقم الشقة / الدور:', 'Apartment / Floor:')}
-                  </label>
-                  <input
-                    type="text"
-                    value={apartmentNumber}
-                    onChange={(e) => setApartmentNumber(e.target.value)}
-                    placeholder="3"
-                    className="w-full p-2.5 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-xs font-medium text-[#251811] focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
-                  />
+                  {/* Real Governorate Selector */}
+                  {!isGovsLoading && !govsError && activeGovernorates.length > 0 && (
+                    <div className="space-y-2">
+                      <label htmlFor="checkout-governorate-select" className="block text-xs font-bold text-[#251811]">
+                        {t('اختر المحافظة (لحساب مصاريف الشحن بدقة):', 'Select Governorate (for exact shipping fee):')}
+                      </label>
+                      <select
+                        id="checkout-governorate-select"
+                        value={selectedGovernorateId}
+                        onChange={(e) => {
+                          setSelectedGovernorateId(e.target.value);
+                          const gov = activeGovernorates.find((g) => String(g.id) === e.target.value);
+                          if (gov) setCity((prev) => (!prev || activeGovernorates.some((ag) => ag.nameAr === prev) ? gov.nameAr : prev));
+                        }}
+                        className="w-full p-3 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-sm font-semibold text-[#251811] focus:ring-1 focus:ring-[#A27B5C] focus:outline-none"
+                      >
+                        {activeGovernorates.map((gov) => (
+                          <option key={gov.id} value={gov.id}>
+                            {gov.nameAr} ({gov.nameEn}) — {t('مصاريف الشحن:', 'Shipping:')} {gov.shippingCost} {t('ج.م', 'EGP')}
+                          </option>
+                        ))}
+                      </select>
+                      {currentGov && (
+                        <p className="text-[11px] text-[#8A796B]">
+                          {t(
+                            `قيمة الشحن لمحافظة ${currentGovNameAr} هي ${shippingCost} ج.م تُضاف إلى إجمالي الطلب.`,
+                            `Shipping fee to ${currentGovNameEn} is ${shippingCost} EGP added to order total.`
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Address Details Fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#251811]">
+                        {t('المدينة / الحي / المركز:', 'City / District:')}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder={t('مثال: المنصورة / حي الجامعة', 'e.g. Mansoura / Nasr City')}
+                        className="w-full p-2.5 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-xs font-medium text-[#251811] focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#251811]">
+                        {t('اسم الشارع بالتفصيل:', 'Street Address:')}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={street}
+                        onChange={(e) => setStreet(e.target.value)}
+                        placeholder={t('اسم الشارع والعلامة المميزة', 'Street name and landmarks')}
+                        className="w-full p-2.5 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-xs font-medium text-[#251811] focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#251811]">
+                        {t('رقم العمارة / المنزل:', 'Building Number:')}
+                      </label>
+                      <input
+                        type="text"
+                        value={buildingNumber}
+                        onChange={(e) => setBuildingNumber(e.target.value)}
+                        placeholder="12"
+                        className="w-full p-2.5 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-xs font-medium text-[#251811] focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#251811]">
+                        {t('رقم الشقة / الدور:', 'Apartment / Floor:')}
+                      </label>
+                      <input
+                        type="text"
+                        value={apartmentNumber}
+                        onChange={(e) => setApartmentNumber(e.target.value)}
+                        placeholder="3"
+                        className="w-full p-2.5 rounded-xl border border-[#DED4C7] bg-[#FAF8F5] text-xs font-medium text-[#251811] focus:outline-none focus:ring-1 focus:ring-[#A27B5C]"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Customer Notes */}
               <div className="space-y-1.5 pt-2">
@@ -688,7 +901,11 @@ export default function CheckoutView() {
                 )}
 
                 <div className="flex justify-between text-[#5C4A3E]">
-                  <span>{t('مصاريف الشحن والتوصيل (' + selectedGov.nameAr + '):', `Shipping to ${selectedGov.nameEn}:`)}</span>
+                  <span>
+                    {currentGov
+                      ? t(`مصاريف الشحن والتوصيل (${currentGovNameAr}):`, `Shipping to ${currentGovNameEn}:`)
+                      : t('مصاريف الشحن والتوصيل:', 'Shipping & Delivery:')}
+                  </span>
                   <span className="font-bold">{shippingCost} {t('ج.م', 'EGP')}</span>
                 </div>
 
@@ -722,7 +939,14 @@ export default function CheckoutView() {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isSubmitting || !authUser}
+                disabled={
+                  isSubmitting ||
+                  !authUser ||
+                  isGovsLoading ||
+                  activeGovernorates.length === 0 ||
+                  Boolean(govsError) ||
+                  !currentGov
+                }
                 className="w-full py-4 rounded-full bg-[#251811] hover:bg-[#3D291D] text-white font-extrabold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
