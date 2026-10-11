@@ -13,6 +13,7 @@ import ProfileSection from './ProfileSection';
 import SafeImage from './SafeImage';
 import { shippingService } from '@/lib/api/services/shippingService';
 import { GovernorateShipping } from '@/types/shipping';
+import { useLanguage } from '@/lib/context/LanguageContext';
 import {
   User,
   Package,
@@ -36,9 +37,18 @@ import {
   X,
   Copy,
   LogOut,
+  Cog,
+  Truck,
+  CheckCheck,
+  ShoppingBag,
+  CreditCard,
+  Layers,
+  Sparkles,
+  Calendar,
 } from 'lucide-react';
 
 export default function AccountView() {
+  const { t, isRtl } = useLanguage();
   const { orders, submitPaymentProof, settings, navigateTo } = useToccoStore();
   const {
     user,
@@ -120,10 +130,13 @@ export default function AccountView() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [proofInput, setProofInput] = useState('');
 
-  // Real Backend Orders state
+  // Real Backend Orders state & Live Refreshing
   const [backendOrders, setBackendOrders] = useState<BackendOrder[]>([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
+  const [isOrdersRefreshing, setIsOrdersRefreshing] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [lastOrdersRefreshedAt, setLastOrdersRefreshedAt] = useState<Date | null>(null);
+  const isFetchingOrdersRef = React.useRef(false);
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -139,36 +152,69 @@ export default function AccountView() {
     }
   };
 
-  const fetchMyOrders = React.useCallback(async () => {
-    if (!user) return;
-    setIsOrdersLoading(true);
+  const fetchMyOrders = React.useCallback(async (isSilent = false) => {
+    if (!user || isFetchingOrdersRef.current) return;
+    isFetchingOrdersRef.current = true;
+    if (!isSilent) {
+      setIsOrdersLoading(true);
+    } else {
+      setIsOrdersRefreshing(true);
+    }
     setOrdersError(null);
     try {
       const data = await orderService.getMyOrders();
       setBackendOrders(data);
+      setLastOrdersRefreshedAt(new Date());
     } catch (err) {
       const normalized = normalizeApiError(err);
-      setOrdersError(normalized.message);
+      if (!isSilent) {
+        setOrdersError(normalized.message);
+      }
     } finally {
+      isFetchingOrdersRef.current = false;
       setIsOrdersLoading(false);
+      setIsOrdersRefreshing(false);
     }
   }, [user]);
 
+  // Initial orders fetch when user is authenticated
   useEffect(() => {
     if (!user) return;
-    let active = true;
-    orderService
-      .getMyOrders()
-      .then((data) => {
-        if (active) setBackendOrders(data);
-      })
-      .catch((err) => {
-        if (active) setOrdersError(normalizeApiError(err).message);
-      });
-    return () => {
-      active = false;
+    fetchMyOrders(false);
+  }, [user, fetchMyOrders]);
+
+  // Refetch when switching to orders tab
+  useEffect(() => {
+    if (user && activeTab === 'orders') {
+      fetchMyOrders(backendOrders.length === 0 ? false : true);
+    }
+  }, [activeTab, user, fetchMyOrders, backendOrders.length]);
+
+  // Live order status refresh: window focus, visibilitychange, and 15s polling
+  useEffect(() => {
+    if (!user || activeTab !== 'orders') return;
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchMyOrders(true);
+      }
     };
-  }, [user]);
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchMyOrders(true);
+      }
+    }, 15000);
+
+    return () => {
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.clearInterval(intervalId);
+    };
+  }, [user, activeTab, fetchMyOrders]);
 
   // Handle Login Submit
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -305,98 +351,145 @@ export default function AccountView() {
     }
   };
 
-  // Handle Deposit Proof Submit for Orders
-  const handleProofSubmit = (orderId: string) => {
-    if (!proofInput.trim()) return;
-    submitPaymentProof(orderId, proofInput);
-    setProofInput('');
-    if (selectedOrder?.id === orderId) {
-      setSelectedOrder((prev) =>
-        prev
-          ? {
-              ...prev,
-              paymentStatus: 'proof_submitted',
-              orderStatus: 'proof_submitted',
-              paymentProofNote: proofInput,
-            }
-          : null
-      );
+  const formatMoneySafe = (val: string | number | null | undefined): string => {
+    if (val === null || val === undefined || val === '') return isRtl ? 'غير متاح' : 'N/A';
+    const num = Number(val);
+    if (isNaN(num)) return isRtl ? 'غير متاح' : 'N/A';
+    return `${num.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} ${isRtl ? 'ج.م' : 'EGP'}`;
+  };
+
+  const formatOrderDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString(isRtl ? 'ar-EG' : 'en-GB', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    } catch {
+      return dateStr;
     }
   };
 
-  const getStatusBadge = (orderStatus: OrderStatus, paymentStatus: PaymentStatus) => {
-    if (paymentStatus === 'pending_deposit') {
+  const getPaymentMethodLabel = (method?: string | null) => {
+    if (method === 'INSTAPAY') return isRtl ? 'إنستاباي (InstaPay)' : 'InstaPay Transfer';
+    if (method === 'ELECTRONIC_WALLET') return isRtl ? 'محفظة إلكترونية (فودافون كاش / وغيرها)' : 'Electronic Wallet (Vodafone Cash, etc.)';
+    if (method === 'CASH_ON_DELIVERY') return isRtl ? 'الدفع نقداً عند الاستلام' : 'Cash on Delivery';
+    return isRtl ? 'دفع عند الاستلام' : 'Cash on Delivery';
+  };
+
+  const getPaymentStatusBadge = (status?: string | null) => {
+    if (status === 'PAID') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFF3CD] text-[#856404] text-[11px] font-semibold uppercase tracking-wider">
-          <AlertCircle className="w-3 h-3" />
-          Awaiting {settings.depositPercentage}% Deposit
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
+          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+          <span>{isRtl ? 'تم اعتماد الدفع' : 'Payment Confirmed'}</span>
         </span>
       );
     }
-    if (paymentStatus === 'proof_submitted' && orderStatus === 'proof_submitted') {
+    if (status === 'PENDING') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E2E3E5] text-[#383D41] text-[11px] font-semibold uppercase tracking-wider">
-          <Clock className="w-3 h-3" />
-          Deposit Proof Received
-        </span>
-      );
-    }
-    if (orderStatus === 'in_production') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D1E7DD] text-[#0F5132] text-[11px] font-semibold uppercase tracking-wider">
-          <CheckCircle2 className="w-3 h-3" />
-          In Production (Casting)
-        </span>
-      );
-    }
-    if (orderStatus === 'ready_for_shipping') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#CCE5FF] text-[#004085] text-[11px] font-semibold uppercase tracking-wider">
-          <Package className="w-3 h-3" />
-          Ready for White-Glove Shipping
-        </span>
-      );
-    }
-    if (orderStatus === 'delivered') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D4EDDA] text-[#155724] text-[11px] font-semibold uppercase tracking-wider">
-          <Check className="w-3 h-3" />
-          Delivered & Installed
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold">
+          <Clock className="w-3 h-3 text-amber-600" />
+          <span>{isRtl ? 'قيد مراجعة التحويل' : 'Verification Pending'}</span>
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EFEBE3] text-[#524B45] text-[11px] font-semibold uppercase tracking-wider">
-        {orderStatus}
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-700 border border-neutral-200 text-[11px] font-bold">
+        <AlertCircle className="w-3 h-3 text-neutral-500" />
+        <span>{isRtl ? 'غير مدفوع' : 'Unpaid'}</span>
       </span>
     );
+  };
+
+  const getBackendStatusConfig = (status: BackendOrderStatus) => {
+    switch (status) {
+      case 'CONFIRMED':
+        return {
+          label: isRtl ? 'مؤكد' : 'Confirmed',
+          subLabel: isRtl ? 'تم تأكيد الطلب واعتماد الدفع' : 'Payment verified and order confirmed',
+          badgeBg: 'bg-[#EFF6FF]',
+          badgeText: 'text-[#1D4ED8]',
+          badgeBorder: 'border-[#93C5FD]',
+          icon: CheckCircle2,
+          stepIndex: 1,
+        };
+      case 'PROCESSING':
+        return {
+          label: isRtl ? 'قيد التجهيز والسرفلة' : 'Processing & Production',
+          subLabel: isRtl ? 'جارٍ تفصيل وسرفلة وتجهيز طلبك بعناية' : 'Customizing and edging your carpet',
+          badgeBg: 'bg-[#FAF5FF]',
+          badgeText: 'text-[#7E22CE]',
+          badgeBorder: 'border-[#D8B4FE]',
+          icon: Cog,
+          stepIndex: 2,
+        };
+      case 'SHIPPED':
+        return {
+          label: isRtl ? 'تم الشحن مع المندوب' : 'Shipped & In Transit',
+          subLabel: isRtl ? 'طلبك في الطريق إليك مع مندوب التوصيل' : 'In transit with delivery courier',
+          badgeBg: 'bg-[#ECFEFF]',
+          badgeText: 'text-[#0E7490]',
+          badgeBorder: 'border-[#A5F3FC]',
+          icon: Truck,
+          stepIndex: 3,
+        };
+      case 'DELIVERED':
+        return {
+          label: isRtl ? 'تم التسليم بنجاح' : 'Delivered & Installed',
+          subLabel: isRtl ? 'تم استلام وتوصيل الطلب بنجاح. شكراً لثقتكم!' : 'Delivered successfully. Thank you!',
+          badgeBg: 'bg-[#F0FDF4]',
+          badgeText: 'text-[#15803D]',
+          badgeBorder: 'border-[#86EFAC]',
+          icon: CheckCheck,
+          stepIndex: 4,
+        };
+      case 'CANCELLED':
+        return {
+          label: isRtl ? 'طلب ملغي' : 'Cancelled',
+          subLabel: isRtl ? 'تم إلغاء هذا الطلب' : 'This order has been cancelled',
+          badgeBg: 'bg-[#FEF2F2]',
+          badgeText: 'text-[#B91C1C]',
+          badgeBorder: 'border-[#FECACA]',
+          icon: AlertCircle,
+          stepIndex: -1,
+        };
+      case 'NOT_CONFIRMED':
+      default:
+        return {
+          label: isRtl ? 'بانتظار التأكيد' : 'Pending Confirmation',
+          subLabel: isRtl ? 'تم استلام طلبك وجارٍ مراجعة تفاصيل الحجز' : 'Awaiting payment verification',
+          badgeBg: 'bg-[#FFF8E6]',
+          badgeText: 'text-[#B7791F]',
+          badgeBorder: 'border-[#F6E05E]',
+          icon: Clock,
+          stepIndex: 0,
+        };
+    }
   };
 
   const getBackendStatusBadge = (status: BackendOrderStatus) => {
-    if (status === 'CONFIRMED') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EBF5EE] text-[#1E6B3A] border border-[#C5E5D0] text-[11px] font-semibold uppercase tracking-wider">
-          <CheckCircle2 className="w-3 h-3" />
-          Confirmed · In Production
-        </span>
-      );
-    }
-    if (status === 'CANCELLED') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5F2EF] text-[#736B63] border border-[#D8CEBF] text-[11px] font-semibold uppercase tracking-wider">
-          <AlertCircle className="w-3 h-3" />
-          Cancelled
-        </span>
-      );
-    }
-    // NOT_CONFIRMED
+    const config = getBackendStatusConfig(status);
+    const StatusIcon = config.icon;
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FAF0E6] text-[#B85D38] border border-[#E8D5C4] text-[11px] font-semibold uppercase tracking-wider">
-        <Clock className="w-3 h-3" />
-        Pending Confirmation
+      <span
+        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${config.badgeBg} ${config.badgeText} border ${config.badgeBorder} text-[11px] font-bold`}
+      >
+        <StatusIcon className="w-3.5 h-3.5" />
+        <span>{config.label}</span>
       </span>
     );
   };
+
+  const ORDER_TRACKER_STEPS = [
+    { key: 'NOT_CONFIRMED', labelAr: 'استلام الطلب', labelEn: 'Received' },
+    { key: 'CONFIRMED', labelAr: 'تأكيد الحجز', labelEn: 'Confirmed' },
+    { key: 'PROCESSING', labelAr: 'التجهيز والسرفلة', labelEn: 'Processing' },
+    { key: 'SHIPPED', labelAr: 'تم الشحن', labelEn: 'Shipped' },
+    { key: 'DELIVERED', labelAr: 'تم التسليم', labelEn: 'Delivered' },
+  ];
 
   return (
     <div id="account-portal-page" className="pt-20 sm:pt-28 pb-20 sm:pb-24 bg-[#FAF8F5] min-h-screen">
@@ -742,7 +835,7 @@ export default function AccountView() {
                   activeTab === 'orders' ? 'text-[#1C1A19] font-bold' : 'text-[#736B63] hover:text-[#1C1A19]'
                 }`}
               >
-                Commissions & Orders ({backendOrders.length})
+                {t('طلباتي وتعاقداتي', 'Commissions & Orders')} ({backendOrders.length})
                 {activeTab === 'orders' && (
                   <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#643D26]" />
                 )}
@@ -754,7 +847,7 @@ export default function AccountView() {
                   activeTab === 'addresses' ? 'text-[#1C1A19] font-bold' : 'text-[#736B63] hover:text-[#1C1A19]'
                 }`}
               >
-                Delivery Residences ({addresses.length})
+                {t('عناوين التوصيل', 'Delivery Residences')} ({addresses.length})
                 {activeTab === 'addresses' && (
                   <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#643D26]" />
                 )}
@@ -766,7 +859,7 @@ export default function AccountView() {
                   activeTab === 'profile' ? 'text-[#1C1A19] font-bold' : 'text-[#736B63] hover:text-[#1C1A19]'
                 }`}
               >
-                Client Profile
+                {t('الملف الشخصي', 'Client Profile')}
                 {activeTab === 'profile' && (
                   <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#643D26]" />
                 )}
@@ -775,137 +868,505 @@ export default function AccountView() {
 
             {/* TAB 1: COMMISSIONS & ORDERS */}
             {activeTab === 'orders' && (
-              <div className="space-y-4 sm:space-y-6">
-                {isOrdersLoading ? (
-                  <div className="py-12 sm:py-16 text-center space-y-3">
-                    <RefreshCw className="w-6 h-6 animate-spin text-[#643D26] mx-auto" />
-                    <p className="text-xs uppercase tracking-wider text-[#736B63]">
-                      Retrieving Artisanal Commissions...
+              <div className="space-y-6">
+                {/* Orders Section Header & Live Refresh Control */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-[#EAE4DC] shadow-2xs">
+                  <div>
+                    <h3 className="text-sm sm:text-base font-black text-[#1C1A19] flex items-center gap-2">
+                      <ShoppingBag className="w-4 h-4 text-[#643D26]" />
+                      <span>{t('سجل الطلبات والتعاقدات الحرفية', 'Orders & Commission Records')}</span>
+                    </h3>
+                    <p className="text-xs text-[#736B63] mt-0.5">
+                      {t(
+                        'متابعة فورية ومباشرة لحالة تصنيع وتجهيز وشحن سجادك مع تحديث فوري للحالة',
+                        'Real-time live tracking of your handcrafted carpet production, shipping, and delivery'
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => fetchMyOrders(false)}
+                      disabled={isOrdersRefreshing || isOrdersLoading}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#FAF8F5] hover:bg-[#F5F1EA] text-[#643D26] border border-[#EAE4DC] text-xs font-bold transition-all disabled:opacity-60 shadow-2xs"
+                      title={t('تحديث حالة الطلبات من الخادم الآن', 'Refresh orders from server now')}
+                    >
+                      <RefreshCw
+                        className={`w-3.5 h-3.5 ${
+                          isOrdersRefreshing || isOrdersLoading ? 'animate-spin text-[#643D26]' : 'text-[#736B63]'
+                        }`}
+                      />
+                      <span>
+                        {isOrdersRefreshing
+                          ? t('جارٍ التحديث...', 'Refreshing...')
+                          : t('تحديث الطلبات', 'Refresh Orders')}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {isOrdersLoading && backendOrders.length === 0 ? (
+                  <div className="py-16 sm:py-20 text-center space-y-3 bg-white rounded-2xl border border-[#EAE4DC]">
+                    <RefreshCw className="w-7 h-7 animate-spin text-[#643D26] mx-auto" />
+                    <p className="text-xs uppercase tracking-wider text-[#736B63] font-semibold">
+                      {t('جارٍ استرجاع طلباتك وتعاقداتك...', 'Retrieving Artisanal Commissions...')}
                     </p>
                   </div>
                 ) : ordersError ? (
-                  <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                      <span>{ordersError}</span>
+                  <div className="p-5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-2.5">
+                      <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+                      <div>
+                        <p className="font-bold">{t('تعذر تحميل الطلبات', 'Unable to load orders')}</p>
+                        <p className="text-red-600/90 mt-0.5">{ordersError}</p>
+                      </div>
                     </div>
                     <button
-                      onClick={fetchMyOrders}
-                      className="px-3 py-1 bg-red-100 hover:bg-red-200 rounded text-red-800 font-semibold"
+                      onClick={() => fetchMyOrders(false)}
+                      className="px-4 py-1.5 bg-red-100 hover:bg-red-200 rounded-xl text-red-800 font-bold transition-colors"
                     >
-                      Retry
+                      {t('إعادة المحاولة', 'Retry')}
                     </button>
                   </div>
                 ) : backendOrders.length === 0 ? (
-                  <div className="py-12 sm:py-16 text-center space-y-4">
-                    <p className="text-sm sm:text-base text-[#1C1A19]">No commissions placed yet.</p>
+                  <div className="py-16 sm:py-20 text-center space-y-4 bg-white rounded-2xl border border-[#EAE4DC] p-6 shadow-2xs">
+                    <div className="w-16 h-16 rounded-full bg-[#FAF5EB] text-[#643D26] flex items-center justify-center mx-auto border border-[#EAE4DC]">
+                      <ShoppingBag className="w-8 h-8 text-[#A27B5C]" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-base font-bold text-[#1C1A19]">
+                        {t('لا توجد طلبات مسجلة حتى الآن', 'No commissions placed yet')}
+                      </h4>
+                      <p className="text-xs text-[#736B63] max-w-sm mx-auto">
+                        {t(
+                          'تصفح تشكيلة السجاد الفاخرة واختر ما يناسب ذوقك ومنزلك من أحدث التصاميم الحصرية.',
+                          'Explore our luxury carpet catalogue and find the perfect bespoke pieces for your space.'
+                        )}
+                      </p>
+                    </div>
                     <button
                       onClick={() => navigateTo('shop')}
-                      className="px-6 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-medium hover:bg-[#332F2D]"
+                      className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#1C1A19] text-white text-xs uppercase tracking-wider font-bold hover:bg-[#332F2D] transition-colors shadow-xs"
                     >
-                      Browse Catalogue
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      <span>{t('تصفح الكتالوج الآن', 'Browse Catalogue')}</span>
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-4 sm:space-y-6">
+                  <div className="space-y-6">
                     {backendOrders.map((ord) => {
                       const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
                         `مرحباً عالم السجاد، أود الاستفسار عن حالة طلبي رقم #${ord.order_number}.`
                       )}`;
-                      const depositPercentage = Number(ord.deposit_percentage);
-                      const deposit = Math.round(Number(ord.total_price) * depositPercentage / 100);
+
+                      const statusConfig = getBackendStatusConfig(ord.status);
+                      const StatusIcon = statusConfig.icon;
+                      const isCancelled = ord.status === 'CANCELLED';
 
                       return (
                         <div
                           key={ord.id}
-                          className="p-5 sm:p-7 rounded-xl sm:rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-5"
+                          className="rounded-2xl bg-white border border-[#EAE4DC] shadow-xs hover:shadow-sm transition-all overflow-hidden"
                         >
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-[#EAE4DC]">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] sm:text-xs uppercase tracking-wider font-mono text-[#736B63]">
-                                  Reference: {ord.order_number}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    await navigator.clipboard.writeText(String(ord.order_number));
-                                    setCopiedReferenceId(ord.id);
-                                    window.setTimeout(() => setCopiedReferenceId(null), 1500);
-                                  }}
-                                  aria-label={`Copy reference ${ord.order_number}`}
-                                  title={copiedReferenceId === ord.id ? 'Copied' : 'Copy reference'}
-                                  className="inline-flex items-center justify-center rounded-md p-1 text-[#736B63] hover:bg-[#F5F1EA] hover:text-[#1C1A19]"
-                                >
-                                  {copiedReferenceId === ord.id ? (
-                                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                                  ) : (
-                                    <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                                  )}
-                                </button>
-                              </div>
-                              <p className="text-xs text-[#8F8880] mt-0.5">
-                                Ordered on {new Date(ord.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {getBackendStatusBadge(ord.status)}
-                            </div>
-                          </div>
-
-                          <div className="space-y-3">
-                            {ord.items.map((item) => (
-                              <div key={item.id} className="flex items-center gap-4 py-2 border-b border-[#FAF8F5] last:border-0">
-                                <div className="w-12 h-12 rounded-lg bg-[#F5F1EA] overflow-hidden shrink-0 relative flex items-center justify-center border border-[#EAE4DC]">
-                                  {item.color_hex_code && (
-                                    <div
-                                      className="w-5 h-5 rounded-full border border-black/10 shadow-xs"
-                                      style={{ backgroundColor: item.color_hex_code }}
-                                      title={item.color_name || undefined}
-                                    />
-                                  )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="text-xs sm:text-sm font-medium text-[#1C1A19] truncate">{item.product_name}</h4>
-                                  <p className="text-[11px] text-[#736B63] flex items-center gap-1.5 mt-0.5">
-                                    {item.color_name && (
+                          {/* ORDER HEADER */}
+                          <div className="p-4 sm:p-6 bg-[#FAF8F5] border-b border-[#EAE4DC] space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-bold text-[#736B63]">
+                                    {t('رقم الطلب:', 'Reference:')}
+                                  </span>
+                                  <span className="text-xs sm:text-sm font-mono font-bold text-[#1C1A19] bg-white px-2 py-0.5 rounded-md border border-[#EAE4DC]">
+                                    #{ord.order_number}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      await navigator.clipboard.writeText(String(ord.order_number));
+                                      setCopiedReferenceId(ord.id);
+                                      window.setTimeout(() => setCopiedReferenceId(null), 2000);
+                                    }}
+                                    aria-label={`Copy reference ${ord.order_number}`}
+                                    title={copiedReferenceId === ord.id ? t('تم النسخ', 'Copied') : t('نسخ رقم الطلب', 'Copy reference')}
+                                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold bg-white border border-[#EAE4DC] text-[#736B63] hover:text-[#1C1A19] hover:bg-[#F5F1EA] transition-colors"
+                                  >
+                                    {copiedReferenceId === ord.id ? (
                                       <>
-                                        <span>Color: {item.color_name}</span>
-                                        <span>•</span>
+                                        <Check className="h-3 w-3 text-emerald-600" aria-hidden="true" />
+                                        <span className="text-[10px] text-emerald-700 font-bold">
+                                          {t('تم النسخ', 'Copied')}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="h-3 w-3" aria-hidden="true" />
+                                        <span className="text-[10px]">{t('نسخ', 'Copy')}</span>
                                       </>
                                     )}
-                                    <span>Qty: {item.quantity}</span>
-                                    <span>•</span>
-                                    <span className="font-mono">{Number(item.product_price).toLocaleString()} EGP each</span>
-                                  </p>
+                                  </button>
                                 </div>
-                                <span className="text-xs font-mono font-medium text-[#1C1A19]">
-                                  {Number(item.subtotal).toLocaleString()} EGP
-                                </span>
+
+                                <div className="flex items-center gap-3 text-xs text-[#8F8880] flex-wrap pt-0.5">
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3.5 h-3.5 text-[#A27B5C]" />
+                                    <span>{t('تاريخ الطلب:', 'Ordered on:')} {formatOrderDate(ord.created_at)}</span>
+                                  </span>
+                                </div>
                               </div>
-                            ))}
+
+                              <div className="flex items-center gap-2 self-start sm:self-auto">
+                                {getBackendStatusBadge(ord.status)}
+                              </div>
+                            </div>
+
+                            {/* Status Sublabel Note Banner */}
+                            <div className="p-2.5 rounded-xl bg-white border border-[#EAE4DC] flex items-center gap-2 text-xs text-[#5C4A3E]">
+                              <StatusIcon className="w-4 h-4 text-[#643D26] shrink-0" />
+                              <span className="font-medium">{statusConfig.subLabel}</span>
+                            </div>
+
+                            {/* LIVE PROGRESS STEPPER (When not cancelled) */}
+                            {!isCancelled && (
+                              <div className="pt-2">
+                                <div className="grid grid-cols-5 gap-1 sm:gap-2 relative">
+                                  {ORDER_TRACKER_STEPS.map((step, stepIdx) => {
+                                    const isCompleted = stepIdx <= statusConfig.stepIndex;
+                                    const isCurrent = stepIdx === statusConfig.stepIndex;
+
+                                    return (
+                                      <div key={step.key} className="flex flex-col items-center text-center">
+                                        <div
+                                          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold transition-all ${
+                                            isCurrent
+                                              ? 'bg-[#643D26] text-white ring-2 ring-[#E8DEC0] shadow-xs'
+                                              : isCompleted
+                                              ? 'bg-[#1E6B3A] text-white'
+                                              : 'bg-white text-[#B3A89B] border border-[#EAE4DC]'
+                                          }`}
+                                        >
+                                          {isCompleted && !isCurrent ? (
+                                            <Check className="w-3.5 h-3.5" />
+                                          ) : (
+                                            stepIdx + 1
+                                          )}
+                                        </div>
+                                        <span
+                                          className={`text-[9px] sm:text-[11px] mt-1.5 leading-tight font-medium ${
+                                            isCurrent
+                                              ? 'text-[#643D26] font-bold'
+                                              : isCompleted
+                                              ? 'text-[#1C1A19]'
+                                              : 'text-[#A89F95]'
+                                          }`}
+                                        >
+                                          {isRtl ? step.labelAr : step.labelEn}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
 
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-[#EAE4DC] text-xs">
-                            <div>
-                              <span className="text-[#736B63]">{depositPercentage}% Handcrafted Deposit: </span>
-                              <span className="font-semibold text-[#643D26] font-mono">{deposit.toLocaleString()} EGP</span>
-                              <span className="text-[#8F8880] text-[11px] ml-2 font-mono">Total: {Number(ord.total_price).toLocaleString()} EGP</span>
-                              {ord.shipping_address && (
-                                <p className="text-[11px] text-[#8F8880] mt-1">
-                                  Destination: {ord.shipping_address.title} ({ord.shipping_address.street}, {ord.shipping_address.city})
-                                </p>
+                          {/* ORDER BODY: ITEMS */}
+                          <div className="p-4 sm:p-6 space-y-4">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-[#736B63] flex items-center gap-1.5">
+                              <ShoppingBag className="w-3.5 h-3.5 text-[#643D26]" />
+                              <span>{t('المنتجات المطلوبة في هذا الطلب', 'Purchased Items & Runners')}</span>
+                            </h4>
+
+                            {/* Product Items */}
+                            {ord.items && ord.items.length > 0 && (
+                              <div className="divide-y divide-[#F5EFE6] border border-[#EAE4DC] rounded-xl overflow-hidden bg-white">
+                                {ord.items.map((item, idx) => {
+                                  const isArwal = item.item_type === 'arwal';
+                                  const title = isArwal
+                                    ? (isRtl ? item.arwal_name_ar || item.arwal_name_en : item.arwal_name_en || item.arwal_name_ar) || t('رول سجاد بالمتر', 'Carpet Runner')
+                                    : (isRtl ? item.product_name_ar || item.product_name_en || item.product_name : item.product_name_en || item.product_name_ar || item.product_name) || t('سجادة فاخرة', 'Luxury Carpet');
+                                  const colorName = isRtl ? (item.color_name_ar || item.color_name_en || item.color_name) : (item.color_name_en || item.color_name_ar || item.color_name);
+                                  const unitPrice = isArwal ? item.price_per_length : (item.unit_price ?? item.product_price);
+
+                                  return (
+                                    <div
+                                      key={item.id || idx}
+                                      className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF8F5]/40 transition-colors"
+                                    >
+                                      <div className="flex items-start sm:items-center gap-3 min-w-0">
+                                        <div className="w-10 h-10 rounded-lg bg-[#FAF5EB] border border-[#EAE4DC] shrink-0 flex items-center justify-center relative shadow-2xs">
+                                          {item.color_hex_code ? (
+                                            <span
+                                              className="w-5 h-5 rounded-full border border-black/10 shadow-xs"
+                                              style={{ backgroundColor: item.color_hex_code }}
+                                              title={colorName || undefined}
+                                            />
+                                          ) : (
+                                            <Layers className="w-5 h-5 text-[#8F8880]" />
+                                          )}
+                                        </div>
+
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <h5 className="text-xs sm:text-sm font-bold text-[#1C1A19] truncate">
+                                              {title}
+                                            </h5>
+                                            {isArwal && (
+                                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#FAF0E6] text-[#643D26] border border-[#E8D5C4]">
+                                                {t('رول بالمتر', 'Runner by Meter')}
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          <div className="flex items-center gap-2 sm:gap-3 text-[11px] text-[#736B63] mt-1 flex-wrap">
+                                            {colorName && (
+                                              <span className="flex items-center gap-1">
+                                                <span className="text-[#8F8880]">{t('اللون:', 'Color:')}</span>
+                                                <span className="font-semibold text-[#1C1A19]">{colorName}</span>
+                                              </span>
+                                            )}
+
+                                            {isArwal ? (
+                                              <span className="flex items-center gap-1">
+                                                <span className="text-[#8F8880]">{t('المقاس:', 'Dimensions:')}</span>
+                                                <span className="font-semibold text-[#1C1A19]">
+                                                  {item.width ? `${item.width} ${t('سم عرض', 'cm width')}` : ''}
+                                                  {item.width && item.length ? ' × ' : ''}
+                                                  {item.length ? `${item.length} ${t('متر طول', 'm length')}` : ''}
+                                                </span>
+                                              </span>
+                                            ) : (
+                                              item.size_width && item.size_length ? (
+                                                <span className="flex items-center gap-1">
+                                                  <span className="text-[#8F8880]">{t('المقاس:', 'Size:')}</span>
+                                                  <span className="font-semibold text-[#1C1A19]">
+                                                    {item.size_width} × {item.size_length} {t('سم', 'cm')}
+                                                  </span>
+                                                </span>
+                                              ) : null
+                                            )}
+
+                                            <span className="flex items-center gap-1">
+                                              <span className="text-[#8F8880]">{t('الكمية:', 'Qty:')}</span>
+                                              <span className="font-semibold text-[#1C1A19]">{item.quantity}</span>
+                                            </span>
+
+                                            {unitPrice && !isNaN(Number(unitPrice)) && (
+                                              <span className="text-[#8F8880] font-mono text-[11px]">
+                                                ({formatMoneySafe(unitPrice)} {isArwal ? t('/ م', '/ m') : t('للقطعة', 'each')})
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="text-start sm:text-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#FAF8F5]">
+                                        <span className="text-xs sm:text-sm font-bold font-mono text-[#1C1A19]">
+                                          {formatMoneySafe(item.subtotal)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Bundle Items (if present) */}
+                            {ord.bundles && ord.bundles.length > 0 && (
+                              <div className="space-y-2 mt-3">
+                                <h5 className="text-[11px] font-bold text-[#643D26] uppercase tracking-wider flex items-center gap-1">
+                                  <Sparkles className="w-3.5 h-3.5 text-[#B85D38]" />
+                                  <span>{t('الباقات والعروض الخاصة المشمولة', 'Special Bundle Offers Included')}</span>
+                                </h5>
+                                <div className="divide-y divide-[#F5EFE6] border border-[#EAE4DC] rounded-xl overflow-hidden bg-white">
+                                  {ord.bundles.map((bundle, bIdx) => {
+                                    const bTitle = isRtl
+                                      ? bundle.name_ar || bundle.name_en
+                                      : bundle.name_en || bundle.name_ar;
+
+                                    return (
+                                      <div
+                                        key={bundle.id || bIdx}
+                                        className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                                      >
+                                        <div>
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <h5 className="text-xs sm:text-sm font-bold text-[#1C1A19]">{bTitle}</h5>
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#FAF0E6] text-[#643D26] border border-[#E8D5C4]">
+                                              {t('عرض باقة', 'Bundle Offer')}
+                                            </span>
+                                          </div>
+                                          <p className="text-[11px] text-[#736B63] mt-1">
+                                            {t('الكمية:', 'Qty:')} <span className="font-semibold text-[#1C1A19]">{bundle.quantity}</span>
+                                            {' • '}
+                                            {t('سعر الباقة:', 'Bundle Price:')} <span className="font-semibold font-mono text-[#1C1A19]">{formatMoneySafe(bundle.bundle_price)}</span>
+                                          </p>
+                                        </div>
+                                        <div className="text-start sm:text-end shrink-0">
+                                          <span className="text-xs sm:text-sm font-bold font-mono text-[#1C1A19]">
+                                            {formatMoneySafe(Number(bundle.bundle_price) * bundle.quantity)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* SHIPPING ADDRESS & PAYMENT DETAILS GRID */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                              {/* Address Box */}
+                              <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE4DC] space-y-2">
+                                <h5 className="text-xs font-bold uppercase tracking-wider text-[#736B63] flex items-center gap-1.5">
+                                  <MapPin className="w-3.5 h-3.5 text-[#643D26]" />
+                                  <span>{t('عنوان الشحن والتوصيل', 'Delivery Residence')}</span>
+                                </h5>
+
+                                {ord.shipping_address ? (
+                                  <div className="text-xs text-[#5C4A3E] space-y-1">
+                                    <p className="font-bold text-[#1C1A19]">
+                                      {ord.shipping_address.title || t('العنوان المعتمد', 'Saved Residence')}
+                                    </p>
+                                    <p>
+                                      {ord.shipping_address.street}
+                                      {ord.shipping_address.building_number ? `، عمارة ${ord.shipping_address.building_number}` : ''}
+                                      {ord.shipping_address.apartment_number ? `، شقة ${ord.shipping_address.apartment_number}` : ''}
+                                    </p>
+                                    <p className="text-[#736B63]">
+                                      {ord.shipping_address.city}
+                                      {ord.shipping_governorate_name_ar || ord.shipping_address.shipping_governorate_name_ar
+                                        ? `، ${ord.shipping_governorate_name_ar || ord.shipping_address.shipping_governorate_name_ar}`
+                                        : ''}
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-[#8F8880]">{t('غير محدد', 'Not specified')}</p>
+                                )}
+
+                                {ord.customer_notes && (
+                                  <div className="pt-2 border-t border-[#EAE4DC]/80">
+                                    <span className="text-[10px] font-bold text-[#736B63] block mb-0.5">
+                                      {t('ملاحظات العميل مع الطلب:', 'Customer Notes:')}
+                                    </span>
+                                    <p className="text-xs text-[#5C4A3E] bg-white p-2 rounded-lg border border-[#EAE4DC]">
+                                      {ord.customer_notes}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Payment Box */}
+                              <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE4DC] space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <h5 className="text-xs font-bold uppercase tracking-wider text-[#736B63] flex items-center gap-1.5">
+                                    <CreditCard className="w-3.5 h-3.5 text-[#643D26]" />
+                                    <span>{t('بيانات وطريقة السداد', 'Payment Details')}</span>
+                                  </h5>
+                                  {getPaymentStatusBadge(ord.payment?.status)}
+                                </div>
+
+                                <div className="text-xs text-[#5C4A3E] space-y-2">
+                                  <div>
+                                    <span className="text-[#8F8880] text-[11px] block">{t('طريقة الدفع:', 'Method:')}</span>
+                                    <span className="font-bold text-[#1C1A19]">
+                                      {getPaymentMethodLabel(ord.payment?.method)}
+                                    </span>
+                                  </div>
+
+                                  {/* Payment Breakdown according to payment_type */}
+                                  {ord.payment?.payment_type === 'SHIPPING_ONLY' ? (
+                                    <div className="bg-white p-2.5 rounded-lg border border-[#EAE4DC] space-y-1.5 text-[11px]">
+                                      <p className="font-bold text-[#643D26]">
+                                        {t(
+                                          'خطة السداد: عربون الشحن مقدماً والباقي عند الاستلام',
+                                          'Plan: Shipping deposit in advance, balance on delivery'
+                                        )}
+                                      </p>
+                                      <div className="flex justify-between items-center pt-1 border-t border-[#FAF8F5]">
+                                        <span className="text-[#736B63]">{t('عربون الشحن المسدد:', 'Shipping Deposit:')}</span>
+                                        <span className="font-bold font-mono text-[#643D26]">
+                                          {formatMoneySafe(ord.payment.amount)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-[#736B63]">{t('المتبقي نقداً عند الاستلام:', 'Remainder on Delivery:')}</span>
+                                        <span className="font-bold font-mono text-[#1C1A19]">
+                                          {formatMoneySafe(
+                                            Math.max(
+                                              0,
+                                              Number(ord.total_price || 0) - Number(ord.payment.amount || 0)
+                                            )
+                                          )}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ) : ord.payment?.payment_type === 'FULL_ORDER' ? (
+                                    <div className="bg-white p-2.5 rounded-lg border border-[#EAE4DC] space-y-1.5 text-[11px]">
+                                      <p className="font-bold text-[#643D26]">
+                                        {t('خطة السداد: سداد كامل قيمة الطلب والشحن مقدماً', 'Plan: Full order & shipping in advance')}
+                                      </p>
+                                      <div className="flex justify-between items-center pt-1 border-t border-[#FAF8F5]">
+                                        <span className="text-[#736B63]">{t('إجمالي المبلغ المسدد:', 'Total Paid:')}</span>
+                                        <span className="font-bold font-mono text-[#643D26]">
+                                          {formatMoneySafe(ord.payment.amount)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-[#736B63]">{t('المتبقي عند الاستلام:', 'Remainder on Delivery:')}</span>
+                                        <span className="font-bold font-mono text-emerald-700">{formatMoneySafe(0)}</span>
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* FINANCIAL SUMMARY & CONCIERGE FOOTER */}
+                          <div className="p-4 sm:p-5 bg-[#FAF8F5] border-t border-[#EAE4DC] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
+                              {ord.subtotal && (
+                                <div>
+                                  <span className="text-[#736B63] block text-[11px]">{t('المجموع الفرعي', 'Subtotal')}</span>
+                                  <span className="font-bold font-mono text-[#1C1A19]">{formatMoneySafe(ord.subtotal)}</span>
+                                </div>
                               )}
+                              {ord.discount_amount && Number(ord.discount_amount) > 0 && (
+                                <div>
+                                  <span className="text-emerald-700 block text-[11px]">{t('الخصم', 'Discount')}</span>
+                                  <span className="font-bold font-mono text-emerald-700">-{formatMoneySafe(ord.discount_amount)}</span>
+                                </div>
+                              )}
+                              {ord.shipping_amount !== undefined && ord.shipping_amount !== null && (
+                                <div>
+                                  <span className="text-[#736B63] block text-[11px]">
+                                    {t('الشحن', 'Shipping')}
+                                    {ord.shipping_governorate_name_ar ? ` (${ord.shipping_governorate_name_ar})` : ''}
+                                  </span>
+                                  <span className="font-bold font-mono text-[#1C1A19]">
+                                    {Number(ord.shipping_amount) === 0 ? t('مجاني', 'Free') : formatMoneySafe(ord.shipping_amount)}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="pe-4 border-e border-[#EAE4DC]">
+                                <span className="text-[#643D26] font-bold block text-[11px] uppercase tracking-wider">
+                                  {t('الإجمالي الكلي', 'Grand Total')}
+                                </span>
+                                <span className="text-base sm:text-lg font-black font-mono text-[#251811]">
+                                  {formatMoneySafe(ord.total_price)}
+                                </span>
+                              </div>
                             </div>
 
                             <a
                               href={whatsappUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#D8CEBF] text-[11px] uppercase tracking-wider text-[#524B45] hover:bg-[#F5F1EA] transition-colors self-start sm:self-auto"
+                              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-[#F5F1EA] text-[#251811] border border-[#D8CEBF] text-xs font-bold transition-all shadow-2xs self-start md:self-auto shrink-0"
                             >
-                              <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
-                              <span>Concierge Support</span>
+                              <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                              <span>{t('تواصل مع خدمة العملاء', 'Concierge Support')}</span>
                             </a>
                           </div>
                         </div>
