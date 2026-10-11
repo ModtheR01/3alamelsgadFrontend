@@ -1,19 +1,36 @@
 import { apiClient } from '../client';
 import { PaginatedResponse, unwrapResults } from '../pagination';
-import { GovernorateShipping, ShippingUpdatePayload } from '@/types/shipping';
-import { BRAND_CONFIG } from '@/lib/brandConfig';
+import {
+  BackendGovernorate,
+  GovernorateCreateRequest,
+  GovernorateShipping,
+  GovernorateUpdateRequest,
+  ShippingUpdatePayload,
+} from '@/types/shipping';
 
-const LOCAL_STORAGE_KEY = 'alamelsgad_shipping_governorates';
+/**
+ * Normalizes backend Governorate model into the frontend GovernorateShipping shape.
+ */
+export function normalizeGovernorate(raw: any): GovernorateShipping {
+  if (!raw || typeof raw !== 'object') {
+    return raw;
+  }
 
-function normalizeGovernorate(raw: any): GovernorateShipping {
+  const nameAr = (raw.name_ar || raw.nameAr || '').trim();
+  const nameEn = (raw.name_en || raw.nameEn || '').trim();
   const priceNum =
     raw.shipping_price !== undefined && raw.shipping_price !== null
       ? Number(raw.shipping_price)
-      : raw.shippingCost ?? 0;
+      : raw.shippingCost !== undefined
+      ? Number(raw.shippingCost)
+      : 0;
+
   const isActive =
-    raw.is_active !== undefined ? Boolean(raw.is_active) : raw.isActive ?? true;
-  const nameAr = raw.name_ar || raw.nameAr || '';
-  const nameEn = raw.name_en || raw.nameEn || '';
+    raw.is_active !== undefined
+      ? Boolean(raw.is_active)
+      : raw.isActive !== undefined
+      ? Boolean(raw.isActive)
+      : true;
 
   return {
     id: raw.id,
@@ -22,152 +39,93 @@ function normalizeGovernorate(raw: any): GovernorateShipping {
     name_ar: nameAr,
     name_en: nameEn,
     shippingCost: priceNum,
-    shipping_price: raw.shipping_price ?? priceNum,
-    deliveryDaysMin:
-      raw.deliveryDaysMin ?? (nameEn.toLowerCase().includes('dakahlia') ? 1 : 2),
-    deliveryDaysMax:
-      raw.deliveryDaysMax ?? (nameEn.toLowerCase().includes('dakahlia') ? 3 : 5),
+    shipping_price: raw.shipping_price !== undefined ? raw.shipping_price : String(priceNum),
     isActive,
     is_active: isActive,
+    created_at: raw.created_at,
+    updated_at: raw.updated_at,
     notes: raw.notes,
   };
 }
 
-function getInitialGovernorates(): GovernorateShipping[] {
-  if (typeof window !== 'undefined') {
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map(normalizeGovernorate);
-        }
-      }
-    } catch {
-      // Fallback
-    }
-  }
-
-  return BRAND_CONFIG.governorates.map((gov) => ({
-    id: gov.id,
-    nameAr: gov.nameAr,
-    nameEn: gov.nameEn,
-    name_ar: gov.nameAr,
-    name_en: gov.nameEn,
-    shippingCost: gov.shippingCost,
-    shipping_price: gov.shippingCost,
-    deliveryDaysMin: gov.id === 'dakahlia' ? 1 : 2,
-    deliveryDaysMax: gov.id === 'dakahlia' ? 3 : 5,
-    isActive: true,
-    is_active: true,
-  }));
-}
-
-function persistLocally(items: GovernorateShipping[]) {
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
-    } catch {
-      // Ignore
-    }
-  }
-}
-
 export const shippingService = {
   /**
-   * Get all governorates shipping configurations.
-   * Connects to GET /api/user/governorates/ in Django REST Framework.
+   * Get all real governorates from the backend database.
+   * Connects to GET /api/user/governorates/ (DRF DefaultPagination envelope).
    */
   async getGovernorates(): Promise<GovernorateShipping[]> {
-    try {
-      const response = await apiClient.get<PaginatedResponse<any> | any[]>(
-        '/user/governorates/',
-        { params: { page_size: 100 } }
-      );
-      const results = unwrapResults<any>(response);
-      if (Array.isArray(results) && results.length > 0) {
-        const normalized = results.map(normalizeGovernorate);
-        persistLocally(normalized);
-        return normalized;
-      }
-    } catch {
-      // Fallback to cached or local brand config if offline
-    }
-
-    return getInitialGovernorates();
+    const response = await apiClient.get<PaginatedResponse<BackendGovernorate> | BackendGovernorate[]>(
+      '/user/governorates/',
+      { params: { page_size: 100 } }
+    );
+    const results = unwrapResults<BackendGovernorate>(response);
+    return results.map(normalizeGovernorate);
   },
 
   /**
-   * Update shipping rate or delivery estimates for a specific governorate.
-   * Connects to PATCH /api/user/governorates/<id>/ (Admin only)
+   * Get a single governorate by ID.
+   * GET /api/user/governorates/<id>/
+   */
+  async getGovernorate(id: string | number): Promise<GovernorateShipping> {
+    const response = await apiClient.get<BackendGovernorate>(`/user/governorates/${id}/`);
+    return normalizeGovernorate(response);
+  },
+
+  /**
+   * Create a new governorate in the backend database.
+   * Connects to POST /api/user/governorates/ (Admin only).
+   */
+  async createGovernorate(data: GovernorateCreateRequest): Promise<GovernorateShipping> {
+    const payload = {
+      name_ar: data.name_ar.trim(),
+      name_en: data.name_en.trim(),
+      shipping_price: String(data.shipping_price),
+      is_active: data.is_active ?? true,
+    };
+
+    const response = await apiClient.post<BackendGovernorate>('/user/governorates/', payload);
+    return normalizeGovernorate(response);
+  },
+
+  /**
+   * Update shipping rate or details for a specific governorate.
+   * Connects to PATCH /api/user/governorates/<id>/ (Admin only).
    */
   async updateGovernorate(
     id: string | number,
-    payload: ShippingUpdatePayload
+    payload: GovernorateUpdateRequest | ShippingUpdatePayload
   ): Promise<GovernorateShipping> {
     const backendPayload: Record<string, any> = {};
-    if (payload.shippingCost !== undefined) {
-      backendPayload.shipping_price = String(payload.shippingCost);
-    } else if (payload.shipping_price !== undefined) {
+
+    if (payload.name_ar !== undefined) {
+      backendPayload.name_ar = payload.name_ar.trim();
+    }
+    if (payload.name_en !== undefined) {
+      backendPayload.name_en = payload.name_en.trim();
+    }
+    if (payload.shipping_price !== undefined) {
       backendPayload.shipping_price = String(payload.shipping_price);
+    } else if ((payload as ShippingUpdatePayload).shippingCost !== undefined) {
+      backendPayload.shipping_price = String((payload as ShippingUpdatePayload).shippingCost);
     }
-    if (payload.isActive !== undefined) {
-      backendPayload.is_active = payload.isActive;
-    } else if (payload.is_active !== undefined) {
-      backendPayload.is_active = payload.is_active;
+    if (payload.is_active !== undefined) {
+      backendPayload.is_active = Boolean(payload.is_active);
+    } else if ((payload as ShippingUpdatePayload).isActive !== undefined) {
+      backendPayload.is_active = Boolean((payload as ShippingUpdatePayload).isActive);
     }
-    if (payload.name_ar) backendPayload.name_ar = payload.name_ar;
-    if (payload.name_en) backendPayload.name_en = payload.name_en;
 
-    try {
-      const updated = await apiClient.patch<any>(
-        `/user/governorates/${id}/`,
-        backendPayload
-      );
-      const normalized = normalizeGovernorate({ ...payload, ...updated });
-      const current = getInitialGovernorates();
-      const next = current.map((item) =>
-        String(item.id) === String(id) ? { ...item, ...normalized } : item
-      );
-      persistLocally(next);
-      return normalized;
-    } catch {
-      // Offline/demo fallback
-      const current = getInitialGovernorates();
-      const target = current.find((item) => String(item.id) === String(id));
-      if (!target) throw new Error('Governorate not found');
-
-      const updated: GovernorateShipping = normalizeGovernorate({
-        ...target,
-        ...payload,
-      });
-
-      const next = current.map((item) =>
-        String(item.id) === String(id) ? updated : item
-      );
-      persistLocally(next);
-      return updated;
-    }
+    const updated = await apiClient.patch<BackendGovernorate>(
+      `/user/governorates/${id}/`,
+      backendPayload
+    );
+    return normalizeGovernorate(updated);
   },
 
   /**
-   * Reset all governorates to standard factory defaults
+   * Delete an unreferenced governorate from the backend database.
+   * DELETE /api/user/governorates/<id>/ (Admin only).
    */
-  resetToDefaults(): GovernorateShipping[] {
-    const defaults = BRAND_CONFIG.governorates.map((gov) => ({
-      id: gov.id,
-      nameAr: gov.nameAr,
-      nameEn: gov.nameEn,
-      name_ar: gov.nameAr,
-      name_en: gov.nameEn,
-      shippingCost: gov.shippingCost,
-      shipping_price: gov.shippingCost,
-      deliveryDaysMin: gov.id === 'dakahlia' ? 1 : 2,
-      deliveryDaysMax: gov.id === 'dakahlia' ? 3 : 5,
-      isActive: true,
-      is_active: true,
-    }));
-    persistLocally(defaults);
-    return defaults;
+  async deleteGovernorate(id: string | number): Promise<void> {
+    await apiClient.delete<void>(`/user/governorates/${id}/`);
   },
 };
