@@ -62,6 +62,33 @@ interface ProductsSectionProps {
 
 const ALLOWED_ARWAL_WIDTHS = [60, 80, 100, 120] as const;
 
+export function getProductTypeLabel(
+  product: {
+    isArawal?: boolean;
+    subcategoryIds?: (string | number)[];
+    subcategory?: { id?: number | string; name_ar?: string; name?: string; name_en?: string };
+  } | null | undefined,
+  subcategories: BackendSubcategory[] = []
+): string {
+  if (!product) return 'سجاد بالقطعة';
+  if (product.isArawal) {
+    return 'رول أروال بالمتر';
+  }
+  const subcatNameFromProduct = product.subcategory?.name_ar || product.subcategory?.name;
+  if (subcatNameFromProduct) {
+    return subcatNameFromProduct;
+  }
+  const subcatId = product.subcategoryIds?.[0] ?? product.subcategory?.id;
+  if (subcatId !== undefined && subcatId !== null && subcatId !== '') {
+    const matched = subcategories.find((s) => String(s.id) === String(subcatId));
+    const name = matched?.name_ar || matched?.name;
+    if (name) {
+      return name;
+    }
+  }
+  return 'سجاد بالقطعة';
+}
+
 export default function ProductsSection({
   products,
   categories,
@@ -749,7 +776,7 @@ export default function ProductsSection({
             className="w-full md:w-36 px-3 py-2 text-xs rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] font-bold text-[#241710] focus:outline-none focus:border-[#241710]"
           >
             <option value="ALL">جميع الأنواع</option>
-            <option value="NORMAL">سجاد عادي</option>
+            <option value="NORMAL">سجاد بالقطعة</option>
             <option value="ARWAL">أروال بالمتر</option>
           </select>
 
@@ -851,15 +878,19 @@ export default function ProductsSection({
                               <span>رول أروال بالمتر</span>
                             </span>
                             <p className="text-[10px] text-[#8C7A6B]">
-                              عرض: {p.availableWidths?.join('، ') || '60, 80, 100, 120'} سم
+                              {p.availableWidths && p.availableWidths.length > 0
+                                ? `عرض: ${p.availableWidths.join('، ')} سم`
+                                : 'عرض: غير محدد'}
                             </p>
                           </div>
                         ) : (
                           <div className="space-y-0.5">
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-stone-100 text-stone-800 font-bold text-[10px]">
-                              سجاد عادي
+                              {getProductTypeLabel(p, subcategories)}
                             </span>
-                            <p className="text-[10px] text-[#8C7A6B] font-mono">{p.dimensions || '200x300 سم'}</p>
+                            {p.dimensions ? (
+                              <p className="text-[10px] text-[#8C7A6B] font-mono">{p.dimensions}</p>
+                            ) : null}
                           </div>
                         )}
                       </td>
@@ -1345,7 +1376,7 @@ export default function ProductsSection({
                             {!editingProduct.isArawal && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                           </span>
                           <div>
-                            <p className="font-bold text-xs text-[#241710] leading-none">سجاد عادي</p>
+                            <p className="font-bold text-xs text-[#241710] leading-none">سجاد بالقطعة</p>
                             <span className="text-[10px] text-[#8C7A6B] mt-0.5 block">يباع بالقطعة بمقاس محدد</span>
                           </div>
                         </button>
@@ -2027,7 +2058,7 @@ export default function ProductsSection({
               <div className="flex justify-between py-1 border-b border-[#F5EFE6]">
                 <span className="text-[#8C7A6B]">النوع:</span>
                 <span className="font-bold text-[#241710]">
-                  {viewingProduct.isArawal ? 'رول أروال بالمتر' : 'سجاد عادي'}
+                  {getProductTypeLabel(viewingProduct, subcategories)}
                 </span>
               </div>
               <div className="flex justify-between py-1 border-b border-[#F5EFE6]">
