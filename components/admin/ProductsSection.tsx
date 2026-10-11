@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 import { uploadDirectToCloudinary } from '@/lib/api/cloudinary';
+import { productService } from '@/lib/api/services/productService';
+import { BackendSize, BackendColor } from '@/types/product';
 
 interface ProductsSectionProps {
   products: Product[];
@@ -76,9 +78,54 @@ export default function ProductsSection({
   const [imageUploadProgress, setImageUploadProgress] = useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Color management inputs
+  // Size management state
+  const [availableSizes, setAvailableSizes] = useState<BackendSize[]>([]);
+  const [isLoadingSizes, setIsLoadingSizes] = useState(false);
+  const [sizeLoadError, setSizeLoadError] = useState<string | null>(null);
+  const [newSizeWidth, setNewSizeWidth] = useState('');
+  const [newSizeLength, setNewSizeLength] = useState('');
+  const [isCreatingSize, setIsCreatingSize] = useState(false);
+  const [newSizeError, setNewSizeError] = useState<string | null>(null);
+
+  // Color management state
+  const [availableColors, setAvailableColors] = useState<BackendColor[]>([]);
+  const [isLoadingColors, setIsLoadingColors] = useState(false);
+  const [colorLoadError, setColorLoadError] = useState<string | null>(null);
   const [newColorName, setNewColorName] = useState('');
   const [newColorHex, setNewColorHex] = useState('#241710');
+  const [isCreatingColor, setIsCreatingColor] = useState(false);
+  const [newColorError, setNewColorError] = useState<string | null>(null);
+
+  // Fetch all available sizes and colors from backend
+  const fetchSizesAndColors = React.useCallback(async () => {
+    setIsLoadingSizes(true);
+    setIsLoadingColors(true);
+    setSizeLoadError(null);
+    setColorLoadError(null);
+    try {
+      const [sizesData, colorsData] = await Promise.all([
+        productService.getSizes().catch((err) => {
+          console.error('Failed to load sizes:', err);
+          setSizeLoadError('تعذر تحميل قائمة المقاسات من الخادم.');
+          return [] as BackendSize[];
+        }),
+        productService.getColors().catch((err) => {
+          console.error('Failed to load colors:', err);
+          setColorLoadError('تعذر تحميل قائمة الألوان من الخادم.');
+          return [] as BackendColor[];
+        }),
+      ]);
+      setAvailableSizes(Array.isArray(sizesData) ? sizesData : []);
+      setAvailableColors(Array.isArray(colorsData) ? colorsData : []);
+    } finally {
+      setIsLoadingSizes(false);
+      setIsLoadingColors(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchSizesAndColors();
+  }, [fetchSizesAndColors]);
 
   // Filtered & Sorted products
   const filteredProducts = useMemo(() => {
@@ -123,6 +170,25 @@ export default function ProductsSection({
 
   const handleOpenAdd = () => {
     const firstCat = categories[0]?.id || 'cat-turkish';
+    const initialColors = availableColors.length > 0
+      ? [{
+          id: String(availableColors[0].id),
+          name: availableColors[0].name || availableColors[0].name_ar || availableColors[0].name_en || availableColors[0].hex_code,
+          hex: availableColors[0].hex_code,
+        }]
+      : [];
+
+    const initialSizes = availableSizes.length > 0
+      ? [{
+          id: String(availableSizes[0].id),
+          name: `${availableSizes[0].width} × ${availableSizes[0].length} سم`,
+          dimensions: `${availableSizes[0].width} × ${availableSizes[0].length} سم`,
+          priceDelta: 0,
+          width: availableSizes[0].width,
+          length: availableSizes[0].length,
+        }]
+      : [];
+
     const newProduct: Product = {
       id: `prod-${Date.now()}`,
       slug: `product-${Date.now()}`,
@@ -136,11 +202,11 @@ export default function ProductsSection({
       images: [
         'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85',
       ],
-      dimensions: '200x300 سم',
+      dimensions: initialSizes.length > 0 ? initialSizes[0].dimensions : '200 × 300 سم',
       material: 'صوف تركي فاخر فائق النعومة ومقاوم للبقع',
       finishes: ['MATTE'],
-      colors: [{ id: 'col-1', name: 'بيج وكريمي', hex: '#EBE3D5' }],
-      sizes: [],
+      colors: initialColors,
+      sizes: initialSizes,
       faq: [],
       leadTime: 'شحن سريع لجميع المحافظات',
       shippingTime: 'توصيل خلال ٢-٤ أيام عمل',
@@ -155,12 +221,22 @@ export default function ProductsSection({
     };
     setEditingProduct(newProduct);
     setManualImageUrl('');
+    setFormError(null);
+    setNewSizeError(null);
+    setNewColorError(null);
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (product: Product) => {
-    setEditingProduct({ ...product });
+    setEditingProduct({
+      ...product,
+      sizes: Array.isArray(product.sizes) ? [...product.sizes] : [],
+      colors: Array.isArray(product.colors) ? [...product.colors] : [],
+    });
     setManualImageUrl('');
+    setFormError(null);
+    setNewSizeError(null);
+    setNewColorError(null);
     setIsModalOpen(true);
   };
 
@@ -175,6 +251,11 @@ export default function ProductsSection({
       return;
     }
 
+    if (!editingProduct.subcategoryIds || editingProduct.subcategoryIds.length === 0) {
+      setFormError('يرجى اختيار قسم فرعي للمنتج (القسم الفرعي مطلوب في النظام).');
+      return;
+    }
+
     if (editingProduct.isArawal) {
       if (!editingProduct.arawalUnitPricePerMeter || editingProduct.arawalUnitPricePerMeter <= 0) {
         setFormError('يرجى تحديد سعر المتر الطولي لمنتج الأروال.');
@@ -182,6 +263,15 @@ export default function ProductsSection({
       }
       if (!editingProduct.availableWidths || editingProduct.availableWidths.length === 0) {
         setFormError('يرجى تفعيل عرض واحد على الأقل للأروال (60 أو 80 أو 100 أو 120 سم).');
+        return;
+      }
+    } else {
+      if (!editingProduct.sizes || editingProduct.sizes.length === 0) {
+        setFormError('يرجى اختيار مقاس واحد على الأقل للمنتج (المقاسات مطلوبة لحفظ المنتج).');
+        return;
+      }
+      if (!editingProduct.colors || editingProduct.colors.length === 0) {
+        setFormError('يرجى اختيار لون واحد على الأقل للمنتج (الألوان مطلوبة لحفظ المنتج).');
         return;
       }
     }
@@ -303,26 +393,164 @@ export default function ProductsSection({
     }
   };
 
-  const handleAddColor = () => {
-    if (!editingProduct || !newColorName.trim()) return;
-    const newCol: ProductColor = {
-      id: `col-${Date.now()}`,
-      name: newColorName.trim(),
-      hex: newColorHex,
+  // Size selection and creation handlers
+  const handleSelectExistingSize = (sizeIdStr: string) => {
+    if (!editingProduct || !sizeIdStr) return;
+    const numId = Number(sizeIdStr);
+    const found = availableSizes.find((s) => s.id === numId);
+    if (!found) return;
+    const currentSizes = editingProduct.sizes || [];
+    if (currentSizes.some((s) => String(s.id) === String(numId))) return;
+    const newEntry = {
+      id: String(found.id),
+      name: `${found.width} × ${found.length} سم`,
+      dimensions: `${found.width} × ${found.length} سم`,
+      priceDelta: 0,
+      width: found.width,
+      length: found.length,
     };
     setEditingProduct({
       ...editingProduct,
-      colors: [...(editingProduct.colors || []), newCol],
+      sizes: [...currentSizes, newEntry],
+      dimensions: editingProduct.dimensions || `${found.width} × ${found.length} سم`,
     });
-    setNewColorName('');
+  };
+
+  const handleRemoveSize = (idToRemove: string) => {
+    if (!editingProduct) return;
+    const remaining = (editingProduct.sizes || []).filter((s) => String(s.id) !== String(idToRemove));
+    setEditingProduct({
+      ...editingProduct,
+      sizes: remaining,
+    });
+  };
+
+  const handleCreateAndAddSize = async () => {
+    if (!editingProduct) return;
+    const width = Number(newSizeWidth.trim());
+    const length = Number(newSizeLength.trim());
+    if (!width || width <= 0 || !length || length <= 0) {
+      setNewSizeError('يرجى إدخال أبعاد صحيحة بالموجب (العرض والطول).');
+      return;
+    }
+    setNewSizeError(null);
+
+    const existing = availableSizes.find(
+      (s) => Number(s.width) === width && Number(s.length) === length
+    );
+    if (existing) {
+      handleSelectExistingSize(String(existing.id));
+      setNewSizeWidth('');
+      setNewSizeLength('');
+      return;
+    }
+
+    setIsCreatingSize(true);
+    try {
+      const created = await productService.createSize({ width, length });
+      setAvailableSizes((prev) => [...prev, created]);
+      const newEntry = {
+        id: String(created.id),
+        name: `${created.width} × ${created.length} سم`,
+        dimensions: `${created.width} × ${created.length} سم`,
+        priceDelta: 0,
+        width: created.width,
+        length: created.length,
+      };
+      setEditingProduct({
+        ...editingProduct,
+        sizes: [...(editingProduct.sizes || []), newEntry],
+        dimensions: editingProduct.dimensions || `${created.width} × ${created.length} سم`,
+      });
+      setNewSizeWidth('');
+      setNewSizeLength('');
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.non_field_errors?.[0] ||
+        err?.response?.data?.detail ||
+        err?.message ||
+        'تعذر إنشاء المقاس.';
+      setNewSizeError(msg);
+    } finally {
+      setIsCreatingSize(false);
+    }
+  };
+
+  // Color selection and creation handlers
+  const handleSelectExistingColor = (colorIdStr: string) => {
+    if (!editingProduct || !colorIdStr) return;
+    const numId = Number(colorIdStr);
+    const found = availableColors.find((c) => c.id === numId);
+    if (!found) return;
+    const currentColors = editingProduct.colors || [];
+    if (currentColors.some((c) => String(c.id) === String(numId))) return;
+    const newCol: ProductColor = {
+      id: String(found.id),
+      name: found.name || found.name_ar || found.name_en || found.hex_code,
+      hex: found.hex_code,
+    };
+    setEditingProduct({
+      ...editingProduct,
+      colors: [...currentColors, newCol],
+    });
   };
 
   const handleRemoveColor = (id: string) => {
     if (!editingProduct) return;
     setEditingProduct({
       ...editingProduct,
-      colors: (editingProduct.colors || []).filter((c) => c.id !== id),
+      colors: (editingProduct.colors || []).filter((c) => String(c.id) !== String(id)),
     });
+  };
+
+  const handleCreateAndAddColor = async () => {
+    if (!editingProduct) return;
+    let hex = (newColorHex || '').trim().toUpperCase();
+    if (!hex.startsWith('#')) {
+      hex = `#${hex}`;
+    }
+    if (!/^#[0-9A-F]{6}$/i.test(hex)) {
+      setNewColorError('يرجى تحديد كود لون سداسي صحيح مكون من 6 خانات بعد علامة # (مثال: #241710).');
+      return;
+    }
+    setNewColorError(null);
+
+    const existing = availableColors.find((c) => c.hex_code.toUpperCase() === hex);
+    if (existing) {
+      handleSelectExistingColor(String(existing.id));
+      setNewColorName('');
+      return;
+    }
+
+    setIsCreatingColor(true);
+    try {
+      const name = newColorName.trim() || hex;
+      const created = await productService.createColor({
+        name_ar: name,
+        name_en: name,
+        hex_code: hex,
+      });
+      setAvailableColors((prev) => [...prev, created]);
+      const newCol: ProductColor = {
+        id: String(created.id),
+        name: created.name || created.name_ar || created.name_en || hex,
+        hex: created.hex_code,
+      };
+      setEditingProduct({
+        ...editingProduct,
+        colors: [...(editingProduct.colors || []), newCol],
+      });
+      setNewColorName('');
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.hex_code?.[0] ||
+        err?.response?.data?.detail ||
+        err?.message ||
+        'تعذر إضافة اللون.';
+      setNewColorError(msg);
+    } finally {
+      setIsCreatingColor(false);
+    }
   };
 
   // Subcategories belonging to currently selected category in modal
@@ -1175,59 +1403,250 @@ export default function ProductsSection({
                   </div>
 
                   {/* Card 4: Colors Management */}
-                  <div className="p-4 rounded-xl bg-[#FAF8F5]/70 border border-[#EAE3D8] space-y-2.5">
-                    <h4 className="text-xs font-black text-[#241710] flex items-center gap-1.5 pb-2 border-b border-[#EAE3D8]/70">
-                      <Sparkles className="w-3.5 h-3.5 text-[#A27B5C]" />
-                      <span>خيارات الألوان المتاحة ({editingProduct.colors?.length || 0})</span>
-                    </h4>
+                  <div className="p-4 rounded-xl bg-[#FAF8F5]/70 border border-[#EAE3D8] space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#EAE3D8]/70">
+                      <h4 className="text-xs font-black text-[#241710] flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#A27B5C]" />
+                        <span>خيارات الألوان المتاحة ({editingProduct.colors?.length || 0})</span>
+                        {!editingProduct.isArawal && <span className="text-rose-600 text-xs">*</span>}
+                      </h4>
+                      <span className="text-[10px] text-[#8C7A6B]">
+                        {!editingProduct.isArawal ? 'مطلوب لون واحد على الأقل' : 'اختياري للأروال'}
+                      </span>
+                    </div>
 
                     {/* Color Chips */}
-                    <div className="flex flex-wrap gap-1.5 items-center">
-                      {(editingProduct.colors || []).map((col) => (
-                        <div
-                          key={col.id}
-                          className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white border border-[#EAE3D8] text-[11px] font-bold text-[#241710] shadow-2xs"
-                        >
-                          <span
-                            className="w-3 h-3 rounded-full border border-black/10 shrink-0"
-                            style={{ backgroundColor: col.hex }}
-                          />
-                          <span>{col.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveColor(col.id)}
-                            className="text-[#8C7A6B] hover:text-rose-600 ms-0.5"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                    <div className="space-y-1.5">
+                      <label className="block text-[11px] font-bold text-[#5C4A3E]">
+                        الألوان المختارة للمنتج:
+                      </label>
+                      {(!editingProduct.colors || editingProduct.colors.length === 0) ? (
+                        <div className="p-2.5 rounded-lg border border-dashed border-amber-300 bg-amber-50/50 text-[11px] text-amber-800 flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>لم يتم اختيار أي لون بعد. اختر لوناً من القائمة أو أضف لوناً جديداً.</span>
                         </div>
-                      ))}
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5 items-center">
+                          {editingProduct.colors.map((col) => (
+                            <div
+                              key={col.id}
+                              className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white border border-[#EAE3D8] text-[11px] font-bold text-[#241710] shadow-2xs"
+                            >
+                              <span
+                                className="w-3 h-3 rounded-full border border-black/10 shrink-0"
+                                style={{ backgroundColor: col.hex }}
+                              />
+                              <span>{col.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveColor(col.id)}
+                                className="text-[#8C7A6B] hover:text-rose-600 ms-0.5 p-0.5 rounded transition-colors"
+                                title="إزالة اللون"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Add Color Compact Inline Row */}
-                    <div className="flex items-center gap-1.5 pt-1.5 border-t border-[#EAE3D8]/60">
-                      <input
-                        type="text"
-                        value={newColorName}
-                        onChange={(e) => setNewColorName(e.target.value)}
-                        placeholder="اسم اللون (مثال: كحلي ملكي)"
-                        className="flex-1 px-2.5 py-1.5 text-xs rounded-lg bg-white border border-[#EAE3D8] text-[#241710] focus:outline-none focus:border-[#241710]"
-                      />
-                      <input
-                        type="color"
-                        value={newColorHex}
-                        onChange={(e) => setNewColorHex(e.target.value)}
-                        className="w-8 h-8 rounded-lg border border-[#EAE3D8] cursor-pointer shrink-0"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddColor}
-                        className="px-3 py-1.5 rounded-lg bg-[#241710] text-[#FAF5EB] text-xs font-bold shrink-0 hover:bg-[#3D291D] transition-colors"
-                      >
-                        + إضافة
-                      </button>
+                    {/* Select Existing Color Dropdown */}
+                    <div className="space-y-1 pt-1 border-t border-[#EAE3D8]/60">
+                      <label className="block text-[11px] font-bold text-[#5C4A3E]">
+                        اختيار من الألوان المسجلة في النظام:
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value=""
+                          disabled={isLoadingColors}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              handleSelectExistingColor(e.target.value);
+                            }
+                          }}
+                          className="flex-1 px-2.5 py-1.5 text-xs rounded-lg bg-white border border-[#EAE3D8] text-[#241710] font-bold focus:outline-none focus:border-[#241710] disabled:opacity-50"
+                        >
+                          <option value="">
+                            {isLoadingColors ? 'جاري تحميل الألوان...' : '-- اختر لوناً مسجلاً لإضافته للمنتج --'}
+                          </option>
+                          {availableColors
+                            .filter((c) => !(editingProduct.colors || []).some((ec) => String(ec.id) === String(c.id)))
+                            .map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name_ar || c.name || c.hex_code} ({c.hex_code})
+                              </option>
+                            ))}
+                        </select>
+                        {isLoadingColors && <Loader2 className="w-4 h-4 animate-spin text-[#A27B5C]" />}
+                      </div>
+                      {colorLoadError && (
+                        <p className="text-[10px] text-rose-600 font-bold">{colorLoadError}</p>
+                      )}
+                    </div>
+
+                    {/* Add / Create New Color */}
+                    <div className="pt-2 border-t border-[#EAE3D8]/60 space-y-1.5">
+                      <label className="block text-[11px] font-bold text-[#5C4A3E]">
+                        أو إضافة لون جديد للنظام:
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={newColorName}
+                          onChange={(e) => setNewColorName(e.target.value)}
+                          placeholder="اسم اللون (مثال: كحلي ملكي)"
+                          className="flex-1 px-2.5 py-1.5 text-xs rounded-lg bg-white border border-[#EAE3D8] text-[#241710] focus:outline-none focus:border-[#241710]"
+                        />
+                        <input
+                          type="color"
+                          value={newColorHex}
+                          onChange={(e) => setNewColorHex(e.target.value)}
+                          className="w-8 h-8 rounded-lg border border-[#EAE3D8] cursor-pointer shrink-0"
+                        />
+                        <button
+                          type="button"
+                          disabled={isCreatingColor}
+                          onClick={handleCreateAndAddColor}
+                          className="px-3 py-1.5 rounded-lg bg-[#241710] text-[#FAF5EB] text-xs font-bold shrink-0 hover:bg-[#3D291D] disabled:opacity-50 transition-colors flex items-center gap-1"
+                        >
+                          {isCreatingColor ? <Loader2 className="w-3 h-3 animate-spin" /> : <span>+ إضافة</span>}
+                        </button>
+                      </div>
+                      {newColorError && (
+                        <p className="text-[10px] text-rose-600 font-bold">{newColorError}</p>
+                      )}
                     </div>
                   </div>
+
+                  {/* Card 5: Sizes Management (Normal Carpet Products) */}
+                  {!editingProduct.isArawal && (
+                    <div className="p-4 rounded-xl bg-[#FAF8F5]/70 border border-[#EAE3D8] space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#EAE3D8]/70">
+                        <h4 className="text-xs font-black text-[#241710] flex items-center gap-1.5">
+                          <Ruler className="w-3.5 h-3.5 text-[#A27B5C]" />
+                          <span>المقاسات المتاحة للمنتج ({editingProduct.sizes?.length || 0})</span>
+                          <span className="text-rose-600 text-xs">*</span>
+                        </h4>
+                        <span className="text-[10px] text-[#8C7A6B]">
+                          مطلوب مقاس واحد على الأقل
+                        </span>
+                      </div>
+
+                      {/* Selected Sizes Chips */}
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-bold text-[#5C4A3E]">
+                          المقاسات المختارة حالياً:
+                        </label>
+                        {(!editingProduct.sizes || editingProduct.sizes.length === 0) ? (
+                          <div className="p-2.5 rounded-lg border border-dashed border-amber-300 bg-amber-50/50 text-[11px] text-amber-800 flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>لم يتم اختيار أي مقاس بعد. اختر مقاساً من القائمة أدناه أو أضف مقاساً جديداً.</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {editingProduct.sizes.map((s) => (
+                              <div
+                                key={s.id}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-[#EAE3D8] text-[11px] font-bold text-[#241710] shadow-2xs"
+                              >
+                                <Ruler className="w-3 h-3 text-[#A27B5C]" />
+                                <span dir="ltr">
+                                  {s.name || (s.width && s.length ? `${s.width} × ${s.length} سم` : s.dimensions || '')}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSize(String(s.id))}
+                                  className="text-[#8C7A6B] hover:text-rose-600 ms-1 p-0.5 rounded transition-colors"
+                                  title="إزالة المقاس"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Select Existing Size Dropdown */}
+                      <div className="space-y-1 pt-1 border-t border-[#EAE3D8]/60">
+                        <label className="block text-[11px] font-bold text-[#5C4A3E]">
+                          اختيار من المقاسات المسجلة في النظام:
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value=""
+                            disabled={isLoadingSizes}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                handleSelectExistingSize(e.target.value);
+                              }
+                            }}
+                            className="flex-1 px-2.5 py-1.5 text-xs rounded-lg bg-white border border-[#EAE3D8] text-[#241710] font-bold focus:outline-none focus:border-[#241710] disabled:opacity-50"
+                          >
+                            <option value="">
+                              {isLoadingSizes ? 'جاري تحميل المقاسات...' : '-- اختر مقاساً مسجلاً لإضافته للمنتج --'}
+                            </option>
+                            {availableSizes
+                              .filter((s) => !(editingProduct.sizes || []).some((es) => String(es.id) === String(s.id)))
+                              .map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.width} × {s.length} سم
+                                </option>
+                              ))}
+                          </select>
+                          {isLoadingSizes && <Loader2 className="w-4 h-4 animate-spin text-[#A27B5C]" />}
+                        </div>
+                        {sizeLoadError && (
+                          <p className="text-[10px] text-rose-600 font-bold">{sizeLoadError}</p>
+                        )}
+                      </div>
+
+                      {/* Add New Size Inline Form */}
+                      <div className="pt-2 border-t border-[#EAE3D8]/60 space-y-1.5">
+                        <label className="block text-[11px] font-bold text-[#5C4A3E]">
+                          أو إضافة مقاس جديد للنظام:
+                        </label>
+                        <div className="grid grid-cols-5 gap-1.5 items-center">
+                          <div className="col-span-2">
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              placeholder="العرض (سم)"
+                              value={newSizeWidth}
+                              onChange={(e) => setNewSizeWidth(e.target.value)}
+                              className="w-full px-2 py-1.5 text-xs rounded-lg bg-white border border-[#EAE3D8] text-[#241710] focus:outline-none focus:border-[#241710]"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              placeholder="الطول (سم)"
+                              value={newSizeLength}
+                              onChange={(e) => setNewSizeLength(e.target.value)}
+                              className="w-full px-2 py-1.5 text-xs rounded-lg bg-white border border-[#EAE3D8] text-[#241710] focus:outline-none focus:border-[#241710]"
+                            />
+                          </div>
+                          <div className="col-span-1">
+                            <button
+                              type="button"
+                              disabled={isCreatingSize || !newSizeWidth || !newSizeLength}
+                              onClick={handleCreateAndAddSize}
+                              className="w-full py-1.5 px-1 rounded-lg bg-[#241710] text-[#FAF5EB] text-[11px] font-bold hover:bg-[#3D291D] disabled:opacity-50 transition-colors flex items-center justify-center gap-1"
+                            >
+                              {isCreatingSize ? <Loader2 className="w-3 h-3 animate-spin" /> : <span>+ إضافة</span>}
+                            </button>
+                          </div>
+                        </div>
+                        {newSizeError && (
+                          <p className="text-[10px] text-rose-600 font-bold">{newSizeError}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Card 5: Inventory & Featured Toggles */}
                   <div className="p-3.5 rounded-xl bg-[#FAF8F5]/70 border border-[#EAE3D8] space-y-2">

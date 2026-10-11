@@ -301,7 +301,7 @@ export default function CategoriesManagement() {
           image: subcategoryFormData.image?.trim() || null,
           public_id: subcategoryFormData.public_id?.trim() || null,
         });
-        notifySuccess(`Subcategory "${created.name}" created successfully.`);
+        notifySuccess(`Subcategory "${created.name || created.name_ar || subcategoryFormData.name}" created successfully.`);
       } else if (editingSubcategoryId) {
         const updated = await subcategoryService.updateSubcategory(
           editingSubcategoryId,
@@ -313,7 +313,7 @@ export default function CategoriesManagement() {
           },
           'PATCH'
         );
-        notifySuccess(`Subcategory "${updated.name}" updated successfully.`);
+        notifySuccess(`Subcategory "${updated.name || updated.name_ar || subcategoryFormData.name}" updated successfully.`);
       }
 
       setIsSubcategoryModalOpen(false);

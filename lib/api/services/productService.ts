@@ -3,6 +3,9 @@ import { PaginatedResponse, SearchParams, unwrapResults } from '../pagination';
 import {
   BackendProduct,
   BackendSize,
+  BackendColor,
+  ColorCreateRequest,
+  SizeCreateRequest,
   BackendArwal,
   BackendArwalWidth,
   ProductCreateRequest,
@@ -117,10 +120,48 @@ export const productService = {
    * GET /api/products/sizes/
    */
   async getSizes(): Promise<BackendSize[]> {
-    const response = await apiClient.get<PaginatedResponse<BackendSize>>('/products/sizes/', {
+    const response = await apiClient.get<PaginatedResponse<BackendSize> | BackendSize[]>('/products/sizes/', {
       params: { page_size: 100 },
     });
     return unwrapResults<BackendSize>(response);
+  },
+
+  /**
+   * Create a new size
+   * POST /api/products/sizes/
+   */
+  async createSize(data: SizeCreateRequest): Promise<BackendSize> {
+    return apiClient.post<BackendSize>('/products/sizes/', {
+      width: Number(data.width),
+      length: Number(data.length),
+    });
+  },
+
+  /**
+   * Get all colors configured in the system
+   * GET /api/products/colors/
+   */
+  async getColors(): Promise<BackendColor[]> {
+    const response = await apiClient.get<PaginatedResponse<BackendColor> | BackendColor[]>('/products/colors/');
+    return unwrapResults<BackendColor>(response);
+  },
+
+  /**
+   * Create a new color
+   * POST /api/products/colors/
+   */
+  async createColor(data: ColorCreateRequest): Promise<BackendColor> {
+    let hex = (data.hex_code || '').trim();
+    if (!hex.startsWith('#')) {
+      hex = `#${hex}`;
+    }
+    const nameAr = (data.name_ar || data.name || hex).trim();
+    const nameEn = (data.name_en || data.name || hex).trim();
+    return apiClient.post<BackendColor>('/products/colors/', {
+      name_ar: nameAr,
+      name_en: nameEn,
+      hex_code: hex.toUpperCase(),
+    });
   },
 
   /**

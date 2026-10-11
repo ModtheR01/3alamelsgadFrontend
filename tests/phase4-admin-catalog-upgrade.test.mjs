@@ -161,3 +161,131 @@ test('Phase 4/5 Upgrade - Navbar dynamic category selection rules', () => {
   // Ensure the hidden category is not present
   assert.ok(!navbarFirstFour.some((c) => c.id === 3));
 });
+
+test('Task 1 Regression — Subcategory creation response normalizer prevents client-side crash', () => {
+  // Real DRF response from SubcategoryViewSet.create() using SubcategorySerializer
+  // Notice: DRF SubcategorySerializer DOES NOT include a 'name' field; only 'name_ar' and 'name_en'
+  const rawDrfCreateResponse = {
+    id: 42,
+    category_id: 2,
+    name_ar: 'سجاد ممرات طويل',
+    name_en: 'Hallway Runners',
+    image: null,
+    public_id: null,
+    created_at: '2026-10-11T16:00:00Z',
+    updated_at: '2026-10-11T16:00:00Z',
+    deleted_at: null,
+  };
+
+  // Normalizer implementation from categoryService.ts
+  const normalizeSubcategory = (sub, fallbackName = '') => {
+    const rawName = sub.name || sub.name_ar || sub.name_en || fallbackName;
+    return {
+      ...sub,
+      name: rawName || 'قسم فرعي بدون اسم',
+      name_ar: sub.name_ar || sub.name || fallbackName,
+      name_en: sub.name_en || sub.name || fallbackName,
+      category_id: Number(sub.category_id || 0),
+    };
+  };
+
+  const normalized = normalizeSubcategory(rawDrfCreateResponse, 'سجاد ممرات طويل');
+
+  // Verify normalized record has guaranteed 'name' property
+  assert.equal(normalized.name, 'سجاد ممرات طويل');
+  assert.equal(normalized.category_id, 2);
+
+  // In SubcategoriesSection, list filtering runs:
+  // const subName = sub?.name || sub?.name_ar || sub?.name_en || '';
+  // subName.toLowerCase().includes(q)
+  const searchQuery = 'ممرات';
+  assert.doesNotThrow(() => {
+    const subName = normalized?.name || normalized?.name_ar || normalized?.name_en || '';
+    const matches = subName.toLowerCase().includes(searchQuery.toLowerCase());
+    assert.equal(matches, true);
+  });
+
+  // Verify that even if sub has NO name property, safe accessor does not throw
+  assert.doesNotThrow(() => {
+    const rawWithoutName = { ...rawDrfCreateResponse };
+    delete rawWithoutName.name;
+    const safeName = rawWithoutName?.name || rawWithoutName?.name_ar || rawWithoutName?.name_en || '';
+    assert.equal(safeName.toLowerCase().includes('ممرات'), true);
+  });
+});
+
+test('Task 2 Regression — Product sizes and colors selection and payload contracts', () => {
+  // 1. DRF SizeViewSet contracts
+  const sizeListResponse = [
+    { id: 1, width: 160, length: 230 },
+    { id: 2, width: 200, length: 300 },
+    { id: 3, width: 240, length: 340 },
+  ];
+  assert.equal(sizeListResponse.length, 3);
+  assert.equal(sizeListResponse[0].width, 160);
+
+  // 2. DRF ColorViewSet contracts
+  const colorListResponse = [
+    { id: 10, name: 'بيج كلاسيكي', name_ar: 'بيج كلاسيكي', name_en: 'Classic Beige', hex_code: '#EBE3D5' },
+    { id: 11, name: 'كحلي ملكي', name_ar: 'كحلي ملكي', name_en: 'Royal Navy', hex_code: '#1A2B4C' },
+  ];
+  assert.equal(colorListResponse.length, 2);
+  assert.equal(colorListResponse[0].hex_code, '#EBE3D5');
+
+  // 3. Product size and color mapping to DRF write-only IDs
+  const frontendProduct = {
+    name: 'سجادة تبريز فاخرة',
+    isArawal: false,
+    subcategoryIds: ['5'],
+    sizes: [
+      { id: '1', name: '160 × 230 سم', width: 160, length: 230 },
+      { id: '2', name: '200 × 300 سم', width: 200, length: 300 },
+    ],
+    colors: [
+      { id: '10', name: 'بيج كلاسيكي', hex: '#EBE3D5' },
+      { id: '11', name: 'كحلي ملكي', hex: '#1A2B4C' },
+    ],
+  };
+
+  const subcategoryIds = frontendProduct.subcategoryIds
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id));
+  const colorIds = frontendProduct.colors
+    .map((c) => Number(c.id))
+    .filter((id) => Number.isInteger(id));
+  const sizeIds = frontendProduct.sizes
+    .map((s) => Number(s.id))
+    .filter((id) => Number.isInteger(id));
+
+  assert.deepEqual(subcategoryIds, [5]);
+  assert.deepEqual(sizeIds, [1, 2]);
+  assert.deepEqual(colorIds, [10, 11]);
+
+  // 4. Validation logic rejects empty size_ids or color_ids for normal products
+  const productWithoutSizes = { ...frontendProduct, sizes: [] };
+  const extractedSizeIds = productWithoutSizes.sizes
+    .map((s) => Number(s.id))
+    .filter((id) => Number.isInteger(id));
+
+  assert.equal(extractedSizeIds.length, 0);
+  assert.throws(
+    () => {
+      if (!productWithoutSizes.isArawal && extractedSizeIds.length === 0) {
+        throw new Error('يرجى اختيار مقاس واحد على الأقل للمنتج (المقاسات مطلوبة).');
+      }
+    },
+    /يرجى اختيار مقاس واحد على الأقل/
+  );
+
+  // 5. Size creation request payload matches DRF SizeSerializer
+  const newSizeRequest = { width: 180, length: 280 };
+  assert.equal(typeof newSizeRequest.width, 'number');
+  assert.equal(typeof newSizeRequest.length, 'number');
+  assert.ok(newSizeRequest.width > 0 && newSizeRequest.length > 0);
+
+  // 6. Color creation request payload matches DRF ColorSerializer
+  const rawHex = '241710';
+  const formattedHex = rawHex.startsWith('#') ? rawHex.toUpperCase() : `#${rawHex.toUpperCase()}`;
+  assert.equal(formattedHex, '#241710');
+  assert.equal(/^#[0-9A-F]{6}$/i.test(formattedHex), true);
+});

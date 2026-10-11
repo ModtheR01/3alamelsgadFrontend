@@ -86,7 +86,8 @@ export default function SubcategoriesSection({
   // Filtered Subcategories
   const filteredSubcategories = useMemo(() => {
     return subcategories.filter((sub) => {
-      const matchesSearch = sub.name.toLowerCase().includes(searchQuery.toLowerCase().trim());
+      const subName = sub?.name || sub?.name_ar || sub?.name_en || '';
+      const matchesSearch = subName.toLowerCase().includes(searchQuery.toLowerCase().trim());
       const parentCat = getCategoryInfo(sub.category_id);
       const matchesParent =
         selectedParentFilter === 'all' ||
@@ -110,7 +111,8 @@ export default function SubcategoriesSection({
 
       // Apply search / parent filters if active
       const filteredMatchingSubs = matchingSubs.filter((sub) => {
-        const matchesSearch = !searchQuery.trim() || sub.name.toLowerCase().includes(searchQuery.toLowerCase().trim());
+        const subName = sub?.name || sub?.name_ar || sub?.name_en || '';
+        const matchesSearch = !searchQuery.trim() || subName.toLowerCase().includes(searchQuery.toLowerCase().trim());
         const matchesParent = selectedParentFilter === 'all' || String(cat.id) === String(selectedParentFilter);
         return matchesSearch && matchesParent;
       });
@@ -152,6 +154,7 @@ export default function SubcategoriesSection({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!formData.name.trim()) {
       setFormError('يرجى إدخال اسم التصنيف الفرعي');
       return;
@@ -177,9 +180,10 @@ export default function SubcategoriesSection({
   };
 
   const handleDelete = (sub: BackendSubcategory) => {
+    const subName = sub.name || sub.name_ar || sub.name_en || `تصنيف #${sub.id}`;
     onRequestDeleteConfirm(
       'حذف التصنيف الفرعي',
-      `هل أنت متأكد من رغبتك في حذف التصنيف الفرعي «${sub.name}» نهائياً من المتجر؟`,
+      `هل أنت متأكد من رغبتك في حذف التصنيف الفرعي «${subName}» نهائياً من المتجر؟`,
       () => onDeleteSubcategory(sub.id)
     );
   };
@@ -363,7 +367,9 @@ export default function SubcategoriesSection({
 
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-xs text-[#241710]">{sub.name}</span>
+                              <span className="font-bold text-xs text-[#241710]">
+                                {sub.name || sub.name_ar || sub.name_en || `تصنيف #${sub.id}`}
+                              </span>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                                 <Check className="w-2.5 h-2.5" />
                                 <span>نشط</span>
@@ -460,7 +466,9 @@ export default function SubcategoriesSection({
                               )}
                             </div>
                             <div>
-                              <p className="font-bold text-[#241710] text-xs">{sub.name}</p>
+                              <p className="font-bold text-[#241710] text-xs">
+                                {sub.name || sub.name_ar || sub.name_en || `تصنيف #${sub.id}`}
+                              </p>
                               <span className="text-[10px] text-[#8C7A6B] font-mono">
                                 معرف #{sub.id}
                               </span>
@@ -481,7 +489,9 @@ export default function SubcategoriesSection({
                           <div className="flex items-center gap-1.5 text-[11px]">
                             <span className="font-semibold text-[#8C7A6B]">{parentName}</span>
                             <span className="text-[#A27B5C] font-bold">←</span>
-                            <span className="font-bold text-[#241710]">{sub.name}</span>
+                            <span className="font-bold text-[#241710]">
+                              {sub.name || sub.name_ar || sub.name_en || `تصنيف #${sub.id}`}
+                            </span>
                           </div>
                         </td>
 

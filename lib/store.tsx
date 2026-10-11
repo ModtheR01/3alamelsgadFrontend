@@ -1158,6 +1158,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .map((size: any) => Number(size.id))
       .filter((id) => Number.isInteger(id));
 
+    if (!productToSave.isArawal) {
+      if (sizeIds.length === 0) {
+        throw new Error('يرجى اختيار مقاس واحد على الأقل للمنتج (المقاسات مطلوبة).');
+      }
+      if (colorIds.length === 0) {
+        throw new Error('يرجى اختيار لون واحد على الأقل للمنتج (الألوان مطلوبة).');
+      }
+    }
+
     const payload = {
       name: productToSave.name.trim(),
       name_ar: productToSave.name.trim(),
@@ -1318,7 +1327,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           image: subToSave.image || null,
           public_id: subToSave.public_id || undefined,
         });
-        setSubcategories((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
+        const normalizedSaved: BackendSubcategory = {
+          ...saved,
+          name: saved.name || saved.name_ar || saved.name_en || subToSave.name,
+          category_id: Number(saved.category_id || numericCatId),
+        };
+        setSubcategories((prev) =>
+          prev.map((s) => (s.id === normalizedSaved.id ? normalizedSaved : s))
+        );
+        subcategoryService.getSubcategories().then(setSubcategories).catch(() => {});
         return;
       }
       const created = await subcategoryService.createSubcategory({
@@ -1329,7 +1346,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         image: subToSave.image || null,
         public_id: subToSave.public_id || undefined,
       });
-      setSubcategories((prev) => [...prev, created]);
+      const normalizedCreated: BackendSubcategory = {
+        ...created,
+        name: created.name || created.name_ar || created.name_en || subToSave.name,
+        category_id: Number(created.category_id || numericCatId),
+      };
+      setSubcategories((prev) => {
+        const withoutNew = prev.filter((s) => s.id !== normalizedCreated.id);
+        return [...withoutNew, normalizedCreated];
+      });
+      subcategoryService.getSubcategories().then(setSubcategories).catch(() => {});
     },
     []
   );

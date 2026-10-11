@@ -100,6 +100,57 @@ export const categoryService = {
   },
 };
 
+function normalizeBackendSubcategory(
+  raw: any,
+  fallbackName = '',
+  fallbackCatId?: number | string
+): BackendSubcategory {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      id: 0,
+      category_id: Number(fallbackCatId) || 0,
+      name: fallbackName,
+      name_ar: fallbackName,
+      name_en: fallbackName,
+      image: null,
+      public_id: null,
+      created_at: '',
+      updated_at: '',
+      deleted_at: null,
+    };
+  }
+  const resolvedName =
+    raw.name ||
+    raw.name_ar ||
+    raw.name_en ||
+    fallbackName ||
+    `تصنيف فرعي #${raw.id || ''}`;
+  const resolvedCatId =
+    Number(
+      raw.category_id !== undefined
+        ? raw.category_id
+        : raw.category?.id !== undefined
+        ? raw.category.id
+        : typeof raw.category === 'number'
+        ? raw.category
+        : fallbackCatId
+    ) || 0;
+
+  return {
+    ...raw,
+    id: Number(raw.id),
+    category_id: resolvedCatId,
+    name: resolvedName,
+    name_ar: raw.name_ar || resolvedName,
+    name_en: raw.name_en || resolvedName,
+    image: raw.image ?? null,
+    public_id: raw.public_id ?? null,
+    created_at: raw.created_at || '',
+    updated_at: raw.updated_at || '',
+    deleted_at: raw.deleted_at ?? null,
+  };
+}
+
 export const subcategoryService = {
   /**
    * Get all active subcategories, optionally filtered with `?search=`
@@ -110,7 +161,7 @@ export const subcategoryService = {
     const response = await apiClient.get<PaginatedResponse<BackendSubcategory>>('/subcategories/', {
       params: { page_size: 100, ...params },
     });
-    return unwrapResults<BackendSubcategory>(response);
+    return unwrapResults<BackendSubcategory>(response).map((sub) => normalizeBackendSubcategory(sub));
   },
 
   /**
@@ -118,7 +169,8 @@ export const subcategoryService = {
    * GET /subcategories/<id>/
    */
   async getSubcategory(id: number): Promise<BackendSubcategory> {
-    return apiClient.get<BackendSubcategory>(`/subcategories/${id}/`);
+    const response = await apiClient.get<BackendSubcategory>(`/subcategories/${id}/`);
+    return normalizeBackendSubcategory(response);
   },
 
   /**
@@ -133,7 +185,8 @@ export const subcategoryService = {
       image: data.image ?? null,
       public_id: data.public_id ?? null,
     };
-    return apiClient.post<BackendSubcategory>('/subcategories/', payload);
+    const response = await apiClient.post<BackendSubcategory>('/subcategories/', payload);
+    return normalizeBackendSubcategory(response, data.name || data.name_ar, data.category_id);
   },
 
   /**
@@ -151,10 +204,11 @@ export const subcategoryService = {
     if (data.name_en || data.name) payload.name_en = (data.name_en || data.name || '').trim();
     if (data.image !== undefined) payload.image = data.image;
     if (data.public_id !== undefined) payload.public_id = data.public_id;
-    if (method === 'PUT') {
-      return apiClient.put<BackendSubcategory>(`/subcategories/${id}/`, payload);
-    }
-    return apiClient.patch<BackendSubcategory>(`/subcategories/${id}/`, payload);
+    const response =
+      method === 'PUT'
+        ? await apiClient.put<BackendSubcategory>(`/subcategories/${id}/`, payload)
+        : await apiClient.patch<BackendSubcategory>(`/subcategories/${id}/`, payload);
+    return normalizeBackendSubcategory(response, data.name || data.name_ar, data.category_id);
   },
 
   /**
