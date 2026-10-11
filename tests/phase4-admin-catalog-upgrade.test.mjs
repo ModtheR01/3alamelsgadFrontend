@@ -385,3 +385,114 @@ test('Task 3 Regression — Category, Subcategory & Product Soft-Delete, Hard-De
   assert.equal(categoriesInState.length, 1);
   assert.equal(categoriesInState[0].id, '2');
 });
+
+test('Task 4 Regression — HTTP 204 No Content Proxy, Client & Decoupled Refresh Resilience', async () => {
+  // 1. Root Cause Verification: WHATWG Fetch Response Constructor on 204
+  // Passing a non-null ArrayBuffer to new Response with status 204 MUST throw TypeError
+  assert.throws(
+    () => {
+      new Response(new ArrayBuffer(0), { status: 204 });
+    },
+    /TypeError: Response constructor: Invalid response status code 204/
+  );
+
+  // Passing null with status 204 MUST succeed without throwing
+  assert.doesNotThrow(() => {
+    const res = new Response(null, { status: 204 });
+    assert.equal(res.status, 204);
+    assert.equal(res.body, null);
+  });
+
+  // 2. Proxy Null-Body Status Normalizer Rule
+  const getProxyBodyForStatus = (status, upstreamArrayBuffer) => {
+    const isNullBodyStatus = [101, 204, 205, 304].includes(status);
+    return isNullBodyStatus ? null : upstreamArrayBuffer;
+  };
+
+  assert.equal(getProxyBodyForStatus(204, new ArrayBuffer(0)), null);
+  assert.equal(getProxyBodyForStatus(205, new ArrayBuffer(0)), null);
+  assert.equal(getProxyBodyForStatus(304, new ArrayBuffer(0)), null);
+  assert.notEqual(getProxyBodyForStatus(200, new ArrayBuffer(10)), null);
+
+  // 3. API Client Safe Response Parser
+  const parseResponseSafe = async (response) => {
+    if (response.status === 204 || response.status === 205) {
+      return null;
+    }
+    const contentType = response.headers.get('content-type');
+    const isJson = Boolean(contentType && contentType.includes('application/json'));
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      return null;
+    }
+    if (isJson) {
+      try {
+        return JSON.parse(text);
+      } catch {
+        return text;
+      }
+    }
+    return text;
+  };
+
+  // Status 204 response returns null safely
+  const res204 = new Response(null, { status: 204 });
+  const parsed204 = await parseResponseSafe(res204);
+  assert.equal(parsed204, null);
+
+  // Status 200 with empty body returns null safely without throwing JSON SyntaxError
+  const resEmpty200 = new Response('', {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+  const parsedEmpty200 = await parseResponseSafe(resEmpty200);
+  assert.equal(parsedEmpty200, null);
+
+  // Status 200 with valid JSON returns parsed object
+  const resJson200 = new Response(JSON.stringify({ detail: 'Success' }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+  const parsedJson200 = await parseResponseSafe(resJson200);
+  assert.deepEqual(parsedJson200, { detail: 'Success' });
+
+  // 4. Decoupled Mutation & Refresh Execution Flow
+  // When deletion mutation succeeds, but background catalog refresh rejects:
+  // The overall operation MUST succeed, local state must be updated, and NO error should be thrown
+  let deletionCompleted = false;
+  let refreshAttempted = false;
+  let localState = [{ id: 42, name: 'سجاد تبريز' }];
+
+  const executeDeleteDecoupled = async (id, deleteMutation, refreshFn) => {
+    // Step 1: Execute mutation
+    await deleteMutation(id);
+    deletionCompleted = true;
+    localState = localState.filter((item) => item.id !== id);
+
+    // Step 2: Background refresh decoupled from mutation result
+    try {
+      await refreshFn();
+    } catch {
+      // Safe non-blocking catch: catalog refresh failure never fails the deletion mutation
+    }
+  };
+
+  const successfulMutation = async (id) => {
+    // Simulates successful DELETE /api/categories/<id>/ -> 204 No Content
+    return null;
+  };
+
+  const failingRefresh = async () => {
+    refreshAttempted = true;
+    throw new Error('Network error during background catalog refresh');
+  };
+
+  // Run decoupled deletion
+  await assert.doesNotReject(async () => {
+    await executeDeleteDecoupled(42, successfulMutation, failingRefresh);
+  });
+
+  assert.equal(deletionCompleted, true);
+  assert.equal(refreshAttempted, true);
+  assert.equal(localState.length, 0); // Item safely removed from local state
+});

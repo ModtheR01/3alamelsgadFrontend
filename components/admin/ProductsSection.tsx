@@ -1134,7 +1134,8 @@ export default function ProductsSection({
                                       } else {
                                         await productService.restoreProduct(archived.id);
                                       }
-                                      await fetchArchivedProducts();
+                                      setArchivedProducts((prev) => prev.filter((p) => String(p.id) !== String(archived.id)));
+                                      fetchArchivedProducts().catch(() => {});
                                     },
                                     {
                                       confirmLabel: 'تأكيد الاستعادة',
@@ -1162,7 +1163,8 @@ export default function ProductsSection({
                                         } else {
                                           await productService.hardDeleteProduct(archived.id);
                                         }
-                                        await fetchArchivedProducts();
+                                        setArchivedProducts((prev) => prev.filter((p) => String(p.id) !== String(archived.id)));
+                                        fetchArchivedProducts().catch(() => {});
                                       },
                                       {
                                         confirmLabel: 'حذف نهائي دائم',

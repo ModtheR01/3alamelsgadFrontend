@@ -464,7 +464,8 @@ export default function CategoriesSection({
                                 } else {
                                   await categoryService.restoreCategory(archived.id);
                                 }
-                                await fetchArchivedCategories();
+                                setArchivedCategories((prev) => prev.filter((c) => String(c.id) !== String(archived.id)));
+                                fetchArchivedCategories().catch(() => {});
                               },
                               {
                                 confirmLabel: 'تأكيد الاستعادة',
@@ -492,7 +493,8 @@ export default function CategoriesSection({
                                   } else {
                                     await categoryService.hardDeleteCategory(archived.id);
                                   }
-                                  await fetchArchivedCategories();
+                                  setArchivedCategories((prev) => prev.filter((c) => String(c.id) !== String(archived.id)));
+                                  fetchArchivedCategories().catch(() => {});
                                 },
                                 {
                                   confirmLabel: 'حذف نهائي دائم',

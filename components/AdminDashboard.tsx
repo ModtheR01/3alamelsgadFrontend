@@ -240,10 +240,14 @@ export default function AdminDashboard() {
       setDeleteError(null);
     } catch (err: any) {
       const normalized = normalizeApiError(err);
-      setDeleteError(normalized.message);
       if (normalized.status === 404) {
+        // If 404, the record was already removed upstream; close dialog and refresh state
+        setPendingDelete(null);
+        setDeleteError(null);
         refreshCatalog().catch(() => {});
         handleRefreshAll().catch(() => {});
+      } else {
+        setDeleteError(normalized.message);
       }
     } finally {
       setIsDeleteProcessing(false);

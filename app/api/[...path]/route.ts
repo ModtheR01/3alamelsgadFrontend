@@ -43,39 +43,56 @@ async function proxy(request: NextRequest) {
 
   const hasBody = !['GET', 'HEAD'].includes(request.method);
 
-  const upstreamResponse = await fetch(destination, {
-    method: request.method,
-    headers,
-    body: hasBody ? await request.arrayBuffer() : undefined,
-    redirect: 'manual',
-    cache: 'no-store',
-  });
+  try {
+    const upstreamResponse = await fetch(destination, {
+      method: request.method,
+      headers,
+      body: hasBody ? await request.arrayBuffer() : undefined,
+      redirect: 'manual',
+      cache: 'no-store',
+    });
 
-  const responseHeaders = new Headers();
-  const upstreamContentType = upstreamResponse.headers.get('content-type');
-  if (upstreamContentType) responseHeaders.set('content-type', upstreamContentType);
-  const location = upstreamResponse.headers.get('location');
-  if (location) responseHeaders.set('location', location);
+    const responseHeaders = new Headers();
+    const upstreamContentType = upstreamResponse.headers.get('content-type');
+    if (upstreamContentType) responseHeaders.set('content-type', upstreamContentType);
+    const location = upstreamResponse.headers.get('location');
+    if (location) responseHeaders.set('location', location);
 
-  // fetch()'s Headers.get("set-cookie") merges multiple cookies into one
-  // string - getSetCookie() (Node 18.14+/undici) keeps them separate so
-  // e.g. both access_token and refresh_token survive the proxy hop intact.
-  const setCookieValues = typeof upstreamResponse.headers.getSetCookie === 'function'
-    ? upstreamResponse.headers.getSetCookie()
-    : upstreamResponse.headers.get('set-cookie')
-      ? [upstreamResponse.headers.get('set-cookie') as string]
-      : [];
+    // fetch()'s Headers.get("set-cookie") merges multiple cookies into one
+    // string - getSetCookie() (Node 18.14+/undici) keeps them separate so
+    // e.g. both access_token and refresh_token survive the proxy hop intact.
+    const setCookieValues = typeof upstreamResponse.headers.getSetCookie === 'function'
+      ? upstreamResponse.headers.getSetCookie()
+      : upstreamResponse.headers.get('set-cookie')
+        ? [upstreamResponse.headers.get('set-cookie') as string]
+        : [];
 
-  for (const cookieValue of setCookieValues) {
-    responseHeaders.append('set-cookie', cookieValue);
+    for (const cookieValue of setCookieValues) {
+      responseHeaders.append('set-cookie', cookieValue);
+    }
+
+    // WHATWG Fetch / Next.js specification forbids a response body for null-body statuses
+    // (e.g. 204 No Content, 304 Not Modified). Passing any non-null body (even an empty ArrayBuffer)
+    // causes the Response constructor to throw a TypeError in Node.js runtime.
+    const isNullBodyStatus = [101, 204, 205, 304].includes(upstreamResponse.status);
+    if (isNullBodyStatus) {
+      responseHeaders.delete('content-length');
+      responseHeaders.delete('content-type');
+    }
+
+    const body = isNullBodyStatus ? null : await upstreamResponse.arrayBuffer();
+
+    return new NextResponse(body, {
+      status: upstreamResponse.status,
+      headers: responseHeaders,
+    });
+  } catch (error: any) {
+    console.error('API Proxy error:', error);
+    return NextResponse.json(
+      { detail: error?.message || 'Failed to proxy request to backend service' },
+      { status: 502 }
+    );
   }
-
-  const body = await upstreamResponse.arrayBuffer();
-
-  return new NextResponse(body, {
-    status: upstreamResponse.status,
-    headers: responseHeaders,
-  });
 }
 
 export { proxy as GET, proxy as POST, proxy as PUT, proxy as PATCH, proxy as DELETE };

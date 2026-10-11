@@ -227,13 +227,24 @@ class ApiClient {
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
+    if (response.status === 204 || response.status === 205) {
+      return null as unknown as T;
+    }
+
     const contentType = response.headers.get('content-type');
-    const isJson = contentType && contentType.includes('application/json');
+    const isJson = Boolean(contentType && contentType.includes('application/json'));
 
     if (!response.ok) {
       let rawData: any = null;
       try {
-        rawData = isJson ? await response.json() : await response.text();
+        const text = await response.text();
+        if (text && text.trim()) {
+          try {
+            rawData = JSON.parse(text);
+          } catch {
+            rawData = text;
+          }
+        }
       } catch {
         // Could not parse response body
       }
@@ -242,15 +253,20 @@ class ApiClient {
       throw new ApiError(normalized);
     }
 
-    if (response.status === 204) {
+    const text = await response.text();
+    if (!text || text.trim() === '') {
       return null as unknown as T;
     }
 
     if (isJson) {
-      return (await response.json()) as T;
+      try {
+        return JSON.parse(text) as T;
+      } catch {
+        return text as unknown as T;
+      }
     }
 
-    return (await response.text()) as unknown as T;
+    return text as unknown as T;
   }
 
   // Convenience methods

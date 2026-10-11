@@ -1299,7 +1299,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const hardDeleteProduct = useCallback(async (productId: string) => {
     const numericId = Number(productId);
     if (!Number.isInteger(numericId)) throw new Error('Product is not connected to a backend record.');
-    await productService.hardDeleteProduct(numericId);
+    try {
+      await productService.hardDeleteProduct(numericId);
+    } catch (err: any) {
+      if (err?.status === 404 || err?.response?.status === 404) {
+        setProducts((prev) => prev.filter((p) => p.id !== productId));
+        return;
+      }
+      throw err;
+    }
     setProducts((prev) => prev.filter((p) => p.id !== productId));
   }, []);
 
@@ -1307,7 +1315,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const numericId = Number(productId);
     if (!Number.isInteger(numericId)) throw new Error('Product is not connected to a backend record.');
     await productService.restoreProduct(numericId);
-    await refreshCatalog();
+    refreshCatalog().catch(() => {});
   }, [refreshCatalog]);
 
   const toggleProductFeatured = useCallback(async (productId: string) => {
@@ -1359,7 +1367,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const hardDeleteCategory = useCallback(async (categoryId: string) => {
     const numericId = Number(categoryId);
     if (!Number.isInteger(numericId)) throw new Error('Category is not connected to a backend record.');
-    await categoryService.hardDeleteCategory(numericId);
+    try {
+      await categoryService.hardDeleteCategory(numericId);
+    } catch (err: any) {
+      if (err?.status === 404 || err?.response?.status === 404) {
+        setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+        return;
+      }
+      throw err;
+    }
     setCategories((prev) => prev.filter((c) => c.id !== categoryId));
   }, []);
 
@@ -1367,7 +1383,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const numericId = Number(categoryId);
     if (!Number.isInteger(numericId)) throw new Error('Category is not connected to a backend record.');
     await categoryService.restoreCategory(numericId);
-    await refreshCatalog();
+    refreshCatalog().catch(() => {});
   }, [refreshCatalog]);
 
   // Admin CRUD for Subcategories
@@ -1446,7 +1462,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const hardDeleteSubcategory = useCallback(async (subId: number | string) => {
     const numId = Number(subId);
     if (Number.isInteger(numId) && numId < 1000000000) {
-      await subcategoryService.hardDeleteSubcategory(numId);
+      try {
+        await subcategoryService.hardDeleteSubcategory(numId);
+      } catch (err: any) {
+        if (err?.status === 404 || err?.response?.status === 404) {
+          setSubcategories((prev) => prev.filter((s) => String(s.id) !== String(subId)));
+          return;
+        }
+        throw err;
+      }
     }
     setSubcategories((prev) => prev.filter((s) => String(s.id) !== String(subId)));
   }, []);
@@ -1456,7 +1480,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (Number.isInteger(numId) && numId < 1000000000) {
       await subcategoryService.restoreSubcategory(numId);
     }
-    await refreshCatalog();
+    refreshCatalog().catch(() => {});
   }, [refreshCatalog]);
 
   // Admin CRUD for Events

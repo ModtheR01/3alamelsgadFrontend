@@ -783,7 +783,8 @@ export default function SubcategoriesSection({
                                       } else {
                                         await subcategoryService.restoreSubcategory(Number(sub.id));
                                       }
-                                      await fetchArchivedSubcategories();
+                                      setArchivedSubcategories((prev) => prev.filter((s) => String(s.id) !== String(sub.id)));
+                                      fetchArchivedSubcategories().catch(() => {});
                                     },
                                     {
                                       confirmLabel: 'تأكيد الاستعادة',
@@ -811,7 +812,8 @@ export default function SubcategoriesSection({
                                         } else {
                                           await subcategoryService.hardDeleteSubcategory(Number(sub.id));
                                         }
-                                        await fetchArchivedSubcategories();
+                                        setArchivedSubcategories((prev) => prev.filter((s) => String(s.id) !== String(sub.id)));
+                                        fetchArchivedSubcategories().catch(() => {});
                                       },
                                       {
                                         confirmLabel: 'حذف نهائي دائم',
