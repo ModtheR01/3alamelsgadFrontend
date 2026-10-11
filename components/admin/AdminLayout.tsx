@@ -23,6 +23,7 @@ import {
   Store,
   Sparkles,
   RefreshCw,
+  Users,
 } from 'lucide-react';
 import { normalizeApiError } from '@/lib/api/errors';
 
@@ -35,6 +36,7 @@ export type DashboardSection =
   | 'ai-images'
   | 'orders'
   | 'shipping'
+  | 'users'
   | 'settings';
 
 interface AdminLayoutProps {
@@ -138,8 +140,13 @@ export default function AdminLayout({
       ],
     },
     {
-      groupTitle: 'النظام',
+      groupTitle: 'النظام والمستخدمون',
       items: [
+        {
+          id: 'users',
+          label: 'إدارة المستخدمين',
+          icon: Users,
+        },
         {
           id: 'settings',
           label: 'إعدادات المتجر',
@@ -184,6 +191,8 @@ export default function AdminLayout({
         return 'استوديو معالجة صور المنتجات بالذكاء الاصطناعي';
       case 'shipping':
         return 'تعريفة الشحن ومحافظات الجمهورية';
+      case 'users':
+        return 'إدارة المستخدمين وصلاحيات الحسابات';
       case 'settings':
         return 'إعدادات الحسابات ووسائل الدفع';
       default:

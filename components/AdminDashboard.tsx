@@ -22,6 +22,8 @@ import OffersSection from './admin/OffersSection';
 import AiProductImageView from './admin/AiProductImageView';
 import ShippingSection from './admin/ShippingSection';
 import SettingsSection from './admin/SettingsSection';
+import UserManagement from './UserManagement';
+import { userService } from '@/lib/api/services/userService';
 
 export default function AdminDashboard() {
   const {
@@ -61,6 +63,10 @@ export default function AdminDashboard() {
   const [offers, setOffers] = useState<BackendOffer[]>([]);
   const [isOffersLoading, setIsOffersLoading] = useState(false);
 
+  // Total Users state (Admin only)
+  const [totalUsersCount, setTotalUsersCount] = useState<number | null>(null);
+  const [isUsersLoading, setIsUsersLoading] = useState(false);
+
   // Modals state for Products & Categories
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -93,43 +99,51 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  // Fetch real Backend Offers
+  const fetchOffers = useCallback(async () => {
+    setIsOffersLoading(true);
+    try {
+      const data = await offerService.getOffers();
+      setOffers(data || []);
+    } catch {
+      setOffers([]);
+    } finally {
+      setIsOffersLoading(false);
+    }
+  }, []);
+
+  // Fetch real Registered Users count (Admin only)
+  const fetchTotalUsers = useCallback(async () => {
+    if (user?.role !== 'ADMIN') {
+      setTotalUsersCount(null);
+      return;
+    }
+    setIsUsersLoading(true);
+    try {
+      const res = await userService.getUsersPaginated({ page_size: 1 });
+      setTotalUsersCount(typeof res.count === 'number' ? res.count : null);
+    } catch {
+      setTotalUsersCount(null);
+    } finally {
+      setIsUsersLoading(false);
+    }
+  }, [user?.role]);
+
+  // Combined Refresh for Overview
+  const handleRefreshAll = useCallback(async () => {
+    await Promise.all([
+      fetchBackendOrders(),
+      fetchOffers(),
+      fetchTotalUsers(),
+    ]);
+  }, [fetchBackendOrders, fetchOffers, fetchTotalUsers]);
+
   // Initial data load on mount
   useEffect(() => {
-    let active = true;
-    setIsOrdersLoading(true);
-    setIsOffersLoading(true);
-
-    orderService
-      .getAllOrders()
-      .then((data) => {
-        if (active) setBackendOrders(data || []);
-      })
-      .catch((err) => {
-        if (active) {
-          setOrdersError(normalizeApiError(err).message);
-          setBackendOrders([]);
-        }
-      })
-      .finally(() => {
-        if (active) setIsOrdersLoading(false);
-      });
-
-    offerService
-      .getOffers()
-      .then((data) => {
-        if (active && data) setOffers(data);
-      })
-      .catch(() => {
-        if (active) setOffers([]);
-      })
-      .finally(() => {
-        if (active) setIsOffersLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
+    fetchBackendOrders();
+    fetchOffers();
+    fetchTotalUsers();
+  }, [fetchBackendOrders, fetchOffers, fetchTotalUsers]);
 
   // Handle Order Status Update
   const handleUpdateOrderStatus = async (orderId: number | string, newStatus: BackendOrderStatus) => {
@@ -216,7 +230,11 @@ export default function AdminDashboard() {
             categories={categories}
             subcategories={subcategories}
             orders={backendOrders}
-            totalUsers={128}
+            offers={offers}
+            totalUsers={totalUsersCount}
+            isUsersLoading={isUsersLoading}
+            isOrdersLoading={isOrdersLoading}
+            onRefreshData={handleRefreshAll}
             onNavigateSection={setActiveSection}
             onOpenAddProduct={() => {
               setActiveSection('products');
@@ -373,6 +391,9 @@ export default function AdminDashboard() {
             onUpdateSettings={updateSettings}
           />
         )}
+
+        {/* SECTION 10: USER MANAGEMENT */}
+        {activeSection === 'users' && <UserManagement />}
       </AdminLayout>
 
       {/* Confirmation Dialog for Destructive Actions */}

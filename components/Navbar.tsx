@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useToccoStore, AppView } from '@/lib/store';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useLanguage } from '@/lib/context/LanguageContext';
@@ -13,15 +13,15 @@ import {
   Menu,
   X,
   Languages,
-  Phone,
   MessageCircle,
   MapPin,
   ChevronLeft,
   ChevronRight,
-  Truck,
+  ChevronDown,
   ShieldCheck,
   LogOut,
   RefreshCw,
+  FolderTree,
 } from 'lucide-react';
 import { normalizeApiError } from '@/lib/api/errors';
 
@@ -34,6 +34,7 @@ export default function Navbar() {
     searchQuery,
     setSearchQuery,
     categories,
+    selectedCategoryId,
   } = useToccoStore();
 
   const { user, logout } = useAuth();
@@ -46,14 +47,48 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+
+  const userDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close user dropdown on outside click or Escape key
+  useEffect(() => {
+    if (!userDropdownOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node)) {
+        setUserDropdownOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setUserDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [userDropdownOpen]);
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
     try {
       await logout();
+      setUserDropdownOpen(false);
       setMobileMenuOpen(false);
-      navigateTo('home');
+      // After successful server logout and state cleanup, redirect to storefront home
+      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard')) {
+        window.location.href = '/';
+      } else {
+        navigateTo('home');
+      }
     } catch (err) {
       const message = normalizeApiError(err).message;
       alert(t(`فشل تسجيل الخروج: ${message}`, `Logout failed: ${message}`));
@@ -70,15 +105,10 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const navLinks: { labelAr: string; labelEn: string; view: AppView; highlight?: boolean }[] = [
-    { labelAr: 'الرئيسية', labelEn: 'Home', view: 'home' },
-    { labelAr: 'كل السجاد', labelEn: 'All Carpets', view: 'shop' },
-    { labelAr: 'سجاد تركي فاخر', labelEn: 'Turkish Carpets', view: 'shop' },
-    { labelAr: 'سجاد شرقي أصيل', labelEn: 'Oriental Rugs', view: 'shop' },
-    { labelAr: 'رولات أروال بالمتر', labelEn: 'Runner Rolls', view: 'shop', highlight: true },
-    { labelAr: 'بدائل السجاد', labelEn: 'Modern Alternatives', view: 'shop' },
-    { labelAr: 'معرض المنصورة', labelEn: 'Showroom', view: 'contact' },
-  ];
+  // Display the first four actual categories returned by the backend
+  const displayCategories = useMemo(() => {
+    return (categories || []).filter((c) => c.isVisible !== false).slice(0, 4);
+  }, [categories]);
 
   const handleNavClick = (view: AppView, categoryId?: string) => {
     if (view === 'shop' && categoryId) {
@@ -87,10 +117,10 @@ export default function Navbar() {
       navigateTo(view);
     }
     setMobileMenuOpen(false);
+    setUserDropdownOpen(false);
   };
 
   const isTransparent = !isScrolled && activeView === 'home' && !mobileMenuOpen && !isSearchOpen;
-
   const ArrowIcon = isRtl ? ChevronLeft : ChevronRight;
 
   return (
@@ -102,7 +132,6 @@ export default function Navbar() {
           : 'bg-[#FBF9F5]/95 backdrop-blur-md border-b border-[#EAE3D8] shadow-[0_2px_12px_rgba(35,23,15,0.04)]'
       }`}
     >
-
       <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 h-14 sm:h-20 flex items-center justify-between gap-1.5 sm:gap-2">
         {/* Brand Identity / Logo */}
         <button
@@ -119,44 +148,98 @@ export default function Navbar() {
           />
         </button>
 
-        {/* Center: Desktop Navigation Links */}
+        {/* Center: Desktop Navigation Links (Dynamic Backend Categories) */}
         <nav
           id="desktop-nav-links"
-          className="hidden lg:flex items-center gap-6 xl:gap-8 text-[13px] font-semibold tracking-normal"
+          className="hidden lg:flex items-center gap-5 xl:gap-7 text-[13px] font-semibold tracking-normal"
         >
-          {navLinks.map((link) => {
-            const isActive = activeView === link.view;
+          {/* Home */}
+          <button
+            id="nav-link-home"
+            onClick={() => handleNavClick('home')}
+            className={`relative py-1.5 transition-colors duration-200 ${
+              isTransparent
+                ? activeView === 'home'
+                  ? 'text-white font-bold'
+                  : 'text-white/85 hover:text-white'
+                : activeView === 'home'
+                ? 'text-[#241710] font-bold'
+                : 'text-[#5C4A3E] hover:text-[#241710]'
+            }`}
+          >
+            <span>{t('الرئيسية', 'Home')}</span>
+            {activeView === 'home' && (
+              <span
+                className={`absolute bottom-0 inset-x-0 h-[2px] rounded-full animate-in fade-in duration-200 ${
+                  isTransparent ? 'bg-white' : 'bg-[#A27B5C]'
+                }`}
+              />
+            )}
+          </button>
+
+          {/* All Carpets / Catalog */}
+          <button
+            id="nav-link-shop-all"
+            onClick={() => handleNavClick('shop')}
+            className={`relative py-1.5 transition-colors duration-200 ${
+              isTransparent
+                ? 'text-white/85 hover:text-white'
+                : activeView === 'shop' && !selectedCategoryId
+                ? 'text-[#241710] font-bold'
+                : 'text-[#5C4A3E] hover:text-[#241710]'
+            }`}
+          >
+            <span>{t('كل السجاد', 'All Carpets')}</span>
+            {activeView === 'shop' && !selectedCategoryId && (
+              <span className="absolute bottom-0 inset-x-0 h-[2px] rounded-full animate-in fade-in duration-200 bg-[#A27B5C]" />
+            )}
+          </button>
+
+          {/* Dynamic Categories (First 4 from Backend) */}
+          {displayCategories.map((cat) => {
+            const isCatActive = activeView === 'shop' && selectedCategoryId === String(cat.id);
             return (
               <button
-                key={`${link.view}-${link.labelEn}`}
-                id={`nav-link-${link.view}`}
-                onClick={() => handleNavClick(link.view)}
-                className={`relative py-1.5 transition-colors duration-200 ${
-                  link.highlight ? 'text-[#A27B5C] hover:text-[#7A5437]' : ''
-                } ${
+                key={cat.id}
+                id={`nav-link-cat-${cat.id}`}
+                onClick={() => handleNavClick('shop', cat.id)}
+                className={`relative py-1.5 transition-colors duration-200 truncate max-w-[150px] ${
                   isTransparent
-                    ? isActive
-                      ? 'text-white font-bold'
-                      : 'text-white/85 hover:text-white'
-                    : isActive
+                    ? 'text-white/85 hover:text-white'
+                    : isCatActive
                     ? 'text-[#241710] font-bold'
                     : 'text-[#5C4A3E] hover:text-[#241710]'
                 }`}
+                title={cat.name}
               >
-                <span>{language === 'ar' ? link.labelAr : link.labelEn}</span>
-                {isActive && (
-                  <span
-                    className={`absolute bottom-0 inset-x-0 h-[2px] rounded-full animate-in fade-in duration-200 ${
-                      isTransparent ? 'bg-white' : 'bg-[#A27B5C]'
-                    }`}
-                  />
+                <span>{cat.name}</span>
+                {isCatActive && (
+                  <span className="absolute bottom-0 inset-x-0 h-[2px] rounded-full animate-in fade-in duration-200 bg-[#A27B5C]" />
                 )}
               </button>
             );
           })}
+
+          {/* Showroom */}
+          <button
+            id="nav-link-contact"
+            onClick={() => handleNavClick('contact')}
+            className={`relative py-1.5 transition-colors duration-200 ${
+              isTransparent
+                ? 'text-white/85 hover:text-white'
+                : activeView === 'contact'
+                ? 'text-[#241710] font-bold'
+                : 'text-[#5C4A3E] hover:text-[#241710]'
+            }`}
+          >
+            <span>{t('معرض المنصورة', 'Showroom')}</span>
+            {activeView === 'contact' && (
+              <span className="absolute bottom-0 inset-x-0 h-[2px] rounded-full animate-in fade-in duration-200 bg-[#A27B5C]" />
+            )}
+          </button>
         </nav>
 
-        {/* Right: Actions (Search, Language Switcher, Account, Cart, Mobile Toggle) */}
+        {/* Right: Actions (Language Switcher, Search, Account/User Dropdown, Cart, Mobile Toggle) */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Language Switcher */}
           <button
@@ -203,12 +286,12 @@ export default function Navbar() {
             <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
 
-          {/* Admin / Moderator Dashboard Direct Access */}
+          {/* Admin / Moderator Dashboard Direct Access Pill */}
           {canAccessAdmin && (
             <a
               id="nav-admin-dashboard-link"
               href="/dashboard"
-              className={`p-1.5 sm:px-3 sm:py-1.5 rounded-full transition-all focus:outline-none touch-manipulation flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-xs ${
+              className={`hidden sm:flex items-center gap-1.5 p-1.5 px-3 py-1.5 rounded-full transition-all focus:outline-none touch-manipulation text-xs font-bold shrink-0 shadow-xs ${
                 isTransparent
                   ? 'bg-amber-400/25 text-amber-200 border border-amber-300/40 hover:bg-amber-400/40'
                   : 'bg-[#241710] text-[#EED8BE] hover:bg-[#3D291D] border border-[#3D291D]'
@@ -216,58 +299,142 @@ export default function Navbar() {
               title={t('لوحة التحكم الإدارية', 'Admin Dashboard')}
             >
               <ShieldCheck className="w-3.5 h-3.5 text-[#EED8BE]" />
-              <span className="hidden sm:inline">{t('لوحة التحكم', 'Dashboard')}</span>
+              <span>{t('لوحة التحكم', 'Dashboard')}</span>
             </a>
           )}
 
-          {/* User Account Portal */}
-          <button
-            id="nav-account-btn"
-            onClick={() => handleNavClick('account')}
-            className={`p-1.5 sm:px-3 sm:py-2 rounded-full transition-colors focus:outline-none touch-manipulation flex items-center gap-1.5 shrink-0 ${
-              isTransparent
-                ? 'text-white/90 hover:text-white hover:bg-white/10'
-                : activeView === 'account'
-                ? 'text-[#A27B5C] bg-[#EFE7DC]'
-                : 'text-[#5C4A3E] hover:text-[#241710] hover:bg-[#EFE7DC]'
-            }`}
-            title={t('حسابي والطلبات', 'My Account & Orders')}
-            aria-label="Account"
-          >
-            <div className="relative">
-              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              {user && (
-                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 ring-1 sm:ring-2 ring-white" />
+          {/* User Account Portal / Dropdown (Phase 1) */}
+          {user ? (
+            <div ref={userDropdownRef} className="relative">
+              <button
+                id="nav-account-btn"
+                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                aria-expanded={userDropdownOpen}
+                aria-haspopup="true"
+                className={`p-1.5 sm:px-3 sm:py-2 rounded-full transition-colors focus:outline-none touch-manipulation flex items-center gap-1.5 shrink-0 ${
+                  isTransparent
+                    ? 'text-white/90 hover:text-white hover:bg-white/10'
+                    : userDropdownOpen || activeView === 'account'
+                    ? 'text-[#A27B5C] bg-[#EFE7DC]'
+                    : 'text-[#5C4A3E] hover:text-[#241710] hover:bg-[#EFE7DC]'
+                }`}
+                title={t('حسابي والخيارات', 'My Account & Options')}
+                aria-label="Account menu"
+              >
+                <div className="relative">
+                  <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 ring-1 sm:ring-2 ring-white" />
+                </div>
+                <span className="hidden md:inline-block text-[11px] font-medium tracking-normal truncate max-w-[90px]">
+                  {user.first_name || user.phone}
+                </span>
+                <ChevronDown
+                  className={`w-3 h-3 transition-transform duration-200 text-[#8C7A6B] ${
+                    userDropdownOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {/* User Dropdown Menu */}
+              {userDropdownOpen && (
+                <div
+                  role="menu"
+                  aria-orientation="vertical"
+                  className="absolute end-0 top-full mt-2 w-64 rounded-2xl bg-white border border-[#EAE3D8] shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-right"
+                  dir="rtl"
+                >
+                  {/* User Profile Summary */}
+                  <div className="px-4 py-2.5 border-b border-[#F0EAE1]">
+                    <p className="text-xs font-bold text-[#241710] truncate">
+                      {user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user.phone}
+                    </p>
+                    <p className="text-[10px] text-[#8C7A6B] truncate font-mono mt-0.5">
+                      {user.phone ? `هاتف: ${user.phone}` : user.email || 'عميل المتجر'}
+                    </p>
+                    <div className="mt-1.5">
+                      <span
+                        className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          userRole === 'admin'
+                            ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                            : userRole === 'moderator'
+                            ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                            : 'bg-[#FAF5EB] text-[#8C7A6B] border border-[#E8DEC0]'
+                        }`}
+                      >
+                        {userRole === 'admin'
+                          ? 'مدير النظام (Admin)'
+                          : userRole === 'moderator'
+                          ? 'مشرف النظام'
+                          : 'عميل المتجر'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Navigation Links */}
+                  <div className="py-1">
+                    <button
+                      role="menuitem"
+                      id="dropdown-account-link"
+                      onClick={() => handleNavClick('account')}
+                      className="w-full px-4 py-2 text-start text-xs font-semibold text-[#3D2C20] hover:bg-[#FAF8F5] hover:text-[#241710] flex items-center gap-2.5 transition-colors"
+                    >
+                      <User className="w-4 h-4 text-[#A27B5C]" />
+                      <span>{t('حسابي والطلبات', 'My Account & Orders')}</span>
+                    </button>
+
+                    {canAccessAdmin && (
+                      <a
+                        role="menuitem"
+                        id="dropdown-dashboard-link"
+                        href="/dashboard"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="w-full px-4 py-2 text-start text-xs font-semibold text-[#3D2C20] hover:bg-[#FAF8F5] hover:text-[#241710] flex items-center gap-2.5 transition-colors"
+                      >
+                        <ShieldCheck className="w-4 h-4 text-[#A27B5C]" />
+                        <span>{t('لوحة تحكم الإدارة (Dashboard)', 'Admin Dashboard')}</span>
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Phase 1 Logout inside dropdown */}
+                  <div className="pt-1 border-t border-[#F0EAE1]">
+                    <button
+                      role="menuitem"
+                      id="dropdown-logout-btn"
+                      onClick={handleLogout}
+                      disabled={isLoggingOut}
+                      className="w-full px-4 py-2 text-start text-xs font-bold text-rose-700 hover:bg-rose-50 flex items-center gap-2.5 transition-colors disabled:opacity-50"
+                    >
+                      {isLoggingOut ? (
+                        <RefreshCw className="w-4 h-4 animate-spin text-rose-600" />
+                      ) : (
+                        <LogOut className="w-4 h-4 text-rose-600" />
+                      )}
+                      <span>
+                        {isLoggingOut ? t('جاري تسجيل الخروج...', 'Logging out...') : t('تسجيل الخروج', 'Log Out')}
+                      </span>
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
-            {user && (
-              <span className="hidden md:inline-block text-[11px] font-medium tracking-normal truncate max-w-[90px]">
-                {user.first_name || user.phone}
-              </span>
-            )}
-          </button>
-
-          {/* Logout Action (Desktop) */}
-          {user && (
+          ) : (
             <button
-              id="nav-desktop-logout-btn"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-full transition-colors focus:outline-none touch-manipulation flex items-center gap-1.5 text-xs font-semibold shrink-0 disabled:opacity-50 ${
+              id="nav-account-btn"
+              onClick={() => handleNavClick('account')}
+              className={`p-1.5 sm:px-3 sm:py-2 rounded-full transition-colors focus:outline-none touch-manipulation flex items-center gap-1.5 shrink-0 ${
                 isTransparent
-                  ? 'text-rose-200 hover:text-white bg-rose-950/30 hover:bg-rose-900/50 border border-rose-400/30'
-                  : 'text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200'
+                  ? 'text-white/90 hover:text-white hover:bg-white/10'
+                  : activeView === 'account'
+                  ? 'text-[#A27B5C] bg-[#EFE7DC]'
+                  : 'text-[#5C4A3E] hover:text-[#241710] hover:bg-[#EFE7DC]'
               }`}
-              title={t('تسجيل الخروج', 'Log Out')}
-              aria-label={t('تسجيل الخروج', 'Log Out')}
+              title={t('تسجيل الدخول / حسابي', 'Sign In / Account')}
+              aria-label="Account"
             >
-              {isLoggingOut ? (
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-600" />
-              ) : (
-                <LogOut className="w-3.5 h-3.5 text-rose-600" />
-              )}
-              <span className="hidden xl:inline text-[11px] font-bold">
-                {isLoggingOut ? t('جاري...', 'Logging out...') : t('تسجيل الخروج', 'Logout')}
+              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden md:inline-block text-[11px] font-medium tracking-normal">
+                {t('تسجيل الدخول', 'Sign In')}
               </span>
             </button>
           )}
@@ -375,62 +542,114 @@ export default function Navbar() {
             )}
 
             {/* User Session & Logout in Mobile Menu */}
-            {user && (
-              <div className="p-3 rounded-xl bg-[#FAF5EB] border border-[#E8DEC0] flex items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-center gap-2.5 overflow-hidden">
-                  <div className="w-8 h-8 rounded-full bg-[#241710] text-[#EED8BE] flex items-center justify-center font-bold text-xs shrink-0">
-                    <User className="w-4 h-4" />
+            {user ? (
+              <div className="p-3 rounded-xl bg-[#FAF5EB] border border-[#E8DEC0] space-y-2.5 shadow-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 overflow-hidden">
+                    <div className="w-8 h-8 rounded-full bg-[#241710] text-[#EED8BE] flex items-center justify-center font-bold text-xs shrink-0">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div className="overflow-hidden">
+                      <p className="text-xs font-bold text-[#241710] truncate">
+                        {user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user.phone}
+                      </p>
+                      <p className="text-[10px] text-[#8C7A6B] truncate">
+                        {user.phone ? `هاتف: ${user.phone}` : user.email || 'عميل المتجر'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="overflow-hidden">
-                    <p className="text-xs font-bold text-[#241710] truncate">
-                      {user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user.phone}
-                    </p>
-                    <p className="text-[10px] text-[#8C7A6B] truncate">
-                      {user.phone ? `هاتف: ${user.phone}` : user.email || 'عميل المتجر'}
-                    </p>
-                  </div>
+
+                  <button
+                    id="nav-mobile-logout-btn"
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0 shadow-xs"
+                    title={t('تسجيل الخروج', 'Log Out')}
+                  >
+                    {isLoggingOut ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                    ) : (
+                      <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                    )}
+                    <span>{isLoggingOut ? t('جاري...', 'Logging out...') : t('تسجيل الخروج', 'Logout')}</span>
+                  </button>
                 </div>
 
-                <button
-                  id="nav-mobile-logout-btn"
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                  className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0 shadow-xs"
-                  title={t('تسجيل الخروج', 'Log Out')}
-                >
-                  {isLoggingOut ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-600" />
-                  ) : (
-                    <LogOut className="w-3.5 h-3.5 text-rose-600" />
-                  )}
-                  <span>{isLoggingOut ? t('جاري...', 'Logging out...') : t('تسجيل الخروج', 'Logout')}</span>
-                </button>
+                <div className="pt-2 border-t border-[#EAE3D8] flex gap-2">
+                  <button
+                    onClick={() => handleNavClick('account')}
+                    className="flex-1 py-1.5 px-2 rounded-lg bg-white border border-[#EAE3D8] text-xs font-bold text-[#241710] text-center"
+                  >
+                    {t('حسابي والطلبات', 'My Account & Orders')}
+                  </button>
+                </div>
               </div>
+            ) : (
+              <button
+                onClick={() => handleNavClick('account')}
+                className="w-full py-2.5 px-3.5 rounded-xl bg-[#FAF5EB] border border-[#E8DEC0] text-[#241710] flex items-center justify-center gap-2 text-xs font-bold shadow-xs hover:bg-[#F2E8D7] transition-colors"
+              >
+                <User className="w-4 h-4 text-[#A27B5C]" />
+                <span>{t('تسجيل الدخول / حساب جديد', 'Sign In / Register')}</span>
+              </button>
             )}
 
-            {/* Navigation Links */}
+            {/* Navigation Links (Dynamic Backend Categories) */}
             <div className="space-y-1 divide-y divide-[#EFE8DD]/70">
-              {navLinks.map((link) => (
-                <button
-                  key={`mobile-${link.view}-${link.labelEn}`}
-                  onClick={() => handleNavClick(link.view)}
-                  className={`w-full py-3 flex items-center justify-between text-start text-sm font-semibold transition-colors ${
-                    activeView === link.view
-                      ? 'text-[#A27B5C]'
-                      : 'text-[#241710] hover:text-[#A27B5C]'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    {language === 'ar' ? link.labelAr : link.labelEn}
-                    {link.highlight && (
-                      <span className="text-[10px] bg-[#A27B5C]/15 text-[#865F3E] px-2 py-0.5 rounded font-normal">
-                        {t('حسب طلبك', 'Custom')}
-                      </span>
-                    )}
-                  </span>
-                  <ArrowIcon className="w-4 h-4 text-[#9C8A7C]" />
-                </button>
-              ))}
+              {/* Home */}
+              <button
+                onClick={() => handleNavClick('home')}
+                className={`w-full py-2.5 flex items-center justify-between text-start text-sm font-semibold transition-colors ${
+                  activeView === 'home' ? 'text-[#A27B5C]' : 'text-[#241710] hover:text-[#A27B5C]'
+                }`}
+              >
+                <span>{t('الرئيسية', 'Home')}</span>
+                <ArrowIcon className="w-4 h-4 text-[#9C8A7C]" />
+              </button>
+
+              {/* All Carpets */}
+              <button
+                onClick={() => handleNavClick('shop')}
+                className={`w-full py-2.5 flex items-center justify-between text-start text-sm font-semibold transition-colors ${
+                  activeView === 'shop' && !selectedCategoryId
+                    ? 'text-[#A27B5C]'
+                    : 'text-[#241710] hover:text-[#A27B5C]'
+                }`}
+              >
+                <span>{t('كل السجاد والتشكيلات', 'All Carpets & Collections')}</span>
+                <ArrowIcon className="w-4 h-4 text-[#9C8A7C]" />
+              </button>
+
+              {/* Backend Categories */}
+              {categories.slice(0, 6).map((cat) => {
+                const isCatActive = activeView === 'shop' && selectedCategoryId === String(cat.id);
+                return (
+                  <button
+                    key={`mobile-cat-${cat.id}`}
+                    onClick={() => handleNavClick('shop', cat.id)}
+                    className={`w-full py-2.5 flex items-center justify-between text-start text-sm font-semibold transition-colors ${
+                      isCatActive ? 'text-[#A27B5C]' : 'text-[#241710] hover:text-[#A27B5C]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <FolderTree className="w-3.5 h-3.5 text-[#A27B5C]" />
+                      <span>{cat.name}</span>
+                    </span>
+                    <ArrowIcon className="w-4 h-4 text-[#9C8A7C]" />
+                  </button>
+                );
+              })}
+
+              {/* Showroom */}
+              <button
+                onClick={() => handleNavClick('contact')}
+                className={`w-full py-2.5 flex items-center justify-between text-start text-sm font-semibold transition-colors ${
+                  activeView === 'contact' ? 'text-[#A27B5C]' : 'text-[#241710] hover:text-[#A27B5C]'
+                }`}
+              >
+                <span>{t('معرض المنصورة', 'Showroom')}</span>
+                <ArrowIcon className="w-4 h-4 text-[#9C8A7C]" />
+              </button>
             </div>
 
             {/* Quick Contact & Showroom Links in Mobile Menu */}

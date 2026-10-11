@@ -282,13 +282,13 @@ export default function SubcategoriesSection({
               {/* Category Root Row */}
               <div className="flex items-center justify-between pb-3 border-b border-[#FAF5EB]">
                 <div className="flex items-center gap-3">
-                  <div className="relative w-10 h-10 rounded-xl overflow-hidden bg-[#FAF5EB] border border-[#E8DEC0] shrink-0">
+                  <div className="relative w-10 h-10 rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#E8DEC0] shrink-0 p-1 flex items-center justify-center">
                     {category.image ? (
                       <Image
                         src={category.image}
                         alt={category.name}
                         fill
-                        className="object-cover"
+                        className="object-contain"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-[#A27B5C]">
@@ -346,13 +346,13 @@ export default function SubcategoriesSection({
                             <span className="text-base">{isLast ? '└──' : '├──'}</span>
                           </div>
 
-                          <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-white border border-[#EAE3D8] shrink-0">
+                          <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] shrink-0 p-0.5 flex items-center justify-center">
                             {sub.image ? (
                               <Image
                                 src={sub.image}
                                 alt={sub.name}
                                 fill
-                                className="object-cover"
+                                className="object-contain"
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-[#A27B5C]">
@@ -445,13 +445,13 @@ export default function SubcategoriesSection({
                         {/* Subcategory Details & Image */}
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
-                            <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-[#FAF5EB] border border-[#EAE3D8] shrink-0">
+                            <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] shrink-0 p-1 flex items-center justify-center">
                               {sub.image ? (
                                 <Image
                                   src={sub.image}
                                   alt={sub.name}
                                   fill
-                                  className="object-cover"
+                                  className="object-contain"
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-[#A27B5C]">

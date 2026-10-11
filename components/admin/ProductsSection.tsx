@@ -501,12 +501,12 @@ export default function ProductsSection({
                       {/* Product Image & Name */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-[#FAF5EB] border border-[#EAE3D8] shrink-0">
+                          <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] shrink-0 p-1 flex items-center justify-center">
                             <Image
                               src={primaryImg}
                               alt={p.name}
                               fill
-                              className="object-cover"
+                              className="object-contain"
                               referrerPolicy="no-referrer"
                             />
                             {p.images.length > 1 && (
@@ -1125,7 +1125,7 @@ export default function ProductsSection({
                           return (
                             <div
                               key={`${imgUrl}-${idx}`}
-                              className={`group relative aspect-square rounded-lg overflow-hidden border bg-white shadow-2xs transition-all ${
+                              className={`group relative aspect-square rounded-lg overflow-hidden border bg-[#FAF8F5] p-1.5 flex items-center justify-center shadow-2xs transition-all ${
                                 isPrimary
                                   ? 'border-[#241710] ring-2 ring-[#241710]/20'
                                   : 'border-[#EAE3D8] hover:border-[#A27B5C]'
@@ -1135,7 +1135,7 @@ export default function ProductsSection({
                                 src={imgUrl}
                                 alt={`صورة ${idx + 1}`}
                                 fill
-                                className="object-cover"
+                                className="object-contain"
                               />
 
                               {/* Primary Cover Badge */}
@@ -1305,12 +1305,12 @@ export default function ProductsSection({
               </button>
             </div>
 
-            <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-stone-100 border border-[#EAE3D8]">
+            <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] p-3 flex items-center justify-center">
               <Image
                 src={viewingProduct.images[0]}
                 alt={viewingProduct.name}
                 fill
-                className="object-cover"
+                className="object-contain"
               />
             </div>
 

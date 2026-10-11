@@ -4,6 +4,7 @@ import React from 'react';
 import { Product, Category } from '@/types';
 import { BackendOrder, BackendOrderStatus } from '@/types/order';
 import { BackendSubcategory } from '@/types/category';
+import { BackendOffer } from '@/types/offer';
 import {
   Package,
   ShoppingBag,
@@ -15,6 +16,11 @@ import {
   Layers,
   FolderTree,
   Sparkles,
+  CreditCard,
+  CheckCircle2,
+  Clock,
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
 import { DashboardSection } from './AdminLayout';
@@ -24,13 +30,17 @@ interface OverviewSectionProps {
   categories: Category[];
   subcategories?: BackendSubcategory[];
   orders: BackendOrder[];
-  totalUsers?: number;
+  offers?: BackendOffer[];
+  totalUsers?: number | null;
+  isUsersLoading?: boolean;
+  isOrdersLoading?: boolean;
   onNavigateSection: (section: DashboardSection) => void;
   onOpenAddProduct: () => void;
   onOpenAddCategory: () => void;
   onOpenAddSubcategory?: () => void;
   onOpenAddOffer: () => void;
   onSelectOrder: (order: BackendOrder) => void;
+  onRefreshData?: () => void;
 }
 
 export default function OverviewSection({
@@ -38,15 +48,19 @@ export default function OverviewSection({
   categories,
   subcategories = [],
   orders,
-  totalUsers = 128,
+  offers = [],
+  totalUsers = null,
+  isUsersLoading = false,
+  isOrdersLoading = false,
   onNavigateSection,
   onOpenAddProduct,
   onOpenAddCategory,
   onOpenAddSubcategory,
   onOpenAddOffer,
   onSelectOrder,
+  onRefreshData,
 }: OverviewSectionProps) {
-  // Compute Order Status Counts (Preserved for status distribution & badges)
+  // Compute Real Order Status Counts from backend responses
   const totalOrders = orders.length;
 
   const unconfirmedOrders = orders.filter(
@@ -54,7 +68,11 @@ export default function OverviewSection({
   ).length;
 
   const confirmedOrders = orders.filter(
-    (o) => o.status === 'CONFIRMED' || (o.status as string) === 'confirmed'
+    (o) =>
+      o.status === 'CONFIRMED' ||
+      (o.status as string) === 'confirmed' ||
+      o.status === 'DELIVERED' ||
+      (o.status as string) === 'delivered'
   ).length;
 
   const preparingOrders = orders.filter(
@@ -76,35 +94,57 @@ export default function OverviewSection({
     (o) => o.status === 'CANCELLED' || (o.status as string) === 'cancelled'
   ).length;
 
+  // Real Active Offers Count: is_active is true and current date falls within starts_at / ends_at
+  const now = new Date();
+  const activeOffersCount = offers.filter((o) => {
+    if (!o.is_active) return false;
+    if (o.starts_at && new Date(o.starts_at) > now) return false;
+    if (o.ends_at && new Date(o.ends_at) < now) return false;
+    return true;
+  }).length;
+
+  // Reliable Paid Revenue: Calculated ONLY from orders with confirmed payment records (payment.status === 'PAID')
+  const paidOrders = orders.filter((o) => o.payment?.status === 'PAID');
+  const hasPaymentData = orders.some((o) => o.payment !== undefined && o.payment !== null);
+  const totalPaidRevenue = paidOrders.reduce((sum, o) => {
+    const amt = Number(o.payment?.amount || o.total_price || 0);
+    return sum + amt;
+  }, 0);
+
   // Recent 5 Orders
   const recentOrders = [...orders]
     .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
     .slice(0, 5);
 
-  // Recent 5 Products
-  const recentProducts = [...products].slice(0, 5);
-
-  // Store Overview Statistics (5 Core Cards)
-  // Structured for easy replacement with real API values
-  const usersCount = totalUsers ?? 128;
-  const ordersCount = orders.length > 0 ? orders.length : 3;
-  const categoriesCount = categories.length > 0 ? categories.length : 8;
-  const subcategoriesCount = subcategories.length > 0 ? subcategories.length : 14;
-  const productsCount = products.length > 0 ? products.length : 16;
-
+  // Real Store Overview Cards (Strictly from Real Backend Data)
   const storeOverviewCards = [
     {
       title: 'إجمالي المستخدمين',
-      count: usersCount,
+      value:
+        isUsersLoading
+          ? '...'
+          : totalUsers !== null && totalUsers !== undefined
+          ? totalUsers.toLocaleString()
+          : 'غير متوفر',
+      subtitle:
+        isUsersLoading
+          ? 'جاري التحميل...'
+          : totalUsers !== null && totalUsers !== undefined
+          ? 'حساب مسجل بالمتجر'
+          : 'يتطلب صلاحية مدير (Admin)',
       icon: Users,
       accentBg: 'bg-indigo-50/70',
       accentText: 'text-indigo-700',
       accentBorder: 'border-indigo-100',
-      action: undefined,
+      action: () => onNavigateSection('users'),
     },
     {
       title: 'إجمالي الطلبات',
-      count: ordersCount,
+      value: isOrdersLoading ? '...' : totalOrders.toLocaleString(),
+      subtitle:
+        unconfirmedOrders > 0
+          ? `${unconfirmedOrders} طلب بانتظار المراجعة`
+          : 'جميع الطلبات المسجلة',
       icon: ShoppingBag,
       accentBg: 'bg-amber-50/70',
       accentText: 'text-amber-800',
@@ -112,31 +152,59 @@ export default function OverviewSection({
       action: () => onNavigateSection('orders'),
     },
     {
-      title: 'إجمالي التصنيفات',
-      count: categoriesCount,
-      icon: FolderTree,
+      title: 'الطلبات المؤكدة والمنجزة',
+      value: isOrdersLoading ? '...' : confirmedOrders.toLocaleString(),
+      subtitle:
+        totalOrders > 0
+          ? `${Math.round((confirmedOrders / totalOrders) * 100)}% من إجمالي الطلبات`
+          : 'لا توجد طلبات بعد',
+      icon: CheckCircle2,
+      accentBg: 'bg-blue-50/70',
+      accentText: 'text-blue-800',
+      accentBorder: 'border-blue-100',
+      action: () => onNavigateSection('orders'),
+    },
+    {
+      title: 'الإيرادات المسددة (PAID)',
+      value:
+        isOrdersLoading
+          ? '...'
+          : hasPaymentData && paidOrders.length > 0
+          ? `${totalPaidRevenue.toLocaleString('ar-EG')} ج.م`
+          : hasPaymentData
+          ? '0 ج.م'
+          : 'غير متوفر',
+      subtitle:
+        hasPaymentData && paidOrders.length > 0
+          ? `مسددة فعلياً في ${paidOrders.length} طلب`
+          : hasPaymentData
+          ? 'لم تؤكد مدفوعات بعد'
+          : 'بيانات الدفع غير متاحة',
+      icon: CreditCard,
       accentBg: 'bg-emerald-50/70',
       accentText: 'text-emerald-800',
       accentBorder: 'border-emerald-100',
-      action: () => onNavigateSection('categories'),
-    },
-    {
-      title: 'إجمالي التصنيفات الفرعية',
-      count: subcategoriesCount,
-      icon: Layers,
-      accentBg: 'bg-sky-50/70',
-      accentText: 'text-sky-800',
-      accentBorder: 'border-sky-100',
-      action: () => onNavigateSection('subcategories'),
+      action: () => onNavigateSection('orders'),
     },
     {
       title: 'إجمالي المنتجات',
-      count: productsCount,
+      value: products.length.toLocaleString(),
+      subtitle: `${categories.length} تصنيف · ${subcategories.length} فرعي`,
       icon: Package,
       accentBg: 'bg-[#FAF5EB]',
       accentText: 'text-[#8C5E3C]',
       accentBorder: 'border-[#EAE3D8]',
       action: () => onNavigateSection('products'),
+    },
+    {
+      title: 'العروض النشطة',
+      value: activeOffersCount.toLocaleString(),
+      subtitle: offers.length > 0 ? `من أصل ${offers.length} عروض` : 'لا توجد عروض',
+      icon: Tag,
+      accentBg: 'bg-rose-50/70',
+      accentText: 'text-rose-800',
+      accentBorder: 'border-rose-100',
+      action: () => onNavigateSection('offers'),
     },
   ];
 
@@ -200,15 +268,27 @@ export default function OverviewSection({
       {/* Top Welcome & Quick Actions */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#EAE3D8]">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#241710] tracking-tight">
-            نظرة عامة على المتجر
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-black text-[#241710] tracking-tight">
+              نظرة عامة على المتجر
+            </h1>
+            {onRefreshData && (
+              <button
+                onClick={onRefreshData}
+                disabled={isOrdersLoading}
+                className="p-1.5 rounded-lg border border-[#EAE3D8] bg-white hover:bg-[#FAF8F5] text-[#8C7A6B] hover:text-[#241710] transition-colors disabled:opacity-50"
+                title="تحديث البيانات"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isOrdersLoading ? 'animate-spin' : ''}`} />
+              </button>
+            )}
+          </div>
           <p className="text-xs text-[#8C7A6B] mt-0.5">
             متابعة فورية للمنتجات، دورة حياة الطلبات، والتصنيفات في معرض عالم السجاد.
           </p>
         </div>
 
-        {/* Quick Actions (Core Requirement) */}
+        {/* Quick Actions */}
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={onOpenAddProduct}
@@ -237,6 +317,14 @@ export default function OverviewSection({
           )}
 
           <button
+            onClick={onOpenAddOffer}
+            className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF8F5] border border-[#EAE3D8] text-[#241710] text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+          >
+            <Tag className="w-4 h-4 text-[#A27B5C]" />
+            <span>إضافة عرض</span>
+          </button>
+
+          <button
             onClick={() => onNavigateSection('orders')}
             className="px-3.5 py-2 rounded-xl bg-[#FAF5EB] hover:bg-[#F2E8D7] border border-[#E8DEC0] text-[#241710] text-xs font-bold flex items-center gap-1.5 transition-all"
           >
@@ -245,17 +333,17 @@ export default function OverviewSection({
           </button>
 
           <button
-            onClick={() => onNavigateSection('ai-images')}
+            onClick={() => onNavigateSection('users')}
             className="px-3.5 py-2 rounded-xl bg-[#FAF5EB] hover:bg-[#F2E8D7] border border-[#E8DEC0] text-[#241710] text-xs font-bold flex items-center gap-1.5 transition-all"
           >
-            <Sparkles className="w-4 h-4 text-[#A27B5C]" />
-            <span>استوديو الذكاء الاصطناعي</span>
+            <Users className="w-4 h-4 text-[#A27B5C]" />
+            <span>إدارة المستخدمين</span>
           </button>
         </div>
       </div>
 
-      {/* 5 Core Store Overview Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      {/* 6 Real Store Overview Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         {storeOverviewCards.map((card, idx) => {
           const Icon = card.icon;
 
@@ -263,17 +351,11 @@ export default function OverviewSection({
             <div
               key={idx}
               onClick={card.action}
-              role={card.action ? 'button' : undefined}
-              tabIndex={card.action ? 0 : undefined}
-              className={`p-3.5 sm:p-4 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs flex flex-col justify-between transition-all duration-200 relative overflow-hidden ${
-                idx === 4 ? 'col-span-2 sm:col-span-1' : 'col-span-1'
-              } ${
-                card.action
-                  ? 'cursor-pointer hover:shadow-md hover:border-[#D4C3B3] hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#A27B5C]/30'
-                  : 'cursor-default'
-              }`}
+              role="button"
+              tabIndex={0}
+              className="p-3.5 sm:p-4 rounded-2xl bg-white border border-[#EAE3D8] shadow-xs flex flex-col justify-between transition-all duration-200 relative overflow-hidden cursor-pointer hover:shadow-md hover:border-[#D4C3B3] hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#A27B5C]/30"
             >
-              <div className="flex items-center justify-between mb-2 sm:mb-2.5">
+              <div className="flex items-center justify-between mb-2">
                 <div className={`p-2 rounded-xl ${card.accentBg} ${card.accentText} border ${card.accentBorder}`}>
                   <Icon className="w-4 h-4" />
                 </div>
@@ -283,8 +365,11 @@ export default function OverviewSection({
                 <h3 className="text-xs font-medium text-[#7A695B] truncate mb-1">
                   {card.title}
                 </h3>
-                <p className="text-2xl sm:text-3xl font-black text-[#241710] tracking-tight leading-none">
-                  {card.count.toLocaleString()}
+                <p className="text-xl sm:text-2xl font-black text-[#241710] tracking-tight leading-none">
+                  {card.value}
+                </p>
+                <p className="text-[10px] text-[#8C7A6B] mt-1.5 truncate">
+                  {card.subtitle}
                 </p>
               </div>
             </div>
@@ -312,7 +397,7 @@ export default function OverviewSection({
                 pct: totalOrders > 0 ? Math.round((unconfirmedOrders / totalOrders) * 100) : 0,
               },
               {
-                label: 'طلبات مؤكدة',
+                label: 'طلبات مؤكدة / منجزة',
                 count: confirmedOrders,
                 color: 'bg-blue-500',
                 pct: totalOrders > 0 ? Math.round((confirmedOrders / totalOrders) * 100) : 0,
@@ -390,7 +475,7 @@ export default function OverviewSection({
           </div>
 
           {recentOrders.length === 0 ? (
-            <div className="p-8 text-center text-xs text-[#8C7A6B]">
+            <div className="p-8 text-center text-xs text-[#8C7A6B] bg-[#FAF8F5] rounded-xl border border-dashed border-[#EAE3D8]">
               لا توجد طلبات مسجلة حتى الآن.
             </div>
           ) : (
@@ -422,9 +507,7 @@ export default function OverviewSection({
                           <p className="font-bold text-[#241710]">{custName}</p>
                           {custPhone && <p className="text-[10px] text-[#8C7A6B] font-mono">{custPhone}</p>}
                         </td>
-                        <td className="py-3 px-3">
-                          {getStatusBadge(ord.status)}
-                        </td>
+                        <td className="py-3 px-3">{getStatusBadge(ord.status)}</td>
                         <td className="py-3 px-3 font-bold text-[#241710]">
                           {totalVal.toLocaleString('ar-EG')} ج.م
                         </td>
@@ -490,12 +573,12 @@ export default function OverviewSection({
                 className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-3"
               >
                 <div className="flex items-center gap-3">
-                  <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-white border border-[#EAE3D8] shrink-0">
+                  <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-white border border-[#EAE3D8] shrink-0 p-1 flex items-center justify-center">
                     <Image
                       src={cat.image || 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=400&q=80'}
                       alt={cat.name}
                       fill
-                      className="object-cover"
+                      className="object-contain"
                     />
                   </div>
                   <div className="overflow-hidden">

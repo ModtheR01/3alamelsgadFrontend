@@ -272,8 +272,8 @@ export default function NewArrivalSection() {
                     onClick={() => handleCardClick(product.id)}
                     className="w-[195px] sm:w-[250px] md:w-[270px] lg:w-[280px] shrink-0 flex flex-col group cursor-pointer"
                   >
-                    {/* Product Image Container */}
-                    <div className="relative aspect-[4/5] bg-[#F2EDE5] overflow-hidden rounded-none sm:rounded-xs">
+                    {/* Product Image Container (object-contain preserving carpet edges) */}
+                    <div className="relative aspect-[4/5] bg-[#F7F5F0] overflow-hidden rounded-xl p-2.5 flex items-center justify-center">
                       <Image
                         src={
                           product.images[0] ||
@@ -282,7 +282,7 @@ export default function NewArrivalSection() {
                         alt={product.name}
                         fill
                         draggable={false}
-                        className="object-cover object-center transition-transform duration-700 group-hover:scale-105 pointer-events-none"
+                        className="object-contain object-center transition-transform duration-500 group-hover:scale-105 pointer-events-none p-1"
                         referrerPolicy="no-referrer"
                       />
 

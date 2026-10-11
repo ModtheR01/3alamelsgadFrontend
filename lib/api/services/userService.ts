@@ -55,6 +55,26 @@ export const userService = {
   },
 
   /**
+   * Get users with pagination details (total count, next, prev, results).
+   * GET /user/users/
+   */
+  async getUsersPaginated(params: SearchParams = {}): Promise<PaginatedResponse<UserManagementUser>> {
+    const response = await apiClient.get<PaginatedResponse<UserManagementUser>>('/user/users/', {
+      params: { page_size: params.page_size ?? 20, ...params },
+    });
+    if (response && typeof response === 'object' && 'results' in response && Array.isArray((response as any).results)) {
+      return response;
+    }
+    const arr = Array.isArray(response) ? response : [];
+    return {
+      count: arr.length,
+      next: null,
+      previous: null,
+      results: arr,
+    };
+  },
+
+  /**
    * Update user role (Admin only)
    * PATCH /user/users/<user_id>/role/
    */

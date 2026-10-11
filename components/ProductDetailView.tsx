@@ -233,20 +233,20 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-14 pt-4 sm:pt-6">
           {/* Left: Product Imagery Showcase (7 cols) */}
           <div className="lg:col-span-7 space-y-4">
-            {/* Primary Main Image with Clean Framing */}
-            <div className="relative aspect-[4/3] sm:aspect-[5/4] w-full rounded-2xl overflow-hidden bg-[#EFE9DF] border border-[#E4DACD] shadow-[0_12px_36px_rgba(40,25,15,0.06)]">
+            {/* Primary Main Image with Clean Framing (object-contain preserving carpet edges) */}
+            <div className="relative aspect-[4/3] sm:aspect-[5/4] w-full rounded-2xl overflow-hidden bg-[#F7F5F0] border border-[#E4DACD] shadow-[0_12px_36px_rgba(40,25,15,0.06)] p-3 sm:p-5 flex items-center justify-center">
               <Image
                 src={productImages[selectedImageIdx] || productImages[0]}
                 alt={product.name}
                 fill
                 priority
-                className="object-cover object-center transition-all duration-500 hover:scale-[1.02]"
+                className="object-contain transition-all duration-500 hover:scale-[1.02]"
                 referrerPolicy="no-referrer"
               />
 
               {/* ARAWAL Badge on Image */}
               {isArawalProduct && (
-                <div className="absolute top-4 start-4 bg-[#251811]/90 backdrop-blur-md text-[#EED8BE] text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md border border-[#C49F74]/30">
+                <div className="absolute top-4 start-4 bg-[#251811]/90 backdrop-blur-md text-[#EED8BE] text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md border border-[#C49F74]/30 z-10">
                   <Ruler className="w-3.5 h-3.5 text-[#C49F74]" />
                   <span>{t('رول أروال بالمتر', 'Arawal Runner by Meter')}</span>
                 </div>
@@ -260,7 +260,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                   <button
                     key={idx}
                     onClick={() => setSelectedImageIdx(idx)}
-                    className={`relative w-20 h-20 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
+                    className={`relative w-20 h-20 rounded-xl overflow-hidden shrink-0 border-2 bg-[#F7F5F0] p-1 flex items-center justify-center transition-all ${
                       selectedImageIdx === idx
                         ? 'border-[#A27B5C] ring-2 ring-[#A27B5C]/20 shadow-md'
                         : 'border-[#E4DACD] opacity-75 hover:opacity-100'
@@ -270,7 +270,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                       src={img}
                       alt={`${product.name} ${idx + 1}`}
                       fill
-                      className="object-cover"
+                      className="object-contain"
                       referrerPolicy="no-referrer"
                     />
                   </button>

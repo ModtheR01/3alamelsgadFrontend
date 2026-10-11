@@ -157,7 +157,7 @@ export default function CategoriesSection({
                   src={cat.image}
                   alt={cat.name}
                   fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  className="object-contain group-hover:scale-105 transition-transform duration-500 p-2"
                   referrerPolicy="no-referrer"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
