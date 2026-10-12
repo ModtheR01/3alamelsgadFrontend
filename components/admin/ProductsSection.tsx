@@ -1716,29 +1716,6 @@ export default function ProductsSection({
                       </button>
                     </div>
 
-                    {/* Compact Image URL input */}
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="url"
-                        value={manualImageUrl}
-                        onChange={(e) => setManualImageUrl(e.target.value)}
-                        placeholder="أو الصق رابط صورة مباشر..."
-                        className="flex-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (manualImageUrl.trim()) {
-                            handleAddImageUrl(manualImageUrl);
-                            setManualImageUrl('');
-                          }
-                        }}
-                        className="px-2.5 py-1.5 rounded-lg bg-white border border-[#EAE3D8] text-[11px] font-bold text-[#241710] hover:bg-[#FAF8F5] shrink-0"
-                      >
-                        إضافة
-                      </button>
-                    </div>
-
                     {/* Image Thumbnails Grid */}
                     {editingProduct.images.length === 0 ? (
                       <div className="py-4 text-center text-xs text-[#8C7A6B] bg-white rounded-xl border border-dashed border-[#EAE3D8]">
@@ -2060,33 +2037,6 @@ export default function ProductsSection({
                       </div>
                     </div>
                   )}
-
-                  {/* Card 5: Inventory & Featured Toggles */}
-                  <div className="p-3.5 rounded-xl bg-[#FAF8F5]/70 border border-[#EAE3D8] space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#241710]">
-                      <input
-                        type="checkbox"
-                        checked={editingProduct.inStock}
-                        onChange={(e) =>
-                          setEditingProduct({ ...editingProduct, inStock: e.target.checked })
-                        }
-                        className="rounded text-[#241710]"
-                      />
-                      <span>متوفر في المخزن للبيع الفوري</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#241710]">
-                      <input
-                        type="checkbox"
-                        checked={editingProduct.isFeatured}
-                        onChange={(e) =>
-                          setEditingProduct({ ...editingProduct, isFeatured: e.target.checked })
-                        }
-                        className="rounded text-[#241710]"
-                      />
-                      <span>تمييز المنتج في واجهة المتجر الرئيسية</span>
-                    </label>
-                  </div>
                 </div>
               </div>
             </form>

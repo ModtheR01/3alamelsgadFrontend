@@ -698,38 +698,7 @@ export default function CategoriesSection({
                 />
               </div>
 
-              {/* Visibility and Featured Options */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#EAE3D8]">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#241710]">
-                  <input
-                    type="checkbox"
-                    checked={editingCategory.isVisible !== false}
-                    onChange={(e) =>
-                      setEditingCategory({
-                        ...editingCategory,
-                        isVisible: e.target.checked,
-                      })
-                    }
-                    className="rounded text-[#241710]"
-                  />
-                  <span>ظاهر في المتجر</span>
-                </label>
 
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#241710]">
-                  <input
-                    type="checkbox"
-                    checked={editingCategory.isFeatured}
-                    onChange={(e) =>
-                      setEditingCategory({
-                        ...editingCategory,
-                        isFeatured: e.target.checked,
-                      })
-                    }
-                    className="rounded text-[#241710]"
-                  />
-                  <span>تصنيف مميز في الصفحة الرئيسية</span>
-                </label>
-              </div>
 
               <div className="pt-4 border-t border-[#EAE3D8] flex items-center justify-end gap-3">
                 <button

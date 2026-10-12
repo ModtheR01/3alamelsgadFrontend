@@ -115,7 +115,6 @@ export default function AccountView() {
   // Register form
   const [regFirstName, setRegFirstName] = useState('');
   const [regLastName, setRegLastName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
 
@@ -279,7 +278,6 @@ export default function AccountView() {
         last_name: regLastName,
         phone: regPhone,
         password: regPassword,
-        ...(regEmail.trim() ? { email: regEmail.trim() } : {}),
       });
       setRegPassword('');
     } catch (err) {
@@ -686,25 +684,6 @@ export default function AccountView() {
                         <p className="text-[10px] text-red-600">{localizeAuthError(authFieldErrors.last_name[0], isRtl)}</p>
                       )}
                     </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-[11px] uppercase tracking-wider text-[#1C1A19] font-medium">
-                      {t('البريد الإلكتروني (اختياري)', 'Email Address (Optional)')}
-                    </label>
-                    <input
-                      type="email"
-                      dir="ltr"
-                      value={regEmail}
-                      onChange={(e) => setRegEmail(e.target.value)}
-                      placeholder="anas.sayed@example.com"
-                      className={`w-full text-xs px-3 py-2.5 rounded-lg bg-[#FAF8F5] border text-[#1C1A19] focus:outline-none focus:border-[#1C1A19] ${
-                        authFieldErrors.email ? 'border-red-400' : 'border-[#D8CEBF]'
-                      }`}
-                    />
-                    {authFieldErrors.email && (
-                      <p className="text-[10px] text-red-600">{localizeAuthError(authFieldErrors.email[0], isRtl)}</p>
-                    )}
                   </div>
 
                   <div className="space-y-1">

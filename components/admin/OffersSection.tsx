@@ -465,18 +465,7 @@ export default function OffersSection({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="offer-active"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                  className="rounded text-[#241710]"
-                />
-                <label htmlFor="offer-active" className="text-xs font-bold text-[#241710] cursor-pointer">
-                  تفعيل العرض فوراً في المتجر
-                </label>
-              </div>
+
 
               <div className="pt-4 border-t border-[#EAE3D8] flex items-center justify-end gap-3">
                 <button

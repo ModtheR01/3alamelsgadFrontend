@@ -36,9 +36,9 @@ interface OverviewSectionProps {
   isOrdersLoading?: boolean;
   onNavigateSection: (section: DashboardSection) => void;
   onOpenAddProduct: () => void;
-  onOpenAddCategory: () => void;
+  onOpenAddCategory?: () => void;
   onOpenAddSubcategory?: () => void;
-  onOpenAddOffer: () => void;
+  onOpenAddOffer?: () => void;
   onSelectOrder: (order: BackendOrder) => void;
   onRefreshData?: () => void;
 }
@@ -296,32 +296,6 @@ export default function OverviewSection({
           >
             <Plus className="w-4 h-4 text-[#EED8BE]" />
             <span>إضافة منتج</span>
-          </button>
-
-          <button
-            onClick={onOpenAddCategory}
-            className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF8F5] border border-[#EAE3D8] text-[#241710] text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
-          >
-            <FolderTree className="w-4 h-4 text-[#A27B5C]" />
-            <span>إضافة تصنيف</span>
-          </button>
-
-          {onOpenAddSubcategory && (
-            <button
-              onClick={onOpenAddSubcategory}
-              className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF8F5] border border-[#EAE3D8] text-[#241710] text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
-            >
-              <Layers className="w-4 h-4 text-[#A27B5C]" />
-              <span>إضافة تصنيف فرعي</span>
-            </button>
-          )}
-
-          <button
-            onClick={onOpenAddOffer}
-            className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF8F5] border border-[#EAE3D8] text-[#241710] text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
-          >
-            <Tag className="w-4 h-4 text-[#A27B5C]" />
-            <span>إضافة عرض</span>
           </button>
 
           <button
