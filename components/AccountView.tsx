@@ -15,7 +15,6 @@ import { shippingService } from '@/lib/api/services/shippingService';
 import { GovernorateShipping } from '@/types/shipping';
 import { useLanguage } from '@/lib/context/LanguageContext';
 import {
-  User,
   Package,
   MapPin,
   Clock,
@@ -483,14 +482,6 @@ export default function AccountView() {
     );
   };
 
-  const ORDER_TRACKER_STEPS = [
-    { key: 'NOT_CONFIRMED', labelAr: 'استلام الطلب', labelEn: 'Received' },
-    { key: 'CONFIRMED', labelAr: 'تأكيد الحجز', labelEn: 'Confirmed' },
-    { key: 'PROCESSING', labelAr: 'التجهيز والسرفلة', labelEn: 'Processing' },
-    { key: 'SHIPPED', labelAr: 'تم الشحن', labelEn: 'Shipped' },
-    { key: 'DELIVERED', labelAr: 'تم التسليم', labelEn: 'Delivered' },
-  ];
-
   return (
     <div id="account-portal-page" className="pt-20 sm:pt-28 pb-20 sm:pb-24 bg-[#FAF8F5] min-h-screen">
       <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
@@ -759,18 +750,13 @@ export default function AccountView() {
 
             {/* Authenticated User Header Card */}
             <div className="p-4 sm:p-5 rounded-2xl bg-[#FAF8F5] border border-[#EAE4DC] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-12 h-12 rounded-full bg-[#1C1A19] text-[#FAF8F5] flex items-center justify-center font-bold text-base shrink-0 shadow-xs">
-                  {user?.first_name ? user.first_name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
-                </div>
-                <div>
-                  <h2 className="text-sm sm:text-base font-semibold text-[#1C1A19]">
-                    مرحباً، {user?.first_name || 'العميل'} {user?.last_name || ''}
-                  </h2>
-                  <p className="text-xs text-[#736B63] font-mono mt-0.5" dir="ltr">
-                    {user?.phone || user?.email || ''}
-                  </p>
-                </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-semibold text-[#1C1A19]">
+                  مرحباً، {user?.first_name || 'العميل'} {user?.last_name || ''}
+                </h2>
+                <p className="text-xs text-[#736B63] font-mono mt-0.5" dir="ltr">
+                  {user?.phone || user?.email || ''}
+                </p>
               </div>
 
               <div className="flex items-center gap-2 self-end sm:self-auto">
@@ -962,7 +948,6 @@ export default function AccountView() {
 
                       const statusConfig = getBackendStatusConfig(ord.status);
                       const StatusIcon = statusConfig.icon;
-                      const isCancelled = ord.status === 'CANCELLED';
 
                       return (
                         <div
@@ -1014,60 +999,22 @@ export default function AccountView() {
                                   </span>
                                 </div>
                               </div>
+                            </div>
 
-                              <div className="flex items-center gap-2 self-start sm:self-auto">
+                            {/* CURRENT ORDER STATUS SECTION */}
+                            <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-[#EAE4DC] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                              <div className="flex items-center gap-2.5 flex-wrap">
+                                <span className="text-xs font-bold text-[#736B63]">
+                                  {t('حالة الطلب:', 'Order Status:')}
+                                </span>
                                 {getBackendStatusBadge(ord.status)}
                               </div>
-                            </div>
 
-                            {/* Status Sublabel Note Banner */}
-                            <div className="p-2.5 rounded-xl bg-white border border-[#EAE4DC] flex items-center gap-2 text-xs text-[#5C4A3E]">
-                              <StatusIcon className="w-4 h-4 text-[#643D26] shrink-0" />
-                              <span className="font-medium">{statusConfig.subLabel}</span>
-                            </div>
-
-                            {/* LIVE PROGRESS STEPPER (When not cancelled) */}
-                            {!isCancelled && (
-                              <div className="pt-2">
-                                <div className="grid grid-cols-5 gap-1 sm:gap-2 relative">
-                                  {ORDER_TRACKER_STEPS.map((step, stepIdx) => {
-                                    const isCompleted = stepIdx <= statusConfig.stepIndex;
-                                    const isCurrent = stepIdx === statusConfig.stepIndex;
-
-                                    return (
-                                      <div key={step.key} className="flex flex-col items-center text-center">
-                                        <div
-                                          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold transition-all ${
-                                            isCurrent
-                                              ? 'bg-[#643D26] text-white ring-2 ring-[#E8DEC0] shadow-xs'
-                                              : isCompleted
-                                              ? 'bg-[#1E6B3A] text-white'
-                                              : 'bg-white text-[#B3A89B] border border-[#EAE4DC]'
-                                          }`}
-                                        >
-                                          {isCompleted && !isCurrent ? (
-                                            <Check className="w-3.5 h-3.5" />
-                                          ) : (
-                                            stepIdx + 1
-                                          )}
-                                        </div>
-                                        <span
-                                          className={`text-[9px] sm:text-[11px] mt-1.5 leading-tight font-medium ${
-                                            isCurrent
-                                              ? 'text-[#643D26] font-bold'
-                                              : isCompleted
-                                              ? 'text-[#1C1A19]'
-                                              : 'text-[#A89F95]'
-                                          }`}
-                                        >
-                                          {isRtl ? step.labelAr : step.labelEn}
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                              <div className="flex items-center gap-2 text-xs text-[#5C4A3E] font-medium">
+                                <StatusIcon className="w-4 h-4 text-[#643D26] shrink-0" />
+                                <span>{statusConfig.subLabel}</span>
                               </div>
-                            )}
+                            </div>
                           </div>
 
                           {/* ORDER BODY: ITEMS */}
