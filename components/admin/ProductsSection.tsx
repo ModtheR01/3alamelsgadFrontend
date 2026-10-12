@@ -161,6 +161,8 @@ export default function ProductsSection({
   const [isLoadingColors, setIsLoadingColors] = useState(false);
   const [colorLoadError, setColorLoadError] = useState<string | null>(null);
   const [newColorName, setNewColorName] = useState('');
+  const [newColorNameAr, setNewColorNameAr] = useState('');
+  const [newColorNameEn, setNewColorNameEn] = useState('');
   const [newColorHex, setNewColorHex] = useState('#241710');
   const [isCreatingColor, setIsCreatingColor] = useState(false);
   const [newColorError, setNewColorError] = useState<string | null>(null);
@@ -262,9 +264,13 @@ export default function ProductsSection({
       id: `prod-${Date.now()}`,
       slug: `product-${Date.now()}`,
       name: '',
+      name_ar: '',
+      name_en: '',
       categoryId: firstCat,
       subcategoryIds: [],
       description: '',
+      description_ar: '',
+      description_en: '',
       price: 3500,
       originalPrice: undefined,
       discountPercentage: undefined,
@@ -299,6 +305,10 @@ export default function ProductsSection({
   const handleOpenEdit = (product: Product) => {
     setEditingProduct({
       ...product,
+      name_ar: product.name_ar || product.name || '',
+      name_en: product.name_en || '',
+      description_ar: product.description_ar || product.description || '',
+      description_en: product.description_en || '',
       sizes: Array.isArray(product.sizes) ? [...product.sizes] : [],
       colors: Array.isArray(product.colors) ? [...product.colors] : [],
     });
@@ -315,8 +325,13 @@ export default function ProductsSection({
   const handleSubmitProductForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
-    if (!editingProduct.name.trim()) {
-      setFormError('اسم المنتج مطلوب.');
+    const nameAr = (editingProduct.name_ar || editingProduct.name || '').trim();
+    const nameEn = (editingProduct.name_en || nameAr).trim();
+    const descAr = (editingProduct.description_ar || editingProduct.description || '').trim();
+    const descEn = (editingProduct.description_en || descAr).trim();
+
+    if (!nameAr) {
+      setFormError('اسم المنتج باللغة العربية مطلوب.');
       return;
     }
 
@@ -348,7 +363,15 @@ export default function ProductsSection({
     setIsSaving(true);
     setFormError(null);
     try {
-      await onSaveProduct(editingProduct);
+      await onSaveProduct({
+        ...editingProduct,
+        name: nameAr,
+        name_ar: nameAr,
+        name_en: nameEn,
+        description: descAr,
+        description_ar: descAr,
+        description_en: descEn,
+      });
       setIsModalOpen(false);
       setEditingProduct(null);
     } catch (err: any) {
@@ -593,16 +616,19 @@ export default function ProductsSection({
 
     setIsCreatingColor(true);
     try {
-      const name = newColorName.trim() || hex;
+      const nameAr = (newColorNameAr.trim() || newColorName.trim() || hex);
+      const nameEn = (newColorNameEn.trim() || newColorNameAr.trim() || newColorName.trim() || hex);
       const created = await productService.createColor({
-        name_ar: name,
-        name_en: name,
+        name_ar: nameAr,
+        name_en: nameEn,
         hex_code: hex,
       });
       setAvailableColors((prev) => [...prev, created]);
       const newCol: ProductColor = {
         id: String(created.id),
-        name: created.name || created.name_ar || created.name_en || hex,
+        name: created.name_ar || created.name || nameAr,
+        name_ar: created.name_ar || nameAr,
+        name_en: created.name_en || nameEn,
         hex: created.hex_code,
       };
       setEditingProduct({
@@ -610,6 +636,8 @@ export default function ProductsSection({
         colors: [...(editingProduct.colors || []), newCol],
       });
       setNewColorName('');
+      setNewColorNameAr('');
+      setNewColorNameEn('');
     } catch (err: any) {
       const msg =
         err?.response?.data?.hex_code?.[0] ||
@@ -830,7 +858,8 @@ export default function ProductsSection({
               </thead>
               <tbody className="divide-y divide-[#F5EFE6]">
                 {paginatedProducts.map((p) => {
-                  const categoryName = categories.find((c) => String(c.id) === String(p.categoryId))?.name || 'عام';
+                  const catObj = categories.find((c) => String(c.id) === String(p.categoryId));
+                  const categoryName = catObj?.name_ar || catObj?.name || catObj?.name_en || 'عام';
                   const primaryImg = p.images?.[0] || 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=400&q=80';
 
                   return (
@@ -841,7 +870,7 @@ export default function ProductsSection({
                           <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] shrink-0 p-1 flex items-center justify-center">
                             <Image
                               src={primaryImg}
-                              alt={p.name}
+                              alt={p.name_ar || p.name || p.name_en || ''}
                               fill
                               className="object-contain"
                               referrerPolicy="no-referrer"
@@ -853,7 +882,14 @@ export default function ProductsSection({
                             )}
                           </div>
                           <div>
-                            <p className="font-bold text-[#241710] text-xs leading-snug">{p.name}</p>
+                            <p className="font-bold text-[#241710] text-xs leading-snug">
+                              {p.name_ar || p.name || p.name_en}
+                            </p>
+                            {p.name_en && p.name_en !== (p.name_ar || p.name) && (
+                              <span className="text-[10px] text-[#8C7A6B] block font-medium" dir="ltr">
+                                {p.name_en}
+                              </span>
+                            )}
                             <span className="text-[10px] text-[#8C7A6B] font-mono">
                               معرف #{p.id}
                             </span>
@@ -1279,25 +1315,49 @@ export default function ProductsSection({
                       <span>بيانات المنتج الأساسية</span>
                     </h4>
 
-                    {/* Product Name */}
-                    <div className="space-y-1">
-                      <label className="block text-xs font-bold text-[#241710]">
-                        اسم المنتج <span className="text-rose-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={editingProduct.name}
-                        onChange={(e) =>
-                          setEditingProduct({
-                            ...editingProduct,
-                            name: e.target.value,
-                            slug: e.target.value.toLowerCase().replace(/\s+/g, '-'),
-                          })
-                        }
-                        placeholder="مثال: سجاد تبريز كلاسيك فاخر، رول ممرات تركي..."
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
-                      />
+                    {/* Product Name (Bilingual) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-[#241710]">
+                          اسم المنتج بالعربية <span className="text-rose-600">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          dir="rtl"
+                          value={editingProduct.name_ar ?? editingProduct.name}
+                          onChange={(e) =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              name: e.target.value,
+                              name_ar: e.target.value,
+                              slug: editingProduct.name_en ? editingProduct.slug : e.target.value.toLowerCase().replace(/\s+/g, '-'),
+                            })
+                          }
+                          placeholder="مثال: سجاد تبريز كلاسيك فاخر..."
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-[#241710]">
+                          اسم المنتج بالإنجليزية (English Name)
+                        </label>
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={editingProduct.name_en || ''}
+                          onChange={(e) =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              name_en: e.target.value,
+                              slug: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || editingProduct.slug,
+                            })
+                          }
+                          placeholder="e.g. Classic Tabriz Luxury Carpet..."
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
+                        />
+                      </div>
                     </div>
 
                     {/* Category & Subcategory Row */}
@@ -1570,19 +1630,45 @@ export default function ProductsSection({
                       </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="block text-xs font-bold text-[#241710]">
-                        الوصف التعريفي للمنتج
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={editingProduct.description}
-                        onChange={(e) =>
-                          setEditingProduct({ ...editingProduct, description: e.target.value })
-                        }
-                        placeholder="نبذة عن السجادة وتنسيقها في غرف المعيشة والصالون..."
-                        className="w-full text-xs p-2.5 rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-[#241710]">
+                          الوصف التعريفي بالعربية
+                        </label>
+                        <textarea
+                          rows={2}
+                          dir="rtl"
+                          value={editingProduct.description_ar ?? editingProduct.description ?? ''}
+                          onChange={(e) =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              description: e.target.value,
+                              description_ar: e.target.value,
+                            })
+                          }
+                          placeholder="نبذة عن السجادة وتنسيقها في غرف المعيشة والصالون..."
+                          className="w-full text-xs p-2.5 rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-[#241710]">
+                          الوصف بالإنجليزية (English Description)
+                        </label>
+                        <textarea
+                          rows={2}
+                          dir="ltr"
+                          value={editingProduct.description_en || ''}
+                          onChange={(e) =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              description_en: e.target.value,
+                            })
+                          }
+                          placeholder="Carpet description for English visitors..."
+                          className="w-full text-xs p-2.5 rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1799,31 +1885,45 @@ export default function ProductsSection({
                     </div>
 
                     {/* Add / Create New Color */}
-                    <div className="pt-2 border-t border-[#EAE3D8]/60 space-y-1.5">
+                    <div className="pt-2 border-t border-[#EAE3D8]/60 space-y-2">
                       <label className="block text-[11px] font-bold text-[#5C4A3E]">
                         أو إضافة لون جديد للنظام:
                       </label>
-                      <div className="flex items-center gap-1.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                         <input
                           type="text"
-                          value={newColorName}
-                          onChange={(e) => setNewColorName(e.target.value)}
-                          placeholder="اسم اللون (مثال: كحلي ملكي)"
-                          className="flex-1 px-2.5 py-1.5 text-xs rounded-lg bg-white border border-[#EAE3D8] text-[#241710] focus:outline-none focus:border-[#241710]"
+                          dir="rtl"
+                          value={newColorNameAr}
+                          onChange={(e) => setNewColorNameAr(e.target.value)}
+                          placeholder="اسم اللون بالعربية (مثال: كحلي ملكي)"
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-white border border-[#EAE3D8] text-[#241710] focus:outline-none focus:border-[#241710]"
                         />
                         <input
-                          type="color"
-                          value={newColorHex}
-                          onChange={(e) => setNewColorHex(e.target.value)}
-                          className="w-8 h-8 rounded-lg border border-[#EAE3D8] cursor-pointer shrink-0"
+                          type="text"
+                          dir="ltr"
+                          value={newColorNameEn}
+                          onChange={(e) => setNewColorNameEn(e.target.value)}
+                          placeholder="Color name in English (e.g. Royal Navy)"
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-white border border-[#EAE3D8] text-[#241710] focus:outline-none focus:border-[#241710]"
                         />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={newColorHex}
+                            onChange={(e) => setNewColorHex(e.target.value)}
+                            className="w-8 h-8 rounded-lg border border-[#EAE3D8] cursor-pointer shrink-0"
+                          />
+                          <span className="text-[11px] font-mono text-[#736B63]">{newColorHex}</span>
+                        </div>
                         <button
                           type="button"
                           disabled={isCreatingColor}
                           onClick={handleCreateAndAddColor}
-                          className="px-3 py-1.5 rounded-lg bg-[#241710] text-[#FAF5EB] text-xs font-bold shrink-0 hover:bg-[#3D291D] disabled:opacity-50 transition-colors flex items-center gap-1"
+                          className="ms-auto px-3 py-1.5 rounded-lg bg-[#241710] text-[#FAF5EB] text-xs font-bold shrink-0 hover:bg-[#3D291D] disabled:opacity-50 transition-colors flex items-center gap-1"
                         >
-                          {isCreatingColor ? <Loader2 className="w-3 h-3 animate-spin" /> : <span>+ إضافة</span>}
+                          {isCreatingColor ? <Loader2 className="w-3 h-3 animate-spin" /> : <span>+ إضافة اللون</span>}
                         </button>
                       </div>
                       {newColorError && (

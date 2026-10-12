@@ -432,7 +432,7 @@ export default function OffersSection({
                             onChange={() => {}}
                             className="rounded text-amber-600"
                           />
-                          <span className="truncate text-[#241710]">{p.name}</span>
+                          <span className="truncate text-[#241710]">{p.name_ar || p.name || p.name_en}</span>
                         </div>
                         <span className="text-[11px] text-[#8C7A6B] shrink-0 font-bold">
                           {p.price?.toLocaleString('ar-EG')} ج.م

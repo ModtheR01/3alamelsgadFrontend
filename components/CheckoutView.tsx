@@ -45,7 +45,7 @@ export default function CheckoutView() {
   } = useToccoStore();
 
   const { user: authUser, addresses: authAddresses, createAddress, isLoading: isAuthLoading } = useAuth();
-  const { t, isRtl } = useLanguage();
+  const { t, isRtl, getName } = useLanguage();
 
   const defaultAddr = authAddresses.find((a) => a.is_default) || authAddresses[0];
 
@@ -563,7 +563,7 @@ export default function CheckoutView() {
                             {isGovActive && addrGov ? (
                               <>
                                 <span className="text-[#8A796B]">
-                                  {t('المحافظة:', 'Gov:')} <strong className="text-[#251811]">{addrGov.nameAr}</strong>
+                                  {t('المحافظة:', 'Gov:')} <strong className="text-[#251811]">{isRtl ? addrGov.nameAr : (addrGov.nameEn || addrGov.nameAr)}</strong>
                                 </span>
                                 <span className="font-bold text-[#A27B5C]">
                                   {addrGov.shippingCost} {t('ج.م', 'EGP')}
@@ -661,7 +661,7 @@ export default function CheckoutView() {
                       >
                         {activeGovernorates.map((gov) => (
                           <option key={gov.id} value={gov.id}>
-                            {gov.nameAr} ({gov.nameEn}) — {t('مصاريف الشحن:', 'Shipping:')} {gov.shippingCost} {t('ج.م', 'EGP')}
+                            {isRtl ? `${gov.nameAr} (${gov.nameEn || gov.nameAr})` : `${gov.nameEn || gov.nameAr} (${gov.nameAr})`} — {t('مصاريف الشحن:', 'Shipping:')} {gov.shippingCost} {t('ج.م', 'EGP')}
                           </option>
                         ))}
                       </select>
@@ -955,15 +955,15 @@ export default function CheckoutView() {
                       <h4 className="font-bold text-[#251811] truncate">{item.productName}</h4>
                       {item.arawalConfig ? (
                         <p className="text-[11px] text-[#A27B5C] font-medium">
-                          رول: عرض {item.arawalConfig.width} سم × {item.arawalConfig.lengthMeters} م
+                          {t('رول: عرض', 'Roll: width')} {item.arawalConfig.width} {t('سم', 'cm')} × {item.arawalConfig.lengthMeters} {t('م', 'm')}
                         </p>
                       ) : (
-                        <p className="text-[11px] text-[#7A6A5E]">{item.selectedColor?.name}</p>
+                        <p className="text-[11px] text-[#7A6A5E]">{getName(item.selectedColor) || item.selectedColor?.name}</p>
                       )}
                       <div className="flex justify-between items-center mt-1">
-                        <span className="text-[#8A796B]">الكمية: {item.quantity}</span>
+                        <span className="text-[#8A796B]">{t('الكمية:', 'Qty:')} {item.quantity}</span>
                         <span className="font-bold text-[#251811]">
-                          {(item.subtotal || item.unitPrice * item.quantity).toLocaleString()} ج.م
+                          {(item.subtotal || item.unitPrice * item.quantity).toLocaleString()} {t('ج.م', 'EGP')}
                         </span>
                       </div>
                     </div>

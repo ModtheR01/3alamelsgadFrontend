@@ -5,6 +5,37 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 export type Language = 'ar' | 'en';
 export type Direction = 'rtl' | 'ltr';
 
+export interface LocalizableEntity {
+  name?: string | null;
+  name_ar?: string | null;
+  name_en?: string | null;
+  description?: string | null;
+  description_ar?: string | null;
+  description_en?: string | null;
+}
+
+export function getLocalizedName(
+  item: LocalizableEntity | null | undefined,
+  language: Language = 'ar'
+): string {
+  if (!item) return '';
+  if (language === 'ar') {
+    return (item.name_ar || item.name || item.name_en || '').trim();
+  }
+  return (item.name_en || item.name || item.name_ar || '').trim();
+}
+
+export function getLocalizedDescription(
+  item: LocalizableEntity | null | undefined,
+  language: Language = 'ar'
+): string {
+  if (!item) return '';
+  if (language === 'ar') {
+    return (item.description_ar || item.description || item.description_en || '').trim();
+  }
+  return (item.description_en || item.description || item.description_ar || '').trim();
+}
+
 interface LanguageContextType {
   language: Language;
   direction: Direction;
@@ -12,6 +43,8 @@ interface LanguageContextType {
   setLanguage: (lang: Language) => void;
   toggleLanguage: () => void;
   t: (arText: string, enText: string) => string;
+  getName: (item: LocalizableEntity | null | undefined) => string;
+  getDescription: (item: LocalizableEntity | null | undefined) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -55,6 +88,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     return language === 'ar' ? arText : enText;
   };
 
+  const getName = (item: LocalizableEntity | null | undefined): string => {
+    return getLocalizedName(item, language);
+  };
+
+  const getDescription = (item: LocalizableEntity | null | undefined): string => {
+    return getLocalizedDescription(item, language);
+  };
+
   const direction: Direction = language === 'ar' ? 'rtl' : 'ltr';
   const isRtl = language === 'ar';
 
@@ -67,6 +108,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         setLanguage,
         toggleLanguage,
         t,
+        getName,
+        getDescription,
       }}
     >
       {children}

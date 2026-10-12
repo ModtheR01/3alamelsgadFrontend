@@ -41,7 +41,7 @@ export default function ProductDetailView() {
     settings,
   } = useToccoStore();
 
-  const { t, isRtl } = useLanguage();
+  const { t, isRtl, getName, getDescription } = useLanguage();
 
   const product = useMemo(() => {
     return selectedProductId ? getProductById(selectedProductId) : null;
@@ -50,10 +50,10 @@ export default function ProductDetailView() {
   // Is this an ARAWAL product?
   const isArawalProduct = useMemo(() => {
     if (!product) return false;
+    const allText = `${product.name_ar || ''} ${product.name_en || ''} ${product.name || ''} ${product.description_ar || ''} ${product.description_en || ''} ${product.description || ''}`;
     return (
       product.isArawal ||
-      /أروال|arawal|رول|مشاية بالمتر/i.test(product.name) ||
-      /أروال|arawal|رول/i.test(product.description || '')
+      /أروال|arawal|رول|مشاية بالمتر/i.test(allText)
     );
   }, [product]);
 
@@ -153,16 +153,18 @@ export default function ProductDetailView() {
     : undefined;
 
   // Contextual WhatsApp enquiry text
+  const localizedProdName = getName(product);
+  const localizedColorName = getName(selectedColor);
   const whatsappPrefill = isArawalProduct
     ? `مرحباً عالم السجاد، استفسار عن رول أروال بالمتر:
-القطعة: ${product.name}
+القطعة: ${localizedProdName}
 العرض المختار: ${arawalWidth} سم
 الطول المطلوب: ${arawalLengthMeters} متر
 السعر الإجمالي المحسوب: ${effectiveUnitPrice} ج.م
 برجاء تأكيد التوفر والتوصيل.`
     : `مرحباً عالم السجاد، استفسار بخصوص سجادة:
-الاسم: ${product.name}
-اللون: ${selectedColor.name}
+الاسم: ${localizedProdName}
+اللون: ${localizedColorName}
 ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
 السعر: ${effectiveUnitPrice} ج.م`;
 
@@ -175,8 +177,8 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
     setIsAddingToCart(true);
     try {
       const displayName = isArawalProduct
-        ? `${product.name} (رول أروال: عرض ${arawalWidth} سم × طول ${arawalLengthMeters} م)`
-        : product.name;
+        ? `${localizedProdName} (${t('رول أروال: عرض', 'Arawal roll: width')} ${arawalWidth} ${t('سم', 'cm')} × ${t('طول', 'length')} ${arawalLengthMeters} ${t('م', 'm')})`
+        : localizedProdName;
 
       await addToCart({
         productId: product.id,
@@ -184,7 +186,10 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
         productImage: product.images[0] || 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85',
         unitPrice: effectiveUnitPrice,
         selectedFinish,
-        selectedColor,
+        selectedColor: {
+          ...selectedColor,
+          name: localizedColorName,
+        },
         selectedSize,
         arawalConfig: currentArawalConfig,
         quantity,
@@ -219,13 +224,13 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                 onClick={() => navigateTo('shop', { categoryId: category.id })}
                 className="hover:text-[#251811] transition-colors shrink-0"
               >
-                {category.name}
+                {getName(category)}
               </button>
               <span>/</span>
             </>
           )}
           <span className="text-[#251811] font-semibold truncate max-w-[220px]">
-            {product.name}
+            {getName(product)}
           </span>
         </div>
 
@@ -237,7 +242,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
             <div className="relative aspect-[4/3] sm:aspect-[5/4] w-full rounded-2xl overflow-hidden bg-[#F7F5F0] border border-[#E4DACD] shadow-[0_12px_36px_rgba(40,25,15,0.06)] p-3 sm:p-5 flex items-center justify-center">
               <Image
                 src={productImages[selectedImageIdx] || productImages[0]}
-                alt={product.name}
+                alt={getName(product)}
                 fill
                 priority
                 className="object-contain transition-all duration-500 hover:scale-[1.02]"
@@ -268,7 +273,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                   >
                     <Image
                       src={img}
-                      alt={`${product.name} ${idx + 1}`}
+                      alt={`${getName(product)} ${idx + 1}`}
                       fill
                       className="object-contain"
                       referrerPolicy="no-referrer"
@@ -318,12 +323,12 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                 {isArawalProduct ? (
                   <span>{t('أروال ومشايات بالمتر', 'Custom Arawal Runners')}</span>
                 ) : (
-                  <span>{category?.name || t('سجاد فاخر', 'Luxury Carpet')}</span>
+                  <span>{category ? getName(category) : t('سجاد فاخر', 'Luxury Carpet')}</span>
                 )}
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-extrabold text-[#251811] tracking-tight leading-tight">
-                {product.name}
+                {getName(product)}
               </h1>
 
               {/* Price Presentation */}
@@ -545,7 +550,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-[#251811]">{t('اللون:', 'Color:')}</span>
-                  <span className="text-[#8A796B] font-medium">{selectedColor.name}</span>
+                  <span className="text-[#8A796B] font-medium">{getName(selectedColor)}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {product.colors.map((c) => (
@@ -563,7 +568,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                         className="w-4 h-4 rounded-full border border-black/10 shrink-0"
                         style={{ backgroundColor: c.hex }}
                       />
-                      <span>{c.name}</span>
+                      <span>{getName(c)}</span>
                     </button>
                   ))}
                 </div>
@@ -643,7 +648,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
             <div className="pt-4 border-t border-[#EAE2D5] space-y-3 text-xs leading-relaxed text-[#5C4A3E]">
               <div>
                 <h4 className="font-bold text-[#251811] mb-1">{t('وصف السجاد:', 'Description:')}</h4>
-                <p>{product.description || t('سجاد فاخر مصنوع بأعلى معايير الحرفة والدقة ليمنح منزلك لمسة دافئة وفخمة تدوم طويلاً.', 'Luxury carpet crafted with precision and craftsmanship.')}</p>
+                <p>{getDescription(product) || t('سجاد فاخر مصنوع بأعلى معايير الحرفة والدقة ليمنح منزلك لمسة دافئة وفخمة تدوم طويلاً.', 'Luxury carpet crafted with precision and craftsmanship.')}</p>
               </div>
 
               {product.dimensions && !isArawalProduct && (

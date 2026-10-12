@@ -10,7 +10,7 @@ import Image from '@/components/SafeImage';
 
 export default function NewArrivalSection() {
   const { products, categories, subcategories, navigateTo, addToCart, isCatalogLoading } = useToccoStore();
-  const { t, isRtl } = useLanguage();
+  const { t, isRtl, getName } = useLanguage();
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [offers, setOffers] = useState<BackendOffer[]>([]);
@@ -57,15 +57,15 @@ export default function NewArrivalSection() {
       if (product.subcategoryIds && product.subcategoryIds.length > 0) {
         const subId = product.subcategoryIds[0];
         const foundSub = subcategories.find((s) => String(s.id) === String(subId));
-        if (foundSub?.name) return foundSub.name.toUpperCase();
+        if (foundSub) return getName(foundSub).toUpperCase();
       }
       if (product.categoryId) {
         const foundCat = categories.find((c) => String(c.id) === String(product.categoryId));
-        if (foundCat?.name) return foundCat.name.toUpperCase();
+        if (foundCat) return getName(foundCat).toUpperCase();
       }
       return 'HARIR';
     },
-    [categories, subcategories]
+    [categories, subcategories, getName]
   );
 
   // Helper to determine discount details for a product
@@ -192,7 +192,7 @@ export default function NewArrivalSection() {
 
     addToCart({
       productId: product.id,
-      productName: product.name,
+      productName: getName(product),
       productImage: product.images[0] || 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85',
       unitPrice: finalPrice,
       selectedFinish: product.finishes?.[0] || 'MATTE',
@@ -279,7 +279,7 @@ export default function NewArrivalSection() {
                           product.images[0] ||
                           'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85'
                         }
-                        alt={product.name}
+                        alt={getName(product)}
                         fill
                         draggable={false}
                         className="object-contain object-center transition-transform duration-500 group-hover:scale-105 pointer-events-none p-1"
@@ -299,7 +299,7 @@ export default function NewArrivalSection() {
                       <div>
                         {/* Product Name */}
                         <h3 className="text-sm sm:text-base font-normal text-[#1C1A19] group-hover:text-[#9E734F] transition-colors line-clamp-1 leading-snug">
-                          {product.name}
+                          {getName(product)}
                         </h3>
 
                         {/* Category / Subcategory Label */}

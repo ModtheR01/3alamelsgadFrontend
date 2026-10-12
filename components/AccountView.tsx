@@ -46,6 +46,37 @@ import {
   Calendar,
 } from 'lucide-react';
 
+export function localizeAuthError(msg: string, isAr: boolean): string {
+  if (!msg) return '';
+  if (!isAr) return msg;
+  const lower = msg.toLowerCase();
+  if (lower.includes('no active account') || lower.includes('invalid credentials') || lower.includes('credentials')) {
+    return 'رقم الهاتف أو كلمة المرور غير صحيحة. يرجى التحقق وإعادة المحاولة.';
+  }
+  if (lower.includes('already exists') && lower.includes('phone')) {
+    return 'رقم الهاتف مسجل بالفعل مسبقاً. يرجى تسجيل الدخول أو استخدام رقم آخر.';
+  }
+  if (lower.includes('already exists') && lower.includes('email')) {
+    return 'البريد الإلكتروني مسجل بالفعل مسبقاً.';
+  }
+  if (lower.includes('network error') || lower.includes('failed to fetch')) {
+    return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت.';
+  }
+  if (lower.includes('timed out') || lower.includes('timeout')) {
+    return 'انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.';
+  }
+  if (lower.includes('password') && (lower.includes('short') || lower.includes('8') || lower.includes('least'))) {
+    return 'كلمة المرور يجب أن لا تقل عن 8 أحرف.';
+  }
+  if (lower.includes('valid phone') || (lower.includes('phone') && lower.includes('invalid'))) {
+    return 'يرجى إدخال رقم هاتف مصري صالح (11 رقماً يبدأ بـ 01).';
+  }
+  if (lower.includes('this field is required') || lower.includes('required')) {
+    return 'هذا الحقل مطلوب.';
+  }
+  return msg;
+}
+
 export default function AccountView() {
   const { t, isRtl } = useLanguage();
   const { orders, submitPaymentProof, settings, navigateTo } = useToccoStore();
@@ -491,13 +522,15 @@ export default function AccountView() {
         {isAuthLoading ? (
           <div className="py-20 text-center space-y-3">
             <div className="w-8 h-8 border-2 border-[#643D26] border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-xs uppercase tracking-wider text-[#736B63]">Verifying Atelier Session...</p>
+            <p className="text-xs uppercase tracking-wider text-[#736B63]">
+              {t('جارٍ التحقق من الجلسة...', 'Verifying Session...')}
+            </p>
           </div>
         ) : !user ? (
           /* =========================================================================
              UNAUTHENTICATED: SIGN IN & REGISTRATION
              ========================================================================= */
-          <div className="py-8 sm:py-16 max-w-md mx-auto">
+          <div className="py-8 sm:py-16 max-w-md mx-auto" dir={isRtl ? 'rtl' : 'ltr'}>
             <div className="p-5 sm:p-8 rounded-xl sm:rounded-2xl bg-white border border-[#EAE4DC] shadow-sm space-y-5 sm:space-y-6">
               {/* Tabs: Sign In / Create Account */}
               <div className="flex border-b border-[#EAE4DC] text-xs uppercase tracking-wider font-medium">
@@ -514,7 +547,7 @@ export default function AccountView() {
                       : 'text-[#736B63] hover:text-[#1C1A19]'
                   }`}
                 >
-                  Sign In
+                  {t('تسجيل الدخول', 'Sign In')}
                 </button>
                 <button
                   type="button"
@@ -529,7 +562,7 @@ export default function AccountView() {
                       : 'text-[#736B63] hover:text-[#1C1A19]'
                   }`}
                 >
-                  Create Account
+                  {t('إنشاء حساب جديد', 'Create Account')}
                 </button>
               </div>
 
@@ -538,9 +571,11 @@ export default function AccountView() {
                 <div className="p-3 rounded-lg bg-[#FDF3F2] border border-[#F5C2C0] text-[#9E4A2B] text-xs flex items-start gap-2 animate-in fade-in">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
-                    <p className="font-semibold">{authError}</p>
+                    <p className="font-semibold">{localizeAuthError(authError, isRtl)}</p>
                     {authFieldErrors.non_field_errors && (
-                      <p className="text-[11px]">{authFieldErrors.non_field_errors.join(' ')}</p>
+                      <p className="text-[11px]">
+                        {authFieldErrors.non_field_errors.map((e) => localizeAuthError(e, isRtl)).join(' ')}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -551,13 +586,14 @@ export default function AccountView() {
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
                   <div className="space-y-1">
                     <label className="block text-[11px] sm:text-xs uppercase tracking-wider text-[#1C1A19] font-medium">
-                      Mobile Phone / رقم الهاتف
+                      {t('رقم الهاتف المحمول', 'Mobile Phone')}
                     </label>
                     <input
                       type="tel"
                       inputMode="numeric"
                       maxLength={11}
                       required
+                      dir="ltr"
                       value={loginPhone}
                       onChange={(e) => setLoginPhone(e.target.value)}
                       placeholder="01012345678"
@@ -566,17 +602,18 @@ export default function AccountView() {
                       }`}
                     />
                     {authFieldErrors.phone && (
-                      <p className="text-[10px] text-red-600">{authFieldErrors.phone[0]}</p>
+                      <p className="text-[10px] text-red-600">{localizeAuthError(authFieldErrors.phone[0], isRtl)}</p>
                     )}
                   </div>
 
                   <div className="space-y-1">
                     <label className="block text-[11px] sm:text-xs uppercase tracking-wider text-[#1C1A19] font-medium">
-                      Password
+                      {t('كلمة المرور', 'Password')}
                     </label>
                     <input
                       type="password"
                       required
+                      dir="ltr"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
                       placeholder="••••••••"
@@ -585,7 +622,7 @@ export default function AccountView() {
                       }`}
                     />
                     {authFieldErrors.password && (
-                      <p className="text-[10px] text-red-600">{authFieldErrors.password[0]}</p>
+                      <p className="text-[10px] text-red-600">{localizeAuthError(authFieldErrors.password[0], isRtl)}</p>
                     )}
                   </div>
 
@@ -597,10 +634,10 @@ export default function AccountView() {
                     {authLoading ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Authenticating...</span>
+                        <span>{t('جارٍ تسجيل الدخول...', 'Authenticating...')}</span>
                       </>
                     ) : (
-                      <span>Sign In to Atelier</span>
+                      <span>{t('تسجيل الدخول إلى المتجر', 'Sign In to Atelier')}</span>
                     )}
                   </button>
 
@@ -613,48 +650,51 @@ export default function AccountView() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="block text-[11px] uppercase tracking-wider text-[#1C1A19] font-medium">
-                        First Name
+                        {t('الاسم الأول', 'First Name')}
                       </label>
                       <input
                         type="text"
                         required
+                        dir={isRtl ? 'rtl' : 'ltr'}
                         value={regFirstName}
                         onChange={(e) => setRegFirstName(e.target.value)}
-                        placeholder="Anas"
+                        placeholder={t('أنس', 'Anas')}
                         className={`w-full text-xs px-3 py-2.5 rounded-lg bg-[#FAF8F5] border text-[#1C1A19] focus:outline-none focus:border-[#1C1A19] ${
                           authFieldErrors.first_name ? 'border-red-400' : 'border-[#D8CEBF]'
                         }`}
                       />
                       {authFieldErrors.first_name && (
-                        <p className="text-[10px] text-red-600">{authFieldErrors.first_name[0]}</p>
+                        <p className="text-[10px] text-red-600">{localizeAuthError(authFieldErrors.first_name[0], isRtl)}</p>
                       )}
                     </div>
                     <div className="space-y-1">
                       <label className="block text-[11px] uppercase tracking-wider text-[#1C1A19] font-medium">
-                        Last Name
+                        {t('اسم العائلة', 'Last Name')}
                       </label>
                       <input
                         type="text"
                         required
+                        dir={isRtl ? 'rtl' : 'ltr'}
                         value={regLastName}
                         onChange={(e) => setRegLastName(e.target.value)}
-                        placeholder="Sayed"
+                        placeholder={t('سيد', 'Sayed')}
                         className={`w-full text-xs px-3 py-2.5 rounded-lg bg-[#FAF8F5] border text-[#1C1A19] focus:outline-none focus:border-[#1C1A19] ${
                           authFieldErrors.last_name ? 'border-red-400' : 'border-[#D8CEBF]'
                         }`}
                       />
                       {authFieldErrors.last_name && (
-                        <p className="text-[10px] text-red-600">{authFieldErrors.last_name[0]}</p>
+                        <p className="text-[10px] text-red-600">{localizeAuthError(authFieldErrors.last_name[0], isRtl)}</p>
                       )}
                     </div>
                   </div>
 
                   <div className="space-y-1">
                     <label className="block text-[11px] uppercase tracking-wider text-[#1C1A19] font-medium">
-                      Email Address (Optional)
+                      {t('البريد الإلكتروني (اختياري)', 'Email Address (Optional)')}
                     </label>
                     <input
                       type="email"
+                      dir="ltr"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
                       placeholder="anas.sayed@example.com"
@@ -663,19 +703,20 @@ export default function AccountView() {
                       }`}
                     />
                     {authFieldErrors.email && (
-                      <p className="text-[10px] text-red-600">{authFieldErrors.email[0]}</p>
+                      <p className="text-[10px] text-red-600">{localizeAuthError(authFieldErrors.email[0], isRtl)}</p>
                     )}
                   </div>
 
                   <div className="space-y-1">
                     <label className="block text-[11px] uppercase tracking-wider text-[#1C1A19] font-medium">
-                      Mobile Phone
+                      {t('رقم الهاتف المحمول', 'Mobile Phone')}
                     </label>
                     <input
                       type="tel"
-                        inputMode="numeric"
-                        maxLength={11}
+                      inputMode="numeric"
+                      maxLength={11}
                       required
+                      dir="ltr"
                       value={regPhone}
                       onChange={(e) => setRegPhone(e.target.value)}
                       placeholder="01012345678"
@@ -684,18 +725,19 @@ export default function AccountView() {
                       }`}
                     />
                     {authFieldErrors.phone && (
-                      <p className="text-[10px] text-red-600">{authFieldErrors.phone[0]}</p>
+                      <p className="text-[10px] text-red-600">{localizeAuthError(authFieldErrors.phone[0], isRtl)}</p>
                     )}
                   </div>
 
                   <div className="space-y-1">
                     <label className="block text-[11px] uppercase tracking-wider text-[#1C1A19] font-medium">
-                      Password (min. 8 chars)
+                      {t('كلمة المرور (8 أحرف على الأقل)', 'Password (min. 8 chars)')}
                     </label>
                     <input
                       type="password"
                       required
                       minLength={8}
+                      dir="ltr"
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
                       placeholder="••••••••"
@@ -704,7 +746,7 @@ export default function AccountView() {
                       }`}
                     />
                     {authFieldErrors.password && (
-                      <p className="text-[10px] text-red-600">{authFieldErrors.password[0]}</p>
+                      <p className="text-[10px] text-red-600">{localizeAuthError(authFieldErrors.password[0], isRtl)}</p>
                     )}
                   </div>
 
@@ -716,10 +758,10 @@ export default function AccountView() {
                     {authLoading ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Registering...</span>
+                        <span>{t('جارٍ إنشاء الحساب...', 'Registering...')}</span>
                       </>
                     ) : (
-                      <span>Complete Registration</span>
+                      <span>{t('إتمام إنشاء الحساب', 'Complete Registration')}</span>
                     )}
                   </button>
                 </form>
@@ -736,14 +778,14 @@ export default function AccountView() {
               <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                  <span>{authError}</span>
+                  <span>{localizeAuthError(authError, isRtl)}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setAuthError(null)}
                   className="text-red-700 hover:text-red-900 text-xs font-semibold"
                 >
-                  إغلاق
+                  {t('إغلاق', 'Close')}
                 </button>
               </div>
             )}
@@ -752,7 +794,7 @@ export default function AccountView() {
             <div className="p-4 sm:p-5 rounded-2xl bg-[#FAF8F5] border border-[#EAE4DC] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-sm sm:text-base font-semibold text-[#1C1A19]">
-                  مرحباً، {user?.first_name || 'العميل'} {user?.last_name || ''}
+                  {t('مرحباً،', 'Welcome,')} {user?.first_name || t('العميل', 'Customer')} {user?.last_name || ''}
                 </h2>
                 <p className="text-xs text-[#736B63] font-mono mt-0.5" dir="ltr">
                   {user?.phone || user?.email || ''}
@@ -766,17 +808,17 @@ export default function AccountView() {
                   onClick={handleLogout}
                   disabled={isLoggingOut}
                   className="px-4 py-2 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-600 hover:text-red-700 text-xs font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
-                  title="تسجيل الخروج من الحساب"
+                  title={t('تسجيل الخروج من الحساب', 'Sign out of account')}
                 >
                   {isLoggingOut ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin text-red-600" />
-                      <span>جاري تسجيل الخروج...</span>
+                      <span>{t('جارٍ تسجيل الخروج...', 'Logging out...')}</span>
                     </>
                   ) : (
                     <>
                       <LogOut className="w-3.5 h-3.5 text-red-600" />
-                      <span>تسجيل الخروج</span>
+                      <span>{t('تسجيل الخروج', 'Log Out')}</span>
                     </>
                   )}
                 </button>

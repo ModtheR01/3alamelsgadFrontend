@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 export function ShippingView() {
-  const { t } = useLanguage();
+  const { t, isRtl } = useLanguage();
 
   return (
     <div id="shipping-page" className="pt-24 sm:pt-32 pb-24 sm:pb-32 bg-[#FAF8F5] min-h-screen">
@@ -68,8 +68,8 @@ export function ShippingView() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2">
               {BRAND_CONFIG.governorates.slice(0, 9).map((gov) => (
                 <div key={gov.id} className="p-3 rounded-xl bg-white border border-[#E8DEC0] flex justify-between items-center text-xs">
-                  <span className="font-bold text-[#251811]">{gov.nameAr}</span>
-                  <span className="text-[#A27B5C] font-extrabold">{gov.shippingCost} ج.م</span>
+                  <span className="font-bold text-[#251811]">{isRtl ? gov.nameAr : (gov.nameEn || gov.nameAr)}</span>
+                  <span className="text-[#A27B5C] font-extrabold">{gov.shippingCost} {t('ج.م', 'EGP')}</span>
                 </div>
               ))}
             </div>

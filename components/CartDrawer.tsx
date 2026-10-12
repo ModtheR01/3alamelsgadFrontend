@@ -22,7 +22,7 @@ export default function CartDrawer() {
     settings,
   } = useToccoStore();
 
-  const { t, isRtl } = useLanguage();
+  const { t, isRtl, getName } = useLanguage();
 
   if (!isCartDrawerOpen) return null;
 
@@ -141,13 +141,13 @@ export default function CartDrawer() {
                             </div>
                           ) : (
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[#7A6A5E]">
-                              {item.selectedColor?.name && (
+                              {item.selectedColor && (
                                 <span className="flex items-center gap-1">
                                   <span
                                     className="w-2.5 h-2.5 rounded-full border border-black/10 inline-block"
                                     style={{ backgroundColor: item.selectedColor.hex }}
                                   />
-                                  {item.selectedColor.name}
+                                  {getName(item.selectedColor)}
                                 </span>
                               )}
                               {item.selectedSize && (

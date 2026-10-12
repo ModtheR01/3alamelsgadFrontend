@@ -38,7 +38,7 @@ export default function Navbar() {
   } = useToccoStore();
 
   const { user, logout } = useAuth();
-  const { language, toggleLanguage, t, isRtl } = useLanguage();
+  const { language, toggleLanguage, t, isRtl, getName } = useLanguage();
 
   const userRole = (user?.role || '').toLowerCase();
   const canAccessAdmin = userRole === 'admin' || userRole === 'moderator';
@@ -210,9 +210,9 @@ export default function Navbar() {
                     ? 'text-[#241710] font-bold'
                     : 'text-[#5C4A3E] hover:text-[#241710]'
                 }`}
-                title={cat.name}
+                title={getName(cat)}
               >
-                <span>{cat.name}</span>
+                <span>{getName(cat)}</span>
                 {isCatActive && (
                   <span className="absolute bottom-0 inset-x-0 h-[2px] rounded-full animate-in fade-in duration-200 bg-[#A27B5C]" />
                 )}
@@ -633,7 +633,7 @@ export default function Navbar() {
                   >
                     <span className="flex items-center gap-2">
                       <FolderTree className="w-3.5 h-3.5 text-[#A27B5C]" />
-                      <span>{cat.name}</span>
+                      <span>{getName(cat)}</span>
                     </span>
                     <ArrowIcon className="w-4 h-4 text-[#9C8A7C]" />
                   </button>

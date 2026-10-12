@@ -5,6 +5,8 @@ export type ProductFinish = 'MATTE' | 'GLOSSY';
 export interface ProductColor {
   id: string;
   name: string;
+  name_ar?: string;
+  name_en?: string;
   hex: string;
 }
 
@@ -29,9 +31,13 @@ export interface Product {
   id: string;
   slug: string;
   name: string;
+  name_ar?: string;
+  name_en?: string;
   categoryId: string;
   subcategoryIds: string[];
   description: string;
+  description_ar?: string;
+  description_en?: string;
   price: number; // in EGP
   originalPrice?: number;
   discountPercentage?: number;
@@ -62,8 +68,12 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
+  name_ar?: string;
+  name_en?: string;
   slug: string;
   description: string;
+  description_ar?: string;
+  description_en?: string;
   image: string;
   public_id?: string;
   isFeatured: boolean;

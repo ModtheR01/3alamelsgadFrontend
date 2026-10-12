@@ -32,7 +32,7 @@ export default function ShopCatalog() {
     setSearchQuery,
   } = useToccoStore();
 
-  const { t, isRtl } = useLanguage();
+  const { t, isRtl, getName, getDescription } = useLanguage();
 
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>(
     selectedCategoryId || 'all'
@@ -202,7 +202,7 @@ export default function ShopCatalog() {
         }
 
         // Arawal specific filter
-        if (arawalOnlyFilter && !product.isArawal && !/أروال|arawal|رول/i.test(product.name)) {
+        if (arawalOnlyFilter && !product.isArawal && !/أروال|arawal|رول/i.test(`${product.name_ar || ''} ${product.name_en || ''} ${product.name || ''}`)) {
           return false;
         }
 
@@ -255,7 +255,7 @@ export default function ShopCatalog() {
           </span>
           <h1 className="text-2xl sm:text-4xl font-extrabold text-[#251811] tracking-tight">
             {selectedCategoryObj
-              ? selectedCategoryObj.name
+              ? getName(selectedCategoryObj)
               : arawalOnlyFilter
               ? t('مشايات وأروال بالمتر', 'Arawal Runners by Meter')
               : offersOnlyFilter
@@ -263,7 +263,7 @@ export default function ShopCatalog() {
               : t('كتالوج السجاد والأروال', 'Carpet Collections & Runners')}
           </h1>
           <p className="text-xs sm:text-sm text-[#736357] font-normal max-w-2xl leading-relaxed">
-            {selectedCategoryObj?.description ||
+            {getDescription(selectedCategoryObj) ||
               t(
                 'سجاد تركي فاخر، سجاد شرقي، بدائل سجاد عصرية، ورولات أروال ومشايات بالمتر مع توصيل سريع لكافة محافظات مصر.',
                 'Luxury Turkish carpets, oriental rugs, modern alternatives, and runner rolls sold by meter with fast Egypt-wide delivery.'
@@ -286,8 +286,8 @@ export default function ShopCatalog() {
                   )}
                 </p>
                 <p className="text-[11px] sm:text-xs text-[#EED8BE]/80">
-                  {activeOffers[0]?.name}
-                  {activeOffers[0]?.percentage ? ` · خصم ${activeOffers[0].percentage}%` : ''}
+                  {getName(activeOffers[0])}
+                  {activeOffers[0]?.percentage ? ` · ${t('خصم', 'Discount')} ${activeOffers[0].percentage}%` : ''}
                 </p>
               </div>
             </div>
@@ -383,7 +383,7 @@ export default function ShopCatalog() {
                     : 'bg-white text-[#5C4A3E] border border-[#DED4C7] hover:border-[#A27B5C]'
                 }`}
               >
-                {category.name}
+                {getName(category)}
               </button>
             ))}
           </div>
@@ -410,7 +410,7 @@ export default function ShopCatalog() {
             <div className="flex items-center gap-2 mb-2 px-1">
               <Layers className="w-3.5 h-3.5 text-[#A27B5C]" />
               <span className="text-xs font-bold text-[#251811]">
-                {t(`الأقسام الفرعية في ${selectedCategoryObj?.name}:`, `Subcategories in ${selectedCategoryObj?.name}:`)}
+                {t(`الأقسام الفرعية في ${getName(selectedCategoryObj)}:`, `Subcategories in ${getName(selectedCategoryObj)}:`)}
               </span>
             </div>
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
@@ -434,7 +434,7 @@ export default function ShopCatalog() {
                       : 'bg-[#FAF8F5] text-[#5C4A3E] border border-[#EAE3D8] hover:border-[#A27B5C]'
                   }`}
                 >
-                  {subcat.name || subcat.name_ar || subcat.name_en}
+                  {getName(subcat)}
                 </button>
               ))}
             </div>
@@ -486,7 +486,7 @@ export default function ShopCatalog() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {filteredProducts.map((product) => {
               const isArawal =
-                product.isArawal || /أروال|arawal|رول/i.test(product.name);
+                product.isArawal || /أروال|arawal|رول/i.test(`${product.name_ar || ''} ${product.name_en || ''} ${product.name || ''}`);
               const hasDiscount = Boolean(
                 (product.discountPercentage && product.discountPercentage > 0) ||
                   (product.originalPrice && product.originalPrice > product.price)
@@ -507,7 +507,7 @@ export default function ShopCatalog() {
                         product.images[0] ||
                         'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85'
                       }
-                      alt={product.name}
+                      alt={getName(product)}
                       fill
                       className="object-contain p-2 transition-transform duration-500 group-hover:scale-105"
                       referrerPolicy="no-referrer"
@@ -541,11 +541,11 @@ export default function ShopCatalog() {
                         onClick={() => navigateTo('product', { productId: product.id })}
                         className="text-xs sm:text-sm font-bold text-[#251811] group-hover:text-[#A27B5C] transition-colors cursor-pointer line-clamp-1"
                       >
-                        {product.name}
+                        {getName(product)}
                       </h3>
 
                       <p className="text-[11px] text-[#7A6A5E] line-clamp-1 mt-1 font-normal">
-                        {product.description ||
+                        {getDescription(product) ||
                           (isArawal
                             ? t('رول أروال بالمتر - عروض ٦٠، ٨٠، ١٠٠، ١٢٠ سم', 'Arawal roll by meter - 60, 80, 100, 120 cm')
                             : t('خيوط تركية ناعمة مقاومة للانزلاق', 'Non-slip premium weave'))}

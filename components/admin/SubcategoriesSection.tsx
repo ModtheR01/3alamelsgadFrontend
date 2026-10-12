@@ -30,6 +30,8 @@ interface SubcategoriesSectionProps {
     id?: number | string;
     category_id: number | string;
     name: string;
+    name_ar?: string;
+    name_en?: string;
     image?: string | null;
     public_id?: string | null;
   }) => Promise<void>;
@@ -76,11 +78,15 @@ export default function SubcategoriesSection({
   const [editingSubcategory, setEditingSubcategory] = useState<BackendSubcategory | null>(null);
   const [formData, setFormData] = useState<{
     name: string;
+    name_ar: string;
+    name_en: string;
     category_id: string | number;
     image: string;
     public_id?: string;
   }>({
     name: '',
+    name_ar: '',
+    name_en: '',
     category_id: categories[0]?.id || 1,
     image: '',
     public_id: undefined,
@@ -153,6 +159,8 @@ export default function SubcategoriesSection({
     setEditingSubcategory(null);
     setFormData({
       name: '',
+      name_ar: '',
+      name_en: '',
       category_id: defaultParentId || categories[0]?.id || 1,
       image: '',
       public_id: undefined,
@@ -163,8 +171,12 @@ export default function SubcategoriesSection({
 
   const handleOpenEdit = (sub: BackendSubcategory) => {
     setEditingSubcategory(sub);
+    const subNameAr = sub.name_ar || sub.name || '';
+    const subNameEn = sub.name_en || '';
     setFormData({
-      name: sub.name,
+      name: subNameAr,
+      name_ar: subNameAr,
+      name_en: subNameEn,
       category_id: sub.category_id,
       image: sub.image || '',
       public_id: sub.public_id || undefined,
@@ -176,8 +188,10 @@ export default function SubcategoriesSection({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving) return;
-    if (!formData.name.trim()) {
-      setFormError('يرجى إدخال اسم التصنيف الفرعي');
+    const nameAr = (formData.name_ar || formData.name || '').trim();
+    const nameEn = (formData.name_en || nameAr).trim();
+    if (!nameAr) {
+      setFormError('يرجى إدخال اسم التصنيف الفرعي باللغة العربية');
       return;
     }
 
@@ -187,7 +201,9 @@ export default function SubcategoriesSection({
       await onSaveSubcategory({
         id: editingSubcategory?.id,
         category_id: formData.category_id,
-        name: formData.name.trim(),
+        name: nameAr,
+        name_ar: nameAr,
+        name_en: nameEn,
         image: formData.image || null,
         public_id: formData.public_id || null,
       });
@@ -492,13 +508,18 @@ export default function SubcategoriesSection({
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-xs text-[#241710]">
-                                {sub.name || sub.name_ar || sub.name_en || `تصنيف #${sub.id}`}
+                                {sub.name_ar || sub.name || sub.name_en || `تصنيف #${sub.id}`}
                               </span>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                                 <Check className="w-2.5 h-2.5" />
                                 <span>نشط</span>
                               </span>
                             </div>
+                            {sub.name_en && sub.name_en !== (sub.name_ar || sub.name) && (
+                              <span className="text-[10px] text-[#8C7A6B] block font-medium" dir="ltr">
+                                {sub.name_en}
+                              </span>
+                            )}
                             <span className="text-[10px] text-[#8C7A6B] font-mono">
                               معرف #{sub.id}
                             </span>
@@ -601,8 +622,13 @@ export default function SubcategoriesSection({
                             </div>
                             <div>
                               <p className="font-bold text-[#241710] text-xs">
-                                {sub.name || sub.name_ar || sub.name_en || `تصنيف #${sub.id}`}
+                                {sub.name_ar || sub.name || sub.name_en || `تصنيف #${sub.id}`}
                               </p>
+                              {sub.name_en && sub.name_en !== (sub.name_ar || sub.name) && (
+                                <span className="text-[10px] text-[#8C7A6B] block font-medium" dir="ltr">
+                                  {sub.name_en}
+                                </span>
+                              )}
                               <span className="text-[10px] text-[#8C7A6B] font-mono">
                                 معرف #{sub.id}
                               </span>
@@ -901,19 +927,42 @@ export default function SubcategoriesSection({
                 </p>
               </div>
 
-              {/* Subcategory Name */}
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#241710]">
-                  اسم التصنيف الفرعي <span className="text-rose-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="مثال: سجاد تركي مودرن، أروال ممرات ٨٠ سم، بديل السجاد..."
-                  className="w-full px-3 py-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-xs font-bold text-[#241710] focus:outline-none focus:border-[#241710]"
-                />
+              {/* Subcategory Name (Bilingual) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-[#241710]">
+                    الاسم بالعربية <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    dir="rtl"
+                    value={formData.name_ar}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        name: e.target.value,
+                        name_ar: e.target.value,
+                      })
+                    }
+                    placeholder="مثال: سجاد تركي مودرن..."
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-xs font-bold text-[#241710] focus:outline-none focus:border-[#241710]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-[#241710]">
+                    الاسم بالإنجليزية (English Name)
+                  </label>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    value={formData.name_en}
+                    onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
+                    placeholder="e.g. Modern Turkish Carpets..."
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-xs font-bold text-[#241710] focus:outline-none focus:border-[#241710]"
+                  />
+                </div>
               </div>
 
               {/* Subcategory Image Upload */}

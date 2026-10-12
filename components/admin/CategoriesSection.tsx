@@ -116,8 +116,12 @@ export default function CategoriesSection({
     setEditingCategory({
       id: `cat-${Date.now()}`,
       name: '',
+      name_ar: '',
+      name_en: '',
       slug: `category-${Date.now()}`,
       description: '',
+      description_ar: '',
+      description_en: '',
       image: 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=800&q=80',
       isFeatured: false,
       isVisible: true,
@@ -128,7 +132,13 @@ export default function CategoriesSection({
   };
 
   const handleOpenEdit = (category: Category) => {
-    setEditingCategory({ ...category });
+    setEditingCategory({
+      ...category,
+      name_ar: category.name_ar || category.name || '',
+      name_en: category.name_en || '',
+      description_ar: category.description_ar || category.description || '',
+      description_en: category.description_en || '',
+    });
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -136,15 +146,25 @@ export default function CategoriesSection({
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCategory) return;
-    if (!editingCategory.name.trim()) {
-      setFormError('اسم التصنيف الرئيسي مطلوب.');
+    const nameAr = (editingCategory.name_ar || editingCategory.name || '').trim();
+    const nameEn = (editingCategory.name_en || nameAr).trim();
+    if (!nameAr) {
+      setFormError('اسم التصنيف باللغة العربية مطلوب.');
       return;
     }
 
     setIsSaving(true);
     setFormError(null);
     try {
-      await onSaveCategory(editingCategory);
+      await onSaveCategory({
+        ...editingCategory,
+        name: nameAr,
+        name_ar: nameAr,
+        name_en: nameEn,
+        description: (editingCategory.description_ar || editingCategory.description || '').trim(),
+        description_ar: (editingCategory.description_ar || editingCategory.description || '').trim(),
+        description_en: (editingCategory.description_en || '').trim(),
+      });
       setIsModalOpen(false);
       setEditingCategory(null);
     } catch (err: any) {
@@ -284,7 +304,10 @@ export default function CategoriesSection({
                   </div>
 
                   <div className="absolute bottom-3 start-3 end-3 text-white">
-                    <h3 className="font-bold text-sm leading-tight drop-shadow-sm">{cat.name}</h3>
+                    <h3 className="font-bold text-sm leading-tight drop-shadow-sm">{cat.name_ar || cat.name || cat.name_en}</h3>
+                    {cat.name_en && cat.name_en !== (cat.name_ar || cat.name) && (
+                      <p className="text-[11px] text-white/90 font-medium drop-shadow-xs" dir="ltr">{cat.name_en}</p>
+                    )}
                     <p className="text-[10px] text-white/80 font-mono mt-0.5">{cat.slug}</p>
                   </div>
                 </div>
@@ -315,7 +338,7 @@ export default function CategoriesSection({
                         type="button"
                         onClick={() =>
                           onRequestDeleteConfirm(
-                            `أرشفة التصنيف: «${cat.name}»`,
+                            `أرشفة التصنيف: «${cat.name_ar || cat.name || cat.name_en}»`,
                             'هل ترغب في نقل هذا التصنيف إلى الأرشيف وإخفائه من المتجر؟ ستبقى بياناته وصوره محفوظة، ويمكنك استعادته في أي وقت لاحقاً.',
                             async () => {
                               await onDeleteCategory(cat.id);
@@ -342,7 +365,7 @@ export default function CategoriesSection({
                           type="button"
                           onClick={() =>
                             onRequestDeleteConfirm(
-                              `حذف نهائي للتصنيف: «${cat.name}»`,
+                              `حذف نهائي للتصنيف: «${cat.name_ar || cat.name || cat.name_en}»`,
                               'تحذير: سيتم حذف هذا التصنيف نهائياً من قاعدة البيانات وإزالة جميع صوره المرتبطة على السحابة (Cloudinary) بشكل دائم. لا يمكن التراجع عن هذا الإجراء.',
                               async () => {
                                 if (onHardDeleteCategory) {
@@ -555,24 +578,48 @@ export default function CategoriesSection({
             )}
 
             <form onSubmit={handleSubmitForm} className="space-y-4">
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#241710]">
-                  اسم التصنيف <span className="text-rose-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editingCategory.name}
-                  onChange={(e) =>
-                    setEditingCategory({
-                      ...editingCategory,
-                      name: e.target.value,
-                      slug: e.target.value.toLowerCase().replace(/\s+/g, '-'),
-                    })
-                  }
-                  placeholder="مثال: سجاد تركي فاخر، سجاد شرقي وأصيل..."
-                  className="w-full px-3 py-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-xs font-bold text-[#241710] focus:outline-none focus:border-[#241710]"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-[#241710]">
+                    الاسم بالعربية <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    dir="rtl"
+                    value={editingCategory.name_ar ?? editingCategory.name}
+                    onChange={(e) =>
+                      setEditingCategory({
+                        ...editingCategory,
+                        name: e.target.value,
+                        name_ar: e.target.value,
+                        slug: editingCategory.name_en ? editingCategory.slug : e.target.value.toLowerCase().replace(/\s+/g, '-'),
+                      })
+                    }
+                    placeholder="مثال: سجاد تركي فاخر..."
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-xs font-bold text-[#241710] focus:outline-none focus:border-[#241710]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-[#241710]">
+                    الاسم بالإنجليزية (English Name)
+                  </label>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    value={editingCategory.name_en || ''}
+                    onChange={(e) =>
+                      setEditingCategory({
+                        ...editingCategory,
+                        name_en: e.target.value,
+                        slug: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || editingCategory.slug,
+                      })
+                    }
+                    placeholder="e.g. Luxury Turkish Carpets..."
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-xs font-bold text-[#241710] focus:outline-none focus:border-[#241710]"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -581,6 +628,7 @@ export default function CategoriesSection({
                 </label>
                 <input
                   type="text"
+                  dir="ltr"
                   value={editingCategory.slug}
                   onChange={(e) =>
                     setEditingCategory({
@@ -592,22 +640,45 @@ export default function CategoriesSection({
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#241710]">
-                  الوصف التعريفي
-                </label>
-                <textarea
-                  rows={2}
-                  value={editingCategory.description || ''}
-                  onChange={(e) =>
-                    setEditingCategory({
-                      ...editingCategory,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder="وصف مختصر يظهر للعملاء في صفحة التشكيلات..."
-                  className="w-full px-3 py-2 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-xs text-[#241710] focus:outline-none focus:border-[#241710]"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-[#241710]">
+                    الوصف بالعربية
+                  </label>
+                  <textarea
+                    rows={2}
+                    dir="rtl"
+                    value={editingCategory.description_ar ?? editingCategory.description ?? ''}
+                    onChange={(e) =>
+                      setEditingCategory({
+                        ...editingCategory,
+                        description: e.target.value,
+                        description_ar: e.target.value,
+                      })
+                    }
+                    placeholder="وصف مختصر يظهر للعملاء في صفحة التشكيلات..."
+                    className="w-full px-3 py-2 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-xs text-[#241710] focus:outline-none focus:border-[#241710]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-[#241710]">
+                    الوصف بالإنجليزية (English Description)
+                  </label>
+                  <textarea
+                    rows={2}
+                    dir="ltr"
+                    value={editingCategory.description_en || ''}
+                    onChange={(e) =>
+                      setEditingCategory({
+                        ...editingCategory,
+                        description_en: e.target.value,
+                      })
+                    }
+                    placeholder="Brief description for English visitors..."
+                    className="w-full px-3 py-2 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-xs text-[#241710] focus:outline-none focus:border-[#241710]"
+                  />
+                </div>
               </div>
 
               {/* Cover Image */}

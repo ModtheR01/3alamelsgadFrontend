@@ -358,6 +358,8 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     ? product.colors.map((color) => ({
         id: String(color.id),
         name: color.name || color.name_ar || color.name_en || '',
+        name_ar: color.name_ar || color.name || '',
+        name_en: color.name_en || color.name || '',
         hex: color.hex_code,
       }))
     : [];
@@ -383,9 +385,13 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     id: String(product?.id || ''),
     slug: String(product?.id || ''),
     name: productName,
+    name_ar: product?.name_ar || productName,
+    name_en: product?.name_en || productName,
     categoryId,
     subcategoryIds,
     description: productDesc,
+    description_ar: product?.description_ar || productDesc,
+    description_en: product?.description_en || productDesc,
     price: parsedPrice,
     originalPrice: Number((product as any)?.original_price) || undefined,
     discountPercentage: Number((product as any)?.discount_percentage) || undefined,
@@ -418,8 +424,12 @@ function mapBackendCategory(category: BackendCategory): Category {
   return {
     id: String(category.id),
     name: catName,
+    name_ar: category.name_ar || catName,
+    name_en: category.name_en || catName,
     slug: String(category.id),
     description: '',
+    description_ar: '',
+    description_en: '',
     image: category.image || '',
     public_id: category.public_id || undefined,
     isFeatured: false,
@@ -670,6 +680,7 @@ interface StoreContextType {
     id?: number | string;
     category_id: number | string;
     name: string;
+    name_ar?: string;
     name_en?: string;
     image?: string | null;
     public_id?: string | null;
@@ -1174,13 +1185,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    const nameAr = (productToSave.name_ar || productToSave.name || '').trim();
+    const nameEn = (productToSave.name_en || productToSave.name || nameAr).trim();
+    const descAr = (productToSave.description_ar || productToSave.description || '').trim();
+    const descEn = (productToSave.description_en || productToSave.description || descAr).trim();
+
     const payload = {
-      name: productToSave.name.trim(),
-      name_ar: productToSave.name.trim(),
-      name_en: (productToSave as any).name_en || productToSave.name.trim(),
-      description: productToSave.description.trim(),
-      description_ar: productToSave.description.trim(),
-      description_en: (productToSave as any).description_en || productToSave.description.trim(),
+      name: nameAr,
+      name_ar: nameAr,
+      name_en: nameEn,
+      description: descAr,
+      description_ar: descAr,
+      description_en: descEn,
       dimensions: productToSave.dimensions.trim(),
       price: productToSave.price || 0,
       delivery_days: productToSave.deliveryDays ?? null,
@@ -1331,10 +1347,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Admin CRUD for Categories
   const saveCategory = useCallback(async (categoryToSave: Category) => {
+    const nameAr = (categoryToSave.name_ar || categoryToSave.name || '').trim();
+    const nameEn = (categoryToSave.name_en || categoryToSave.name || nameAr).trim();
     const payload = {
-      name: categoryToSave.name,
-      name_ar: categoryToSave.name,
-      name_en: (categoryToSave as any).name_en || categoryToSave.name,
+      name: nameAr,
+      name_ar: nameAr,
+      name_en: nameEn,
       image: categoryToSave.image || null,
       public_id: categoryToSave.public_id || (categoryToSave as any).public_id || undefined,
     };
@@ -1392,10 +1410,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       id?: number | string;
       category_id: number | string;
       name: string;
+      name_ar?: string;
       name_en?: string;
       image?: string | null;
       public_id?: string | null;
     }) => {
+      const nameAr = (subToSave.name_ar || subToSave.name || '').trim();
+      const nameEn = (subToSave.name_en || subToSave.name || nameAr).trim();
       const numericCatId =
         typeof subToSave.category_id === 'number'
           ? subToSave.category_id
@@ -1404,15 +1425,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (numericSubId && Number.isInteger(numericSubId) && numericSubId < 1000000000) {
         const saved = await subcategoryService.updateSubcategory(numericSubId, {
           category_id: numericCatId,
-          name: subToSave.name,
-          name_ar: subToSave.name,
-          name_en: subToSave.name_en || subToSave.name,
+          name: nameAr,
+          name_ar: nameAr,
+          name_en: nameEn,
           image: subToSave.image || null,
           public_id: subToSave.public_id || undefined,
         });
         const normalizedSaved: BackendSubcategory = {
           ...saved,
-          name: saved.name || saved.name_ar || saved.name_en || subToSave.name,
+          name: saved.name || saved.name_ar || saved.name_en || nameAr,
+          name_ar: saved.name_ar || nameAr,
+          name_en: saved.name_en || nameEn,
           category_id: Number(saved.category_id || numericCatId),
         };
         setSubcategories((prev) =>
@@ -1423,15 +1446,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       const created = await subcategoryService.createSubcategory({
         category_id: numericCatId,
-        name: subToSave.name,
-        name_ar: subToSave.name,
-        name_en: subToSave.name_en || subToSave.name,
+        name: nameAr,
+        name_ar: nameAr,
+        name_en: nameEn,
         image: subToSave.image || null,
         public_id: subToSave.public_id || undefined,
       });
       const normalizedCreated: BackendSubcategory = {
         ...created,
-        name: created.name || created.name_ar || created.name_en || subToSave.name,
+        name: created.name || created.name_ar || created.name_en || nameAr,
+        name_ar: created.name_ar || nameAr,
+        name_en: created.name_en || nameEn,
         category_id: Number(created.category_id || numericCatId),
       };
       setSubcategories((prev) => {
