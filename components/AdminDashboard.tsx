@@ -415,6 +415,9 @@ export default function AdminDashboard() {
         {activeSection === 'ai-images' && (
           <AiProductImageView
             products={products}
+            categories={categories}
+            subcategories={subcategories}
+            onRefreshCatalog={refreshCatalog}
             onAssignImageToProduct={(prodId, newImgUrl) => {
               const target = products.find((p) => String(p.id) === String(prodId));
               if (target) {

@@ -24,7 +24,7 @@ class ApiClient {
   }
 
   
-  private async getCsrfToken(): Promise<string> {
+  async getCsrfToken(): Promise<string> {
     const cookieToken = this.readCsrfCookie();
     if (cookieToken) return cookieToken;
 
@@ -288,6 +288,53 @@ class ApiClient {
 
   delete<T = any>(endpoint: string, options?: Omit<RequestOptions, 'method'>) {
     return this.request<T>(endpoint, { ...options, method: 'DELETE' });
+  }
+
+  /**
+   * Send multipart/form-data POST without setting Content-Type,
+   * allowing the browser to set the boundary. Injects CSRF token,
+   * includes auth cookies, handles 401 refresh, and returns raw Response.
+   */
+  async postFormData(endpoint: string, formData: FormData, options: RequestOptions = {}): Promise<Response> {
+    const { headers = {}, skipAuthRefresh = false, ...customConfig } = options;
+    const urlPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const fullUrl = `${apiConfig.getBaseUrl()}${urlPath}`;
+
+    const csrfToken = await this.getCsrfToken();
+    const requestHeaders: Record<string, string> = {
+      'X-CSRFToken': csrfToken,
+      ...(headers as Record<string, string>),
+    };
+    delete requestHeaders['Content-Type'];
+    delete requestHeaders['content-type'];
+
+    const fetchConfig: RequestInit = {
+      method: 'POST',
+      headers: requestHeaders,
+      body: formData,
+      credentials: 'include',
+      ...customConfig,
+    };
+
+    let response = await fetch(fullUrl, fetchConfig);
+
+    if (response.status === 401 && !skipAuthRefresh && !this.isAuthEndpoint(urlPath)) {
+      const refreshed = await this.handleTokenRefresh();
+      if (refreshed) {
+        const newCsrf = await this.getCsrfToken();
+        (fetchConfig.headers as Record<string, string>)['X-CSRFToken'] = newCsrf;
+        response = await fetch(fullUrl, fetchConfig);
+      } else {
+        this.notifyAuthFailure();
+        throw new ApiError({
+          message: 'Session expired. Please sign in again.',
+          fieldErrors: {},
+          status: 401,
+        });
+      }
+    }
+
+    return response;
   }
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import {
   Sparkles,
   UploadCloud,
@@ -16,52 +16,185 @@ import {
   X,
   ArrowDown,
   ArrowLeft,
+  AlertCircle,
 } from 'lucide-react';
 import Image from '@/components/SafeImage';
-import { Product } from '@/types';
-import { AiImageJob } from '@/types/aiImage';
+import { Product, Category } from '@/types';
+import { BackendSubcategory } from '@/types/category';
+import { BackendSize, BackendColor } from '@/types/product';
 import { aiImageService } from '@/lib/api/services/aiImageService';
-import { uploadDirectToCloudinary } from '@/lib/api/cloudinary';
+import { productService } from '@/lib/api/services/productService';
+import { productImageService } from '@/lib/api/services/productImageService';
+import { categoryService, subcategoryService } from '@/lib/api/services/categoryService';
+import { uploadDirectToCloudinary, CloudinaryUploadResult } from '@/lib/api/cloudinary';
+import { mapBackendProduct } from '@/lib/store';
 
-interface AiProductImageViewProps {
-  products: Product[];
+export interface AiProductImageViewProps {
+  products?: Product[];
+  categories?: Category[];
+  subcategories?: BackendSubcategory[];
   onAssignImageToProduct?: (productId: string | number, imageUrl: string) => void;
+  onRefreshCatalog?: () => Promise<void>;
   onNavigateSection?: (section: any) => void;
 }
 
 type ActionChoice = 'link_existing' | 'create_new' | null;
 
 export default function AiProductImageView({
-  products = [],
+  products: initialProducts = [],
+  categories: initialCategories = [],
+  subcategories: initialSubcategories = [],
   onAssignImageToProduct,
+  onRefreshCatalog,
 }: AiProductImageViewProps) {
-  // Upload and job states
+  // Upload and file states
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imageFileName, setImageFileName] = useState<string>('');
-  const [selectedPublicId, setSelectedPublicId] = useState<string | undefined>(undefined);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isPreparingFile, setIsPreparingFile] = useState(false);
+
+  // AI Processing states (Phase 2)
   const [isProcessing, setIsProcessing] = useState(false);
-  const [currentJob, setCurrentJob] = useState<AiImageJob | null>(null);
+  const [processingError, setProcessingError] = useState<string | null>(null);
+  const [processedBlob, setProcessedBlob] = useState<Blob | null>(null);
+  const [processedImageUrl, setProcessedImageUrl] = useState<string | null>(null);
 
   // Preview modal state
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState<'enhanced' | 'original'>('enhanced');
 
-  // Step 4: Product Linking states
+  // Object URL lifecycle refs for clean revocation
+  const originalObjectUrlRef = useRef<string | null>(null);
+  const processedObjectUrlRef = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Catalog data states (fetched if not supplied as props)
+  const [loadedProducts, setLoadedProducts] = useState<Product[]>([]);
+  const [loadedCategories, setLoadedCategories] = useState<Category[]>([]);
+  const [loadedSubcategories, setLoadedSubcategories] = useState<BackendSubcategory[]>([]);
+  const [availableSizes, setAvailableSizes] = useState<BackendSize[]>([]);
+  const [availableColors, setAvailableColors] = useState<BackendColor[]>([]);
+
+  // Step 4: Product Linking states (Phase 3)
   const [actionChoice, setActionChoice] = useState<ActionChoice>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [isLinking, setIsLinking] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const [linkSuccess, setLinkSuccess] = useState(false);
+  const [linkedImageUrl, setLinkedImageUrl] = useState<string | null>(null);
+
+  // Step 4: New product compact form state (Phase 4)
+  const [newProductNameAr, setNewProductNameAr] = useState('');
+  const [newProductNameEn, setNewProductNameEn] = useState('');
+  const [newProductDescAr, setNewProductDescAr] = useState('');
+  const [newProductDescEn, setNewProductDescEn] = useState('');
+  const [newProductCategory, setNewProductCategory] = useState('');
+  const [newProductSubcategory, setNewProductSubcategory] = useState('');
+  const [newProductPrice, setNewProductPrice] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState(false);
 
-  // New product compact form state
-  const [newProductName, setNewProductName] = useState('');
-  const [newProductCategory, setNewProductCategory] = useState('سجاد مودرن');
-  const [newProductSubcategory, setNewProductSubcategory] = useState('سجاد صالون');
-  const [newProductPrice, setNewProductPrice] = useState('');
-  const [newProductType, setNewProductType] = useState('سجاد منسوج آلياً');
+  // Partial failure recovery states
+  const [createdProductId, setCreatedProductId] = useState<number | null>(null);
+  const [cachedCloudinaryUpload, setCachedCloudinaryUpload] = useState<CloudinaryUploadResult | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Revoke object URLs on component unmount
+  useEffect(() => {
+    return () => {
+      if (originalObjectUrlRef.current && originalObjectUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(originalObjectUrlRef.current);
+      }
+      if (processedObjectUrlRef.current && processedObjectUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(processedObjectUrlRef.current);
+      }
+    };
+  }, []);
+
+  // Fetch catalog entities if not provided via props
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCatalogData() {
+      try {
+        const [cats, subcats, sizes, colors] = await Promise.all([
+          initialCategories.length > 0 ? Promise.resolve(initialCategories) : categoryService.getCategories(),
+          initialSubcategories.length > 0 ? Promise.resolve(initialSubcategories) : subcategoryService.getSubcategories(),
+          productService.getSizes().catch(() => []),
+          productService.getColors().catch(() => []),
+        ]);
+
+        if (!isMounted) return;
+
+        if (initialCategories.length === 0 && Array.isArray(cats)) {
+          setLoadedCategories(cats as Category[]);
+        }
+        if (initialSubcategories.length === 0 && Array.isArray(subcats)) {
+          setLoadedSubcategories(subcats as BackendSubcategory[]);
+        }
+        if (Array.isArray(sizes)) setAvailableSizes(sizes);
+        if (Array.isArray(colors)) setAvailableColors(colors);
+
+        if (initialProducts.length === 0) {
+          const rawProds = await productService.getProducts().catch(() => []);
+          if (isMounted && Array.isArray(rawProds)) {
+            const mapped = rawProds.map((p) => mapBackendProduct(p, subcats as BackendSubcategory[]));
+            setLoadedProducts(mapped);
+          }
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    }
+
+    loadCatalogData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialProducts.length, initialCategories, initialSubcategories]);
+
+  // Combined catalog lists
+  const effectiveProducts = useMemo(() => {
+    return initialProducts.length > 0 ? initialProducts : loadedProducts;
+  }, [initialProducts, loadedProducts]);
+
+  const effectiveCategories = useMemo(() => {
+    return initialCategories.length > 0 ? initialCategories : loadedCategories;
+  }, [initialCategories, loadedCategories]);
+
+  const effectiveSubcategories = useMemo(() => {
+    return initialSubcategories.length > 0 ? initialSubcategories : loadedSubcategories;
+  }, [initialSubcategories, loadedSubcategories]);
+
+  // Auto-select first category and subcategory if not selected
+  useEffect(() => {
+    if (!newProductCategory && effectiveCategories.length > 0) {
+      const firstCatId = String(effectiveCategories[0].id);
+      setNewProductCategory(firstCatId);
+    }
+  }, [effectiveCategories, newProductCategory]);
+
+  const filteredSubcategories = useMemo(() => {
+    if (!newProductCategory) return effectiveSubcategories;
+    return effectiveSubcategories.filter(
+      (sub) => String(sub.category_id || (sub as any).categoryId) === String(newProductCategory)
+    );
+  }, [effectiveSubcategories, newProductCategory]);
+
+  useEffect(() => {
+    if (filteredSubcategories.length > 0) {
+      const currentExists = filteredSubcategories.some(
+        (sub) => String(sub.id) === String(newProductSubcategory)
+      );
+      if (!currentExists) {
+        setNewProductSubcategory(String(filteredSubcategories[0].id));
+      }
+    } else {
+      setNewProductSubcategory('');
+    }
+  }, [filteredSubcategories, newProductSubcategory]);
 
   // Sample catalog images for quick testing
   const SAMPLE_IMAGES = [
@@ -81,118 +214,299 @@ export default function AiProductImageView({
 
   // Derived filtered products for search
   const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) return products.slice(0, 10);
+    if (!searchQuery.trim()) return effectiveProducts.slice(0, 10);
     const q = searchQuery.toLowerCase().trim();
-    return products.filter((p) =>
+    return effectiveProducts.filter((p) =>
       p.name.toLowerCase().includes(q) ||
       (p.slug && p.slug.toLowerCase().includes(q)) ||
       (p.categoryId && p.categoryId.toLowerCase().includes(q)) ||
       Boolean((p as any).categoryName && (p as any).categoryName.toLowerCase().includes(q))
     );
-  }, [products, searchQuery]);
+  }, [effectiveProducts, searchQuery]);
 
   const selectedProduct = useMemo(() => {
-    return products.find((p) => String(p.id) === String(selectedProductId));
-  }, [products, selectedProductId]);
+    return effectiveProducts.find((p) => String(p.id) === String(selectedProductId));
+  }, [effectiveProducts, selectedProductId]);
 
   // Current active step calculation
   const currentStep = useMemo(() => {
     if (!selectedImage) return 1;
     if (isProcessing) return 2;
-    if (!currentJob?.enhancedImage) return 2;
+    if (!processedImageUrl) return 2;
     if (actionChoice || linkSuccess || createSuccess) return 4;
     return 3;
-  }, [selectedImage, isProcessing, currentJob, actionChoice, linkSuccess, createSuccess]);
+  }, [selectedImage, isProcessing, processedImageUrl, actionChoice, linkSuccess, createSuccess]);
 
-  // Handle file select
-  const handleFileSelect = async (files: FileList | null) => {
+  // Helper to safely set original object URL
+  const updateOriginalPreview = useCallback((url: string, file: File | null) => {
+    if (originalObjectUrlRef.current && originalObjectUrlRef.current.startsWith('blob:')) {
+      URL.revokeObjectURL(originalObjectUrlRef.current);
+    }
+    originalObjectUrlRef.current = url;
+    setSelectedImage(url);
+    setSelectedFile(file);
+    setProcessingError(null);
+    setProcessedBlob(null);
+    if (processedObjectUrlRef.current && processedObjectUrlRef.current.startsWith('blob:')) {
+      URL.revokeObjectURL(processedObjectUrlRef.current);
+      processedObjectUrlRef.current = null;
+    }
+    setProcessedImageUrl(null);
+    setActionChoice(null);
+    setLinkSuccess(false);
+    setCreateSuccess(false);
+    setCreatedProductId(null);
+    setCachedCloudinaryUpload(null);
+  }, []);
+
+  // Handle file select from file input
+  const handleFileSelect = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
     if (!file.type.startsWith('image/')) return;
 
-    try {
-      setIsUploading(true);
-      setImageFileName(file.name);
-      setCurrentJob(null);
-      setActionChoice(null);
-      setLinkSuccess(false);
-      setCreateSuccess(false);
-
-      // Instant local preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          setSelectedImage(e.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
-
-      // Upload to Cloudinary for reliable hosting
-      const uploadRes = await uploadDirectToCloudinary(file);
-      setSelectedImage(uploadRes.secure_url);
-      setSelectedPublicId(uploadRes.public_id);
-    } catch {
-      // Fallback: keep local data url preview
-    } finally {
-      setIsUploading(false);
-    }
+    setImageFileName(file.name);
+    const previewUrl = URL.createObjectURL(file);
+    updateOriginalPreview(previewUrl, file);
   };
 
-  // Run AI enhancement (No user settings required; handled automatically)
-  const handleRunAiEnhancement = async () => {
-    if (!selectedImage) return;
-
+  // Handle selecting a sample catalog image
+  const handleSelectSample = async (sample: { title: string; url: string }) => {
     try {
-      setIsProcessing(true);
-      setLinkSuccess(false);
-      setCreateSuccess(false);
+      setIsPreparingFile(true);
+      setImageFileName(sample.title);
 
-      const job = await aiImageService.enhanceImage({
-        image: selectedImage,
-        public_id: selectedPublicId,
-        options: {
-          cleanBackground: true,
-          preserveTexture: true,
-          reduceEmptySpace: true,
-          lightingEnhance: true,
-          aspectRatio: '4:3',
-        },
+      const res = await fetch(sample.url);
+      const blob = await res.blob();
+      const sampleFile = new File([blob], `${sample.title}.jpg`, {
+        type: blob.type || 'image/jpeg',
       });
 
-      setCurrentJob(job);
+      const previewUrl = URL.createObjectURL(sampleFile);
+      updateOriginalPreview(previewUrl, sampleFile);
     } catch {
-      // Error handled safely
+      updateOriginalPreview(sample.url, null);
     } finally {
-      setIsProcessing(false);
+      setIsPreparingFile(false);
     }
   };
 
   // Handle resetting image
   const handleReset = () => {
+    if (originalObjectUrlRef.current && originalObjectUrlRef.current.startsWith('blob:')) {
+      URL.revokeObjectURL(originalObjectUrlRef.current);
+      originalObjectUrlRef.current = null;
+    }
+    if (processedObjectUrlRef.current && processedObjectUrlRef.current.startsWith('blob:')) {
+      URL.revokeObjectURL(processedObjectUrlRef.current);
+      processedObjectUrlRef.current = null;
+    }
+    setSelectedFile(null);
     setSelectedImage(null);
     setImageFileName('');
-    setSelectedPublicId(undefined);
-    setCurrentJob(null);
+    setProcessingError(null);
+    setProcessedBlob(null);
+    setProcessedImageUrl(null);
     setActionChoice(null);
     setSelectedProductId('');
     setLinkSuccess(false);
+    setLinkError(null);
+    setLinkedImageUrl(null);
     setCreateSuccess(false);
+    setCreateError(null);
+    setCreatedProductId(null);
+    setCachedCloudinaryUpload(null);
   };
 
-  // Handle confirming link to existing product
-  const handleConfirmLink = () => {
-    if (!selectedProductId || !currentJob) return;
-    const finalUrl = currentJob.enhancedImage || currentJob.originalImage;
-    if (onAssignImageToProduct) {
-      onAssignImageToProduct(selectedProductId, finalUrl);
+  // Phase 2: Run AI enhancement using real backend POST /api/products/process-rug/
+  const handleRunAiEnhancement = async () => {
+    if (!selectedImage && !selectedFile) return;
+
+    try {
+      setIsProcessing(true);
+      setProcessingError(null);
+      setLinkSuccess(false);
+      setLinkError(null);
+      setCreateSuccess(false);
+      setCreateError(null);
+
+      let fileToProcess = selectedFile;
+      if (!fileToProcess && selectedImage) {
+        // Fetch remote sample URL to convert into a real File
+        const response = await fetch(selectedImage);
+        const fetchedBlob = await response.blob();
+        fileToProcess = new File([fetchedBlob], imageFileName || 'rug-sample.jpg', {
+          type: fetchedBlob.type || 'image/jpeg',
+        });
+        setSelectedFile(fileToProcess);
+      }
+
+      if (!fileToProcess) {
+        throw new Error('يرجى تحديد ملف صورة صالح للمعالجة.');
+      }
+
+      // Real authenticated call to POST /api/products/process-rug/
+      const result = await aiImageService.processRugImage(fileToProcess, fileToProcess.name);
+
+      // Create new object URL for binary preview
+      if (processedObjectUrlRef.current && processedObjectUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(processedObjectUrlRef.current);
+      }
+      const newProcessedUrl = URL.createObjectURL(result.blob);
+      processedObjectUrlRef.current = newProcessedUrl;
+
+      setProcessedBlob(result.blob);
+      setProcessedImageUrl(newProcessedUrl);
+      setPreviewMode('enhanced');
+    } catch (err: any) {
+      const msg = err?.message || 'حدث خطأ أثناء معالجة الصورة عبر الخادم.';
+      setProcessingError(msg);
+    } finally {
+      setIsProcessing(false);
     }
-    setLinkSuccess(true);
   };
 
-  // Handle creating new product
-  const handleConfirmCreate = () => {
-    if (!newProductName.trim()) return;
-    setCreateSuccess(true);
+  // Phase 3: Confirm link to existing product
+  const handleConfirmLink = async () => {
+    if (!selectedProductId || !processedBlob) {
+      setLinkError('يرجى اختيار منتج والتأكد من وجود صورة معالجة.');
+      return;
+    }
+
+    try {
+      setIsLinking(true);
+      setLinkError(null);
+
+      // 1. Convert processed binary Blob into File
+      const fileToUpload = new File(
+        [processedBlob],
+        imageFileName ? `enhanced-${imageFileName}` : 'enhanced-rug.png',
+        { type: processedBlob.type || 'image/png' }
+      );
+
+      // 2. Upload to Cloudinary under folder 'alamelsgad-products'
+      const uploadRes = await uploadDirectToCloudinary(fileToUpload, {
+        folder: 'alamelsgad-products',
+      });
+
+      // 3. Calculate safe sort_order to satisfy backend uniqueness constraint
+      const numericProductId = Number(selectedProductId);
+      const existingProduct = effectiveProducts.find((p) => String(p.id) === String(selectedProductId));
+      const existingRecords = existingProduct?.imageRecords || [];
+      const maxSortOrder = existingRecords.reduce(
+        (max, record) => Math.max(max, record.sort_order ?? 0),
+        -1
+      );
+      const nextSortOrder = maxSortOrder + 1;
+
+      // 4. Create ProductImage record in backend (POST /api/products/images/)
+      await productImageService.createProductImage({
+        product: numericProductId,
+        image: uploadRes.secure_url,
+        public_id: uploadRes.public_id,
+        is_primary: true,
+        sort_order: nextSortOrder,
+      });
+
+      // 5. Invalidate / refresh catalog cache across the app
+      if (onRefreshCatalog) {
+        await onRefreshCatalog();
+      }
+
+      if (onAssignImageToProduct) {
+        onAssignImageToProduct(selectedProductId, uploadRes.secure_url);
+      }
+
+      setLinkedImageUrl(uploadRes.secure_url);
+      setLinkSuccess(true);
+    } catch (err: any) {
+      const msg = err?.message || 'فشل ربط الصورة بالمنتج في الخادم.';
+      setLinkError(msg);
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
+  // Phase 4: Create new product and attach the processed image
+  const handleConfirmCreate = async () => {
+    if (!newProductNameAr.trim()) {
+      setCreateError('يرجى إدخال اسم المنتج باللغة العربية.');
+      return;
+    }
+    if (!newProductPrice || isNaN(Number(newProductPrice)) || Number(newProductPrice) <= 0) {
+      setCreateError('يرجى إدخال سعر صالح للمنتج.');
+      return;
+    }
+    if (!newProductSubcategory) {
+      setCreateError('يرجى اختيار التصنيف الفرعي للمنتج.');
+      return;
+    }
+    if (!processedBlob) {
+      setCreateError('لا توجد صورة معالجة جاهزة للربط.');
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      setCreateError(null);
+
+      // Step A: Upload to Cloudinary if not already cached from a previous attempt
+      let uploadResult = cachedCloudinaryUpload;
+      if (!uploadResult) {
+        const fileToUpload = new File(
+          [processedBlob],
+          `new-${newProductNameAr.trim().replace(/\s+/g, '-')}.png`,
+          { type: processedBlob.type || 'image/png' }
+        );
+        uploadResult = await uploadDirectToCloudinary(fileToUpload, {
+          folder: 'alamelsgad-products',
+        });
+        setCachedCloudinaryUpload(uploadResult);
+      }
+
+      // Step B: Create product if not already created in a previous attempt
+      let targetProdId = createdProductId;
+      if (!targetProdId) {
+        // Resolve default sizes and colors for backend validation requirements
+        const sizeIds = availableSizes.length > 0 ? [availableSizes[0].id] : [1];
+        const colorIds = availableColors.length > 0 ? [availableColors[0].id] : [1];
+
+        const createdProd = await productService.createProduct({
+          name_ar: newProductNameAr.trim(),
+          name_en: (newProductNameEn || newProductNameAr).trim(),
+          description_ar: (newProductDescAr || newProductNameAr).trim(),
+          description_en: (newProductDescEn || newProductNameEn || newProductNameAr).trim(),
+          price: Number(newProductPrice),
+          subcategory_ids: [Number(newProductSubcategory)],
+          size_ids: sizeIds,
+          color_ids: colorIds,
+        });
+
+        targetProdId = createdProd.id;
+        setCreatedProductId(targetProdId);
+      }
+
+      // Step C: Attach uploaded image as primary ProductImage
+      await productImageService.createProductImage({
+        product: targetProdId,
+        image: uploadResult.secure_url,
+        public_id: uploadResult.public_id,
+        is_primary: true,
+        sort_order: 0,
+      });
+
+      // Step D: Invalidate / refresh catalog cache
+      if (onRefreshCatalog) {
+        await onRefreshCatalog();
+      }
+
+      setCreateSuccess(true);
+    } catch (err: any) {
+      const msg = err?.message || 'حدث خطأ أثناء إنشاء المنتج وحفظ الصورة.';
+      setCreateError(msg);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -208,7 +522,7 @@ export default function AiProductImageView({
               استوديو معالجة صور المنتجات بالذكاء الاصطناعي
             </h1>
             <p className="text-xs sm:text-sm text-[#8C7A6B] mt-0.5">
-              حوّل صور المنتجات إلى صور جاهزة للعرض في المتجر.
+              حوّل صور المنتجات إلى صور جاهزة للعرض في المتجر واربطها بالمنتجات الحقيقية.
             </p>
           </div>
         </div>
@@ -283,7 +597,7 @@ export default function AiProductImageView({
                   ارفع صورة المنتج
                 </h3>
                 <p className="text-xs text-[#8C7A6B] max-w-sm mb-3.5">
-                  اسحب الصورة هنا أو اختر صورة من جهازك
+                  اسحب الصورة هنا أو اختر صورة من جهازك (JPEG, PNG, WebP)
                 </p>
                 <button
                   type="button"
@@ -303,15 +617,9 @@ export default function AiProductImageView({
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => {
-                        setSelectedImage(sample.url);
-                        setImageFileName(sample.title);
-                        setCurrentJob(null);
-                        setActionChoice(null);
-                        setLinkSuccess(false);
-                        setCreateSuccess(false);
-                      }}
-                      className="group rounded-xl border border-[#EAE3D8] hover:border-[#241710] overflow-hidden text-right transition-all bg-[#FAF8F5]/60 hover:bg-white p-1.5 flex flex-col gap-1.5"
+                      disabled={isPreparingFile}
+                      onClick={() => handleSelectSample(sample)}
+                      className="group rounded-xl border border-[#EAE3D8] hover:border-[#241710] overflow-hidden text-right transition-all bg-[#FAF8F5]/60 hover:bg-white p-1.5 flex flex-col gap-1.5 disabled:opacity-50"
                     >
                       <div className="relative aspect-4/3 w-full rounded-lg overflow-hidden bg-stone-100">
                         <Image
@@ -346,7 +654,7 @@ export default function AiProductImageView({
                     {imageFileName || 'صورة المنتج المرفوعة'}
                   </h4>
                   <p className="text-[11px] text-[#8C7A6B] mt-0.5">
-                    الصورة الأصلية جاهزة للمعالجة التلقائية
+                    الصورة الأصلية جاهزة للإرسال إلى معالج الذكاء الاصطناعي
                   </p>
                 </div>
               </div>
@@ -374,28 +682,35 @@ export default function AiProductImageView({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif"
             className="hidden"
             onChange={(e) => handleFileSelect(e.target.files)}
-            disabled={isUploading}
+            disabled={isPreparingFile || isProcessing}
           />
         </div>
       </div>
 
       {/* ================= STEP 2: AI PROCESSING ACTION ================= */}
-      {selectedImage && !currentJob?.enhancedImage && (
+      {selectedImage && !processedImageUrl && (
         <div className="bg-white rounded-2xl border border-[#EAE3D8] shadow-xs p-6 text-center space-y-4">
           <div className="max-w-md mx-auto space-y-2">
             <div className="w-12 h-12 rounded-2xl bg-[#FAF5EB] border border-[#E8DEC0] text-[#A27B5C] flex items-center justify-center mx-auto">
               <Sparkles className="w-6 h-6 text-[#A27B5C]" />
             </div>
             <h3 className="text-base font-black text-[#241710]">
-              معالجة الصورة بالذكاء الاصطناعي
+              معالجة الصورة عبر الخادم
             </h3>
             <p className="text-xs text-[#8C7A6B]">
-              سيقوم النظام آلياً بتفريغ الخلفية، ضبط الإضاءة، وإبراز تفاصيل المنتج بأعلى دقة.
+              سيقوم النظام بإرسال الصورة إلى الخادم لتفريغ الخلفية، ضبط الإضاءة، وإبراز تفاصيل نسيج السجاد.
             </p>
           </div>
+
+          {processingError && (
+            <div className="max-w-md mx-auto p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2 text-right">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{processingError}</span>
+            </div>
+          )}
 
           <div className="pt-2 max-w-sm mx-auto">
             <button
@@ -407,7 +722,7 @@ export default function AiProductImageView({
               {isProcessing ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin text-[#EED8BE]" />
-                  <span>جاري تحسين الصورة...</span>
+                  <span>جاري معالجة الصورة عبر الخادم...</span>
                 </>
               ) : (
                 <>
@@ -421,7 +736,7 @@ export default function AiProductImageView({
       )}
 
       {/* ================= STEP 3: RESULT SECTION ================= */}
-      {currentJob?.enhancedImage && (
+      {processedImageUrl && (
         <div className="bg-white rounded-2xl border border-[#EAE3D8] shadow-xs overflow-hidden">
           <div className="px-5 py-3.5 border-b border-[#EAE3D8] bg-[#FAF8F5]/60 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -429,9 +744,9 @@ export default function AiProductImageView({
                 ✓
               </span>
               <div>
-                <h2 className="text-sm font-black text-[#241710]">الصورة الناتجة</h2>
+                <h2 className="text-sm font-black text-[#241710]">الصورة الناتجة من الخادم</h2>
                 <p className="text-[11px] text-[#8C7A6B]">
-                  تم التحسين وتجهيز الصورة للعرض في المتجر
+                  تم التحسين بنجاح واستلام الصورة المعالجة من الخادم
                 </p>
               </div>
             </div>
@@ -448,7 +763,7 @@ export default function AiProductImageView({
               <div className="md:col-span-8">
                 <div className="relative aspect-4/3 rounded-2xl overflow-hidden border-2 border-[#241710]/20 bg-[#FAF8F5] shadow-xs group">
                   <Image
-                    src={previewMode === 'enhanced' ? currentJob.enhancedImage : currentJob.originalImage}
+                    src={previewMode === 'enhanced' ? processedImageUrl : (selectedImage || '')}
                     alt="الصورة الناتجة"
                     fill
                     className="object-cover"
@@ -535,7 +850,7 @@ export default function AiProductImageView({
                       className="flex-1 py-2 text-xs font-bold text-[#241710] bg-white hover:bg-[#FAF8F5] border border-[#EAE3D8] rounded-xl transition-colors flex items-center justify-center gap-1"
                     >
                       <RefreshCw className="w-3 h-3 text-[#A27B5C]" />
-                      <span>إعادة التحسين</span>
+                      <span>إعادة المعالجة</span>
                     </button>
                     <button
                       type="button"
@@ -553,7 +868,7 @@ export default function AiProductImageView({
       )}
 
       {/* ================= STEP 4: PRODUCT LINKING ================= */}
-      {currentJob?.enhancedImage && (
+      {processedImageUrl && (
         <div
           id="step-4-linking"
           className="bg-white rounded-2xl border border-[#EAE3D8] shadow-xs p-6 space-y-6"
@@ -580,7 +895,9 @@ export default function AiProductImageView({
               onClick={() => {
                 setActionChoice('link_existing');
                 setLinkSuccess(false);
+                setLinkError(null);
                 setCreateSuccess(false);
+                setCreateError(null);
               }}
               className={`p-5 rounded-2xl border-2 text-right transition-all flex flex-col justify-between gap-3 ${
                 actionChoice === 'link_existing'
@@ -609,7 +926,7 @@ export default function AiProductImageView({
                   🔗 ربط بمنتج موجود
                 </h3>
                 <p className="text-xs text-[#8C7A6B] mt-1">
-                  استخدم الصورة لمنتج موجود بالفعل في المتجر
+                  ارفع الصورة إلى التخزين الدائم واربطها كصورة أساسية لمنتج في الكتالوج
                 </p>
               </div>
             </button>
@@ -620,7 +937,9 @@ export default function AiProductImageView({
               onClick={() => {
                 setActionChoice('create_new');
                 setLinkSuccess(false);
+                setLinkError(null);
                 setCreateSuccess(false);
+                setCreateError(null);
               }}
               className={`p-5 rounded-2xl border-2 text-right transition-all flex flex-col justify-between gap-3 ${
                 actionChoice === 'create_new'
@@ -649,7 +968,7 @@ export default function AiProductImageView({
                   ＋ إنشاء منتج جديد
                 </h3>
                 <p className="text-xs text-[#8C7A6B] mt-1">
-                  أنشئ منتجًا جديدًا باستخدام الصورة الناتجة
+                  أنشئ منتجًا حقيقيًا جديدًا في قاعدة البيانات مع اعتماد الصورة الناتجة له
                 </p>
               </div>
             </button>
@@ -660,7 +979,7 @@ export default function AiProductImageView({
             <div className="pt-4 border-t border-[#EAE3D8] space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <label className="text-xs font-black text-[#241710]">
-                  اختر المنتج
+                  اختر المنتج من الكتالوج
                 </label>
                 {/* Search Bar */}
                 <div className="relative w-full sm:w-72">
@@ -691,6 +1010,7 @@ export default function AiProductImageView({
                         onClick={() => {
                           setSelectedProductId(String(p.id));
                           setLinkSuccess(false);
+                          setLinkError(null);
                         }}
                         className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
                           isSelected
@@ -741,31 +1061,55 @@ export default function AiProductImageView({
                 )}
               </div>
 
+              {linkError && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{linkError}</span>
+                </div>
+              )}
+
               {/* Confirmation Notice & CTA */}
               {selectedProduct && (
                 <div className="p-4 rounded-xl border border-[#E8DEC0] bg-[#FAF5EB] space-y-3">
                   <div className="flex items-center gap-2 text-xs font-black text-[#241710]">
                     <Layers className="w-4 h-4 text-[#A27B5C]" />
-                    <span>سيتم استخدام الصورة الناتجة كصورة للمنتج المحدد.</span>
+                    <span>سيتم رفع الصورة الناتجة إلى التخزين الدائم وحفظها كصورة أساسية للمنتج في الخادم.</span>
                   </div>
 
                   <p className="text-xs text-[#5C4A3E]">
-                    المنتج المختار: <strong>{selectedProduct.name}</strong>
+                    المنتج المختار: <strong>{selectedProduct.name}</strong> (معرف #{selectedProduct.id})
                   </p>
 
                   {linkSuccess ? (
-                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>تم ربط الصورة بنجاح وستظهر كصورة أساسية للمنتج!</span>
+                    <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold space-y-1">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>تم ربط الصورة بنجاح وتحديث كتالوج المتجر! ستظهر كصورة أساسية للمنتج.</span>
+                      </div>
+                      {linkedImageUrl && (
+                        <p className="text-[11px] text-emerald-700 font-mono truncate mr-6" dir="ltr">
+                          {linkedImageUrl}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <button
                       type="button"
+                      disabled={isLinking}
                       onClick={handleConfirmLink}
-                      className="px-5 py-2.5 rounded-xl bg-[#241710] hover:bg-[#3D291D] text-[#FAF5EB] text-xs font-black transition-all shadow-xs cursor-pointer flex items-center gap-2"
+                      className="px-5 py-2.5 rounded-xl bg-[#241710] hover:bg-[#3D291D] text-[#FAF5EB] text-xs font-black transition-all shadow-xs cursor-pointer flex items-center gap-2 disabled:opacity-60"
                     >
-                      <span>تأكيد الربط</span>
-                      <ArrowLeft className="w-3.5 h-3.5" />
+                      {isLinking ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#EED8BE]" />
+                          <span>جاري رفع وحفظ الصورة...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>تأكيد الربط</span>
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                        </>
+                      )}
                     </button>
                   )}
                 </div>
@@ -777,52 +1121,68 @@ export default function AiProductImageView({
           {actionChoice === 'create_new' && (
             <div className="pt-4 border-t border-[#EAE3D8] space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {/* Product Name */}
+                {/* Product Name Arabic */}
                 <div className="space-y-1 sm:col-span-2">
                   <label className="text-xs font-bold text-[#241710]">
-                    اسم المنتج *
+                    اسم المنتج بالعربية *
                   </label>
                   <input
                     type="text"
-                    value={newProductName}
-                    onChange={(e) => setNewProductName(e.target.value)}
+                    value={newProductNameAr}
+                    onChange={(e) => setNewProductNameAr(e.target.value)}
                     placeholder="مثال: سجادة كلاسيك ملكي ناعمة"
                     className="w-full px-3.5 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
                   />
                 </div>
 
-                {/* Category */}
+                {/* Product Name English */}
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-xs font-bold text-[#241710]">
+                    اسم المنتج بالإنجليزية (اختياري)
+                  </label>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    value={newProductNameEn}
+                    onChange={(e) => setNewProductNameEn(e.target.value)}
+                    placeholder="e.g. Classic Royal Soft Carpet"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710] text-left"
+                  />
+                </div>
+
+                {/* Category Selection */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-[#241710]">
-                    التصنيف
+                    التصنيف الرئيسي *
                   </label>
                   <select
                     value={newProductCategory}
                     onChange={(e) => setNewProductCategory(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
                   >
-                    <option value="سجاد مودرن">سجاد مودرن</option>
-                    <option value="سجاد كلاسيك">سجاد كلاسيك</option>
-                    <option value="سجاد تركي">سجاد تركي</option>
-                    <option value="سجاد صلاة">سجاد صلاة</option>
-                    <option value="موكيت وممرات">موكيت وممرات</option>
+                    {effectiveCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name_ar || c.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
-                {/* Subcategory */}
+                {/* Subcategory Selection */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-[#241710]">
-                    التصنيف الفرعي
+                    التصنيف الفرعي *
                   </label>
                   <select
                     value={newProductSubcategory}
                     onChange={(e) => setNewProductSubcategory(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
                   >
-                    <option value="سجاد صالون">سجاد صالون</option>
-                    <option value="سجاد غرف نوم">سجاد غرف نوم</option>
-                    <option value="سجاد مدخل وممرات">سجاد مدخل وممرات</option>
-                    <option value="سجاد أطفال">سجاد أطفال</option>
+                    {filteredSubcategories.map((sub) => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.name_ar || sub.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -836,25 +1196,23 @@ export default function AiProductImageView({
                     value={newProductPrice}
                     onChange={(e) => setNewProductPrice(e.target.value)}
                     placeholder="مثال: 2500"
+                    min="1"
                     className="w-full px-3.5 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
                   />
                 </div>
 
-                {/* Product Type */}
+                {/* Description Arabic */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-[#241710]">
-                    نوع المنتج
+                    الوصف بالعربية (اختياري)
                   </label>
-                  <select
-                    value={newProductType}
-                    onChange={(e) => setNewProductType(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
-                  >
-                    <option value="سجاد منسوج آلياً">سجاد منسوج آلياً</option>
-                    <option value="سجاد يدوي فاخر">سجاد يدوي فاخر</option>
-                    <option value="رول ممر بالمتر">رول ممر بالمتر</option>
-                    <option value="جاهز للتسليم الفوري">جاهز للتسليم الفوري</option>
-                  </select>
+                  <input
+                    type="text"
+                    value={newProductDescAr}
+                    onChange={(e) => setNewProductDescAr(e.target.value)}
+                    placeholder="وصف مختصر لمواصفات السجاد"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] focus:outline-none focus:border-[#241710]"
+                  />
                 </div>
               </div>
 
@@ -862,26 +1220,49 @@ export default function AiProductImageView({
               <div className="p-3 rounded-xl border border-[#E8DEC0] bg-[#FAF5EB] text-xs text-[#241710] flex items-center gap-2">
                 <Check className="w-4 h-4 text-[#A27B5C] shrink-0" />
                 <span className="font-bold">
-                  الصورة الناتجة سيتم استخدامها كصورة المنتج الأساسية.
+                  سيتم حفظ المنتج الجديد في قاعدة البيانات واعتماد الصورة المحسنة كصورة رئيسية له.
                 </span>
               </div>
+
+              {createError && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{createError}</span>
+                </div>
+              )}
 
               {createSuccess ? (
                 <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>
-                    تم حفظ بيانات المنتج الجديد المبدئية بنجاح واعتماد الصورة الناتجة له!
+                    تم إنشاء المنتج الجديد بنجاح في قاعدة البيانات واعتماد الصورة الناتجة له!
                   </span>
                 </div>
               ) : (
                 <button
                   type="button"
                   onClick={handleConfirmCreate}
-                  disabled={!newProductName.trim()}
+                  disabled={!newProductNameAr.trim() || !newProductPrice || isCreating}
                   className="px-5 py-2.5 rounded-xl bg-[#241710] hover:bg-[#3D291D] text-[#FAF5EB] text-xs font-black transition-all shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-2"
                 >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>إنشاء المنتج</span>
+                  {isCreating ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#EED8BE]" />
+                      <span>
+                        {createdProductId ? 'جاري إعادة ربط الصورة بالمنتج...' : 'جاري إنشاء المنتج ورفع الصورة...'}
+                      </span>
+                    </>
+                  ) : createdProductId ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>إعادة محاولة ربط الصورة بالمنتج (#{createdProductId})</span>
+                    </>
+                  ) : (
+                    <>
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      <span>إنشاء المنتج وحفظ الصورة</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>
@@ -890,7 +1271,7 @@ export default function AiProductImageView({
       )}
 
       {/* ================= ZOOM PREVIEW MODAL ================= */}
-      {isZoomOpen && currentJob?.enhancedImage && (
+      {isZoomOpen && processedImageUrl && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs"
           onClick={() => setIsZoomOpen(false)}
@@ -913,7 +1294,7 @@ export default function AiProductImageView({
             </div>
             <div className="relative aspect-4/3 w-full rounded-xl overflow-hidden bg-stone-100">
               <Image
-                src={currentJob.enhancedImage}
+                src={processedImageUrl}
                 alt="معاينة كاملة"
                 fill
                 className="object-contain"

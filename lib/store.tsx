@@ -375,11 +375,24 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
       }))
     : [];
 
-  const displayImages = imageRecords.length > 0
-    ? imageRecords.map((image) => image.image).filter(Boolean)
+  const sortedRecords = [...imageRecords].sort((a, b) => {
+    if (a.is_primary && !b.is_primary) return -1;
+    if (!a.is_primary && b.is_primary) return 1;
+    return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+  });
+
+  let displayImages = sortedRecords.length > 0
+    ? sortedRecords.map((image) => image.image).filter(Boolean)
     : product?.primary_image?.image
     ? [product.primary_image.image]
     : ['https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85'];
+
+  const primaryUrl = product?.primary_image?.image;
+  if (primaryUrl && displayImages.includes(primaryUrl)) {
+    displayImages = [primaryUrl, ...displayImages.filter((img) => img !== primaryUrl)];
+  } else if (primaryUrl && !displayImages.includes(primaryUrl)) {
+    displayImages = [primaryUrl, ...displayImages];
+  }
 
   return {
     id: String(product?.id || ''),
