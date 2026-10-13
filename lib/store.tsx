@@ -20,7 +20,7 @@ import { productImageService } from '@/lib/api/services/productImageService';
 import { categoryService, subcategoryService } from '@/lib/api/services/categoryService';
 import { cartService } from '@/lib/api/services/cartService';
 import { orderService } from '@/lib/api/services/orderService';
-import { ApiError } from '@/lib/api/errors';
+import { ApiError, normalizeApiError } from '@/lib/api/errors';
 import {
   getGuestCart,
   addGuestCartItem,
@@ -323,11 +323,19 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     ? product.subcategory_ids
     : product?.subcategory?.id
     ? [product.subcategory.id]
+    : typeof (product as any)?.subcategory === 'number'
+    ? [(product as any).subcategory]
     : [];
   const subcategoryIds = rawSubcategoryIds.map((id) => String(id));
   const primarySubcategory = subcategoryList.find((subcategory) => subcategory.id === rawSubcategoryIds[0]);
   const categoryId = primarySubcategory?.category_id
     ? String(primarySubcategory.category_id)
+    : (product as any)?.category_id
+    ? String((product as any).category_id)
+    : (product as any)?.category?.id
+    ? String((product as any).category.id)
+    : (product as any)?.category
+    ? String((product as any).category)
     : '';
   const rawImages = Array.isArray(product?.images) ? product.images : [];
   const imageRecords = rawImages.map((image: BackendProductImage, index) => ({
@@ -385,7 +393,7 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     ? sortedRecords.map((image) => image.image).filter(Boolean)
     : product?.primary_image?.image
     ? [product.primary_image.image]
-    : ['https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85'];
+    : [];
 
   const primaryUrl = product?.primary_image?.image;
   if (primaryUrl && displayImages.includes(primaryUrl)) {
@@ -571,7 +579,7 @@ function mapBackendBundleCartItem(bundle: BackendCartBundle): CartItem {
     isBundle: true,
     productId: `bundle-${bundle.offer_id}`,
     productName: bundle.name_ar || bundle.name_en || 'باقة عروض خاصة',
-    productImage: 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=800&q=80',
+    productImage: (bundle as any)?.image || '',
     unitPrice: Number(bundle.bundle_price),
     selectedFinish: 'MATTE',
     selectedColor: { id: '', name: '', hex: '#000000' },
@@ -632,12 +640,16 @@ interface StoreContextType {
   activeView: AppView;
   selectedProductId: string | null;
   selectedCategoryId: string | null;
+  selectedSubcategoryId: string | null;
+  setSelectedProductId: (id: string | null) => void;
+  setSelectedCategoryId: (id: string | null) => void;
+  setSelectedSubcategoryId: (id: string | null) => void;
   searchQuery: string;
   isCartDrawerOpen: boolean;
   setIsCartDrawerOpen: (open: boolean) => void;
   navigateTo: (
     view: AppView,
-    options?: { productId?: string; categoryId?: string }
+    options?: { productId?: string; categoryId?: string; subcategoryId?: string }
   ) => void;
   setSearchQuery: (query: string) => void;
 
@@ -652,6 +664,8 @@ interface StoreContextType {
   collaborations: BackendCollaboration[];
   settings: StoreSettings;
   isCatalogLoading: boolean;
+  catalogError: string | null;
+  reloadCatalog: () => Promise<void>;
   isEventsLoading: boolean;
   isProjectsLoading: boolean;
   cart: CartItem[];
@@ -734,13 +748,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [activeView, setActiveView] = useState<AppView>('home');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState<boolean>(false);
 
   // Entities
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [subcategories, setSubcategories] = useState<BackendSubcategory[]>(DEFAULT_FALLBACK_SUBCATEGORIES);
+  const [subcategories, setSubcategories] = useState<BackendSubcategory[]>([]);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
@@ -764,6 +780,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Load catalog data from the production backend.
   useEffect(() => {
     let active = true;
+    setIsCatalogLoading(true);
+    setCatalogError(null);
     Promise.all([
       productService.getProducts(),
       categoryService.getCategories(),
@@ -779,6 +797,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const mappedProducts = prodList.map((product) => mapBackendProduct(product, subcatList));
         setProducts(mappedProducts);
         setCategories(catList.map(mapBackendCategory));
+        setCatalogError(null);
 
         // Cart items reference product images by id, so hydrate the cart only
         // once the product catalog is available to resolve thumbnails correctly.
@@ -804,11 +823,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             }
           });
       })
-      .catch(() => {
+      .catch((err) => {
         if (!active) return;
-        setProducts(DEFAULT_FALLBACK_PRODUCTS);
-        setCategories(DEFAULT_FALLBACK_CATEGORIES);
-        setSubcategories(DEFAULT_FALLBACK_SUBCATEGORIES);
+        setProducts([]);
+        setCategories([]);
+        setSubcategories([]);
+        setCatalogError(normalizeApiError(err).message || 'تعذر تحميل بيانات المتجر من الخادم.');
         setIsGuestCart(true);
         setCart(getGuestCart());
       })
@@ -873,12 +893,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const navigateTo = useCallback(
     (
       view: AppView,
-      options?: { productId?: string; categoryId?: string }
+      options?: { productId?: string; categoryId?: string; subcategoryId?: string }
     ) => {
       const targetView = view === 'dashboard' ? 'admin' : view;
       setActiveView(targetView);
       if (options?.productId !== undefined) setSelectedProductId(options.productId);
       if (options?.categoryId !== undefined) setSelectedCategoryId(options.categoryId);
+      if (options?.subcategoryId !== undefined) setSelectedSubcategoryId(options.subcategoryId);
 
       // Scroll to top on navigation & update URL pathname
       if (typeof window !== 'undefined') {
@@ -887,8 +908,48 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             window.history.pushState(null, '', '/dashboard');
           }
         } else if (window.location.pathname.startsWith('/dashboard') || window.location.pathname.startsWith('/admin')) {
-          window.location.href = targetView === 'home' ? '/' : `/?route=${targetView}`;
+          const params = new URLSearchParams();
+          if (targetView !== 'home') params.set('route', targetView);
+          if (options?.productId) params.set('product', options.productId);
+          if (options?.categoryId) params.set('category', options.categoryId);
+          if (options?.subcategoryId) params.set('subcategory', options.subcategoryId);
+          const queryString = params.toString();
+          window.location.href = queryString ? `/?${queryString}` : '/';
           return;
+        } else {
+          const url = new URL(window.location.href);
+          if (targetView === 'home') {
+            url.searchParams.delete('route');
+            url.searchParams.delete('product');
+            url.searchParams.delete('category');
+            url.searchParams.delete('subcategory');
+          } else if (targetView === 'shop') {
+            url.searchParams.set('route', 'shop');
+            url.searchParams.delete('product');
+            if (options?.categoryId !== undefined) {
+              if (options.categoryId && options.categoryId !== 'all') {
+                url.searchParams.set('category', options.categoryId);
+              } else {
+                url.searchParams.delete('category');
+              }
+            }
+            if (options?.subcategoryId !== undefined) {
+              if (options.subcategoryId && options.subcategoryId !== 'all') {
+                url.searchParams.set('subcategory', options.subcategoryId);
+              } else {
+                url.searchParams.delete('subcategory');
+              }
+            }
+          } else if (targetView === 'product') {
+            url.searchParams.delete('route');
+            if (options?.productId) {
+              url.searchParams.set('product', options.productId);
+            }
+          } else {
+            url.searchParams.set('route', targetView);
+            url.searchParams.delete('product');
+          }
+          window.history.pushState(null, '', url.pathname + (url.search ? url.search : ''));
         }
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -1295,6 +1356,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [subcategories]);
 
   const refreshCatalog = useCallback(async () => {
+    setIsCatalogLoading(true);
+    setCatalogError(null);
     try {
       const [backendProducts, backendCategories, backendSubcategories] = await Promise.all([
         productService.getProducts(),
@@ -1305,8 +1368,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setSubcategories(subcatList);
       setCategories((Array.isArray(backendCategories) ? backendCategories : []).map(mapBackendCategory));
       setProducts((Array.isArray(backendProducts) ? backendProducts : []).map((p) => mapBackendProduct(p, subcatList)));
-    } catch {
-      // Retain current state if refresh fails
+      setCatalogError(null);
+    } catch (err) {
+      setCatalogError(normalizeApiError(err).message || 'تعذر تحديث بيانات المتجر.');
+    } finally {
+      setIsCatalogLoading(false);
     }
   }, []);
 
@@ -1720,6 +1786,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         activeView,
         selectedProductId,
         selectedCategoryId,
+        selectedSubcategoryId,
+        setSelectedProductId,
+        setSelectedCategoryId,
+        setSelectedSubcategoryId,
         searchQuery,
         isCartDrawerOpen,
         setIsCartDrawerOpen,
@@ -1735,6 +1805,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         collaborations,
         settings,
         isCatalogLoading,
+        catalogError,
+        reloadCatalog: refreshCatalog,
         isEventsLoading,
         isProjectsLoading,
         cart,

@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useToccoStore } from '@/lib/store';
+import { useToccoStore, mapBackendProduct } from '@/lib/store';
 import { useLanguage } from '@/lib/context/LanguageContext';
+import { productService } from '@/lib/api/services/productService';
 import { normalizeApiError } from '@/lib/api/errors';
 import { colorService } from '@/lib/api/services/colorService';
 import { toWhatsAppNumber } from '@/lib/utils';
 import { BRAND_CONFIG, ArawalWidth, ArawalSelection } from '@/lib/brandConfig';
-import { ProductFinish, ProductColor, ProductSize } from '@/types';
+import { Product, ProductFinish, ProductColor, ProductSize } from '@/types';
 import { BackendColor } from '@/types/product';
 import Image from '@/components/SafeImage';
 import {
@@ -29,6 +30,7 @@ import {
   Layers,
   ChevronRight,
   ChevronLeft,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function ProductDetailView() {
@@ -38,14 +40,53 @@ export default function ProductDetailView() {
     navigateTo,
     addToCart,
     categories,
+    subcategories,
     settings,
+    isCatalogLoading,
   } = useToccoStore();
 
   const { t, isRtl, getName, getDescription } = useLanguage();
 
-  const product = useMemo(() => {
+  const storeProduct = useMemo(() => {
     return selectedProductId ? getProductById(selectedProductId) : null;
   }, [selectedProductId, getProductById]);
+
+  // Support direct product fetch for cold reloads or direct links
+  const [remoteProduct, setRemoteProduct] = useState<Product | null>(null);
+  const [isRemoteLoading, setIsRemoteLoading] = useState(false);
+  const [remoteError, setRemoteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedProductId || storeProduct) {
+      setRemoteProduct(null);
+      return;
+    }
+    const numId = Number(selectedProductId);
+    if (!Number.isInteger(numId)) return;
+
+    let active = true;
+    setIsRemoteLoading(true);
+    setRemoteError(null);
+    productService
+      .getProduct(numId)
+      .then((data) => {
+        if (!active) return;
+        setRemoteProduct(mapBackendProduct(data, subcategories));
+      })
+      .catch((err) => {
+        if (!active) return;
+        setRemoteError(normalizeApiError(err).message || 'تعذر تحميل بيانات المنتج من الخادم.');
+      })
+      .finally(() => {
+        if (active) setIsRemoteLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedProductId, storeProduct, subcategories]);
+
+  const product = storeProduct || remoteProduct;
 
   // Is this an ARAWAL product?
   const isArawalProduct = useMemo(() => {
@@ -87,12 +128,13 @@ export default function ProductDetailView() {
       : availableWidths[0] || 80;
   const [arawalLengthMeters, setArawalLengthMeters] = useState<number>(3);
 
-  // Safe fallback images array
+  // Filter out any dummy placeholder images
   const productImages = useMemo(() => {
     if (product?.images && Array.isArray(product.images) && product.images.length > 0) {
-      return product.images;
+      const valid = product.images.filter((img: string) => img && !img.includes('unsplash.com'));
+      return valid;
     }
-    return ['https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85'];
+    return [];
   }, [product]);
 
   // Standard Product Size State
@@ -105,16 +147,42 @@ export default function ProductDetailView() {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [cartError, setCartError] = useState<string | null>(null);
 
-  // If no product selected, redirect to shop
+  // Loading skeleton while fetching product
+  if ((isCatalogLoading || isRemoteLoading) && !product) {
+    return (
+      <div className="pt-28 sm:pt-36 pb-24 bg-[#FAF8F5] min-h-screen">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 animate-pulse">
+          <div className="h-4 bg-[#EFE9DF] rounded w-1/3" />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-7 aspect-[4/3] bg-[#EFE9DF] rounded-2xl" />
+            <div className="lg:col-span-5 space-y-4">
+              <div className="h-8 bg-[#EFE9DF] rounded w-3/4" />
+              <div className="h-6 bg-[#EFE9DF] rounded w-1/2" />
+              <div className="h-24 bg-[#EFE9DF] rounded" />
+              <div className="h-12 bg-[#EFE9DF] rounded" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error / Not found state
   if (!product) {
     return (
       <div className="pt-32 pb-24 text-center min-h-[60vh] flex flex-col items-center justify-center space-y-4 px-4">
-        <p className="text-lg text-[#251811] font-medium">
-          {t('لم يتم العثور على المنتج المطلوب', 'Product not found')}
+        <div className="w-16 h-16 rounded-full bg-[#EFE9DF] text-[#A27B5C] flex items-center justify-center">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h2 className="text-lg text-[#251811] font-bold">
+          {remoteError || t('لم يتم العثور على المنتج المطلوب', 'Product not found')}
+        </h2>
+        <p className="text-xs text-[#8A796B]">
+          {t('قد يكون المنتج غير متاح حالياً أو تم حذفه من الكتالوج.', 'Product may not be available or was removed.')}
         </p>
         <button
           onClick={() => navigateTo('shop')}
-          className="px-7 py-3 rounded-full bg-[#251811] text-white text-xs uppercase tracking-widest font-semibold hover:bg-[#402B1F] transition-all"
+          className="px-7 py-3 rounded-full bg-[#251811] text-white text-xs uppercase tracking-widest font-semibold hover:bg-[#402B1F] transition-all cursor-pointer shadow-xs"
         >
           {t('العودة لتشكيلات السجاد', 'Return to Carpet Collections')}
         </button>
@@ -122,7 +190,12 @@ export default function ProductDetailView() {
     );
   }
 
-  const category = categories.find((c) => c.id === product.categoryId);
+  const subcategory = subcategories.find((s) => (product.subcategoryIds || []).includes(String(s.id)));
+  const category = categories.find(
+    (c) =>
+      String(c.id) === String(product.categoryId) ||
+      (subcategory && String(c.id) === String(subcategory.category_id))
+  );
 
   // Price calculations:
   // For ARAWAL: Total price = Unit-length price × selected length
@@ -183,7 +256,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
       await addToCart({
         productId: product.id,
         productName: displayName,
-        productImage: product.images[0] || 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85',
+        productImage: productImages[0] || '',
         unitPrice: effectiveUnitPrice,
         selectedFinish,
         selectedColor: {
@@ -209,45 +282,81 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
   return (
     <div id="product-detail-page" className="pt-24 sm:pt-32 pb-24 sm:pb-32 bg-[#FAF8F5] min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Breadcrumb Navigation */}
-        <div className="py-2.5 sm:py-4 flex items-center gap-2 text-xs text-[#8A796B] overflow-x-auto whitespace-nowrap scrollbar-none">
+        {/* Full Staged Breadcrumb Navigation */}
+        <nav
+          aria-label="Breadcrumbs"
+          className="py-2.5 sm:py-3.5 px-3.5 rounded-xl bg-white border border-[#EAE3D8] flex items-center gap-1.5 sm:gap-2 text-xs text-[#8A796B] overflow-x-auto whitespace-nowrap scrollbar-none mb-4 shadow-2xs"
+        >
           <button
-            onClick={() => navigateTo('shop')}
-            className="flex items-center gap-1 hover:text-[#251811] transition-colors shrink-0 font-medium"
+            onClick={() => navigateTo('home')}
+            className="hover:text-[#251811] transition-colors shrink-0 font-medium cursor-pointer"
           >
-            <span>{t('تشكيلات السجاد', 'Carpet Collections')}</span>
+            {t('الرئيسية', 'Home')}
           </button>
           <span>/</span>
+          <button
+            onClick={() => navigateTo('shop', { categoryId: 'all', subcategoryId: 'all' })}
+            className="hover:text-[#251811] transition-colors shrink-0 font-medium cursor-pointer"
+          >
+            {t('تشكيلات السجاد', 'Carpet Collections')}
+          </button>
           {category && (
             <>
+              <span>/</span>
               <button
-                onClick={() => navigateTo('shop', { categoryId: category.id })}
-                className="hover:text-[#251811] transition-colors shrink-0"
+                onClick={() => navigateTo('shop', { categoryId: String(category.id), subcategoryId: 'all' })}
+                className="hover:text-[#251811] transition-colors shrink-0 font-medium cursor-pointer"
               >
                 {getName(category)}
               </button>
-              <span>/</span>
             </>
           )}
-          <span className="text-[#251811] font-semibold truncate max-w-[220px]">
+          {subcategory && (
+            <>
+              <span>/</span>
+              <button
+                onClick={() =>
+                  navigateTo('shop', {
+                    categoryId: String(category?.id || subcategory.category_id),
+                    subcategoryId: String(subcategory.id),
+                  })
+                }
+                className="hover:text-[#251811] transition-colors shrink-0 font-medium cursor-pointer"
+              >
+                {getName(subcategory)}
+              </button>
+            </>
+          )}
+          <span>/</span>
+          <span className="text-[#251811] font-bold truncate max-w-[220px]">
             {getName(product)}
           </span>
-        </div>
+        </nav>
 
         {/* Main Product Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-14 pt-4 sm:pt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-14 pt-2 sm:pt-4">
           {/* Left: Product Imagery Showcase (7 cols) */}
           <div className="lg:col-span-7 space-y-4">
-            {/* Primary Main Image with Clean Framing (object-contain preserving carpet edges) */}
+            {/* Primary Main Image with Clean Framing */}
             <div className="relative aspect-[4/3] sm:aspect-[5/4] w-full rounded-2xl overflow-hidden bg-[#F7F5F0] border border-[#E4DACD] shadow-[0_12px_36px_rgba(40,25,15,0.06)] p-3 sm:p-5 flex items-center justify-center">
-              <Image
-                src={productImages[selectedImageIdx] || productImages[0]}
-                alt={getName(product)}
-                fill
-                priority
-                className="object-contain transition-all duration-500 hover:scale-[1.02]"
-                referrerPolicy="no-referrer"
-              />
+              {productImages.length > 0 ? (
+                <Image
+                  src={productImages[selectedImageIdx] || productImages[0]}
+                  alt={getName(product)}
+                  fill
+                  priority
+                  className="object-contain transition-all duration-500 hover:scale-[1.02]"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-full h-full rounded-xl bg-gradient-to-br from-[#2C1C13] to-[#1C120B] text-white flex flex-col items-center justify-center p-6 text-center">
+                  <div className="w-14 h-14 rounded-full bg-[#C49F74]/20 border border-[#C49F74]/40 flex items-center justify-center mb-2 shadow-inner">
+                    <Sparkles className="w-7 h-7 text-[#EED8BE]" />
+                  </div>
+                  <span className="text-[11px] uppercase tracking-widest text-[#C49F74] font-bold">عالم السجاد</span>
+                  <h3 className="text-base font-bold mt-1 text-[#FAF5EB]">{getName(product)}</h3>
+                </div>
+              )}
 
               {/* ARAWAL Badge on Image */}
               {isArawalProduct && (
@@ -265,7 +374,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                   <button
                     key={idx}
                     onClick={() => setSelectedImageIdx(idx)}
-                    className={`relative w-20 h-20 rounded-xl overflow-hidden shrink-0 border-2 bg-[#F7F5F0] p-1 flex items-center justify-center transition-all ${
+                    className={`relative w-20 h-20 rounded-xl overflow-hidden shrink-0 border-2 bg-[#F7F5F0] p-1 flex items-center justify-center transition-all cursor-pointer ${
                       selectedImageIdx === idx
                         ? 'border-[#A27B5C] ring-2 ring-[#A27B5C]/20 shadow-md'
                         : 'border-[#E4DACD] opacity-75 hover:opacity-100'
@@ -284,31 +393,31 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
             )}
 
             {/* Product Guarantees Ribbon */}
-            <div className="grid grid-cols-3 gap-3 pt-4 border-t border-[#EAE2D5] text-center">
-              <div className="p-3 rounded-xl bg-[#F4EFE6] border border-[#E8DEC0]">
-                <Truck className="w-5 h-5 mx-auto text-[#A27B5C] mb-1" />
-                <span className="text-[11px] font-semibold text-[#251811] block">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-3 pt-4 border-t border-[#EAE2D5] text-center">
+              <div className="p-2 sm:p-3 rounded-xl bg-[#F4EFE6] border border-[#E8DEC0]">
+                <Truck className="w-4 h-4 sm:w-5 sm:h-5 mx-auto text-[#A27B5C] mb-1" />
+                <span className="text-[10px] sm:text-[11px] font-semibold text-[#251811] block leading-tight">
                   {t('شحن لكافة المحافظات', 'All Governorates')}
                 </span>
-                <span className="text-[10px] text-[#7A6A5E]">
+                <span className="text-[9px] sm:text-[10px] text-[#7A6A5E] leading-tight mt-0.5 block">
                   {t('توصيل ٢-٤ أيام', '2–4 business days')}
                 </span>
               </div>
-              <div className="p-3 rounded-xl bg-[#F4EFE6] border border-[#E8DEC0]">
-                <Sparkles className="w-5 h-5 mx-auto text-[#A27B5C] mb-1" />
-                <span className="text-[11px] font-semibold text-[#251811] block">
-                  {t('جودة عالية وخيوط فاخرة', 'Premium Weave')}
+              <div className="p-2 sm:p-3 rounded-xl bg-[#F4EFE6] border border-[#E8DEC0]">
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 mx-auto text-[#A27B5C] mb-1" />
+                <span className="text-[10px] sm:text-[11px] font-semibold text-[#251811] block leading-tight">
+                  {t('جودة وخيوط فاخرة', 'Premium Weave')}
                 </span>
-                <span className="text-[10px] text-[#7A6A5E]">
+                <span className="text-[9px] sm:text-[10px] text-[#7A6A5E] leading-tight mt-0.5 block">
                   {t('مقاوم للهبوط والاهتراء', 'High durability')}
                 </span>
               </div>
-              <div className="p-3 rounded-xl bg-[#F4EFE6] border border-[#E8DEC0]">
-                <ShieldCheck className="w-5 h-5 mx-auto text-[#A27B5C] mb-1" />
-                <span className="text-[11px] font-semibold text-[#251811] block">
+              <div className="p-2 sm:p-3 rounded-xl bg-[#F4EFE6] border border-[#E8DEC0]">
+                <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 mx-auto text-[#A27B5C] mb-1" />
+                <span className="text-[10px] sm:text-[11px] font-semibold text-[#251811] block leading-tight">
                   {t('معاينة عند الاستلام', 'Inspection on Delivery')}
                 </span>
-                <span className="text-[10px] text-[#7A6A5E]">
+                <span className="text-[9px] sm:text-[10px] text-[#7A6A5E] leading-tight mt-0.5 block">
                   {t('تأكيد الطلب بعد المراجعة', 'Verified orders')}
                 </span>
               </div>
@@ -319,17 +428,41 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
           <div className="lg:col-span-5 space-y-6">
             {/* Header info */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#A27B5C] uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-xs font-semibold text-[#A27B5C] uppercase tracking-wider flex-wrap">
                 {isArawalProduct ? (
                   <span>{t('أروال ومشايات بالمتر', 'Custom Arawal Runners')}</span>
                 ) : (
                   <span>{category ? getName(category) : t('سجاد فاخر', 'Luxury Carpet')}</span>
+                )}
+                {subcategory && (
+                  <>
+                    <span>·</span>
+                    <span className="text-[#7A6A5E]">{getName(subcategory)}</span>
+                  </>
                 )}
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-extrabold text-[#251811] tracking-tight leading-tight">
                 {getName(product)}
               </h1>
+
+              {/* Stock Status Badge */}
+              <div className="flex items-center gap-2 pt-0.5">
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                    product.inStock !== false
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      : 'bg-rose-50 text-rose-800 border border-rose-200'
+                  }`}
+                >
+                  <Check className="w-3 h-3" />
+                  <span>
+                    {product.inStock !== false
+                      ? t('متوفر في المعرض والمخزن', 'In Stock')
+                      : t('غير متوفر حالياً', 'Out of Stock')}
+                  </span>
+                </span>
+              </div>
 
               {/* Price Presentation */}
               <div className="pt-2">
@@ -354,13 +487,23 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                     </p>
                   </div>
                 ) : (
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-baseline gap-2.5 flex-wrap">
                     <span className="text-3xl font-extrabold text-[#251811]">
                       {effectiveUnitPrice.toLocaleString()}
                     </span>
                     <span className="text-base font-semibold text-[#665448]">
                       {t('جنيه مصري', 'EGP')}
                     </span>
+                    {product.originalPrice && product.originalPrice > product.price && (
+                      <span className="text-base text-[#A09386] line-through font-normal">
+                        {product.originalPrice.toLocaleString()} {t('ج.م', 'EGP')}
+                      </span>
+                    )}
+                    {product.discountPercentage ? (
+                      <span className="px-2 py-0.5 rounded-full bg-[#94622D] text-white text-xs font-bold">
+                        {t('خصم', 'Save')} {product.discountPercentage}%
+                      </span>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -605,7 +748,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                 type="button"
                 onClick={handleAddToCart}
                 disabled={isAddingToCart}
-                className={`w-full py-4 px-6 rounded-full font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg ${
+                className={`w-full py-3.5 sm:py-4 px-6 rounded-full font-bold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg touch-manipulation min-h-[48px] ${
                   addedAnimation
                     ? 'bg-emerald-700 text-white'
                     : 'bg-[#251811] hover:bg-[#3D291D] text-white active:scale-[0.99]'
@@ -637,7 +780,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3 px-6 rounded-full bg-white border border-[#25D366]/40 hover:border-[#25D366] text-[#1E7E34] hover:bg-[#25D366]/5 font-semibold text-xs transition-all flex items-center justify-center gap-2"
+                className="w-full py-3 px-6 rounded-full bg-white border border-[#25D366]/40 hover:border-[#25D366] text-[#1E7E34] hover:bg-[#25D366]/5 font-semibold text-xs transition-all flex items-center justify-center gap-2 touch-manipulation min-h-[44px]"
               >
                 <MessageCircle className="w-4 h-4 text-[#25D366]" />
                 <span>{t('طلب أو استفسار عبر واتساب مباشرة', 'Inquire or Order via WhatsApp')}</span>

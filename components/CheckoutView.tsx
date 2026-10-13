@@ -839,11 +839,11 @@ export default function CheckoutView() {
                 </h2>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('instapay')}
-                  className={`p-3 rounded-xl text-center text-xs font-bold border transition-all ${
+                  className={`p-3 rounded-xl text-center text-xs font-bold border transition-all touch-manipulation min-h-[44px] flex items-center justify-center ${
                     paymentMethod === 'instapay'
                       ? 'border-[#251811] bg-[#FAF5EB] text-[#251811] ring-1 ring-[#A27B5C]'
                       : 'border-[#E0D5C6] bg-white text-[#5C4A3E]'
@@ -855,7 +855,7 @@ export default function CheckoutView() {
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('vodafone_cash')}
-                  className={`p-3 rounded-xl text-center text-xs font-bold border transition-all ${
+                  className={`p-3 rounded-xl text-center text-xs font-bold border transition-all touch-manipulation min-h-[44px] flex items-center justify-center ${
                     paymentMethod === 'vodafone_cash'
                       ? 'border-[#251811] bg-[#FAF5EB] text-[#251811] ring-1 ring-[#A27B5C]'
                       : 'border-[#E0D5C6] bg-white text-[#5C4A3E]'
@@ -867,7 +867,7 @@ export default function CheckoutView() {
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('cod')}
-                  className={`p-3 rounded-xl text-center text-xs font-bold border transition-all ${
+                  className={`p-3 rounded-xl text-center text-xs font-bold border transition-all touch-manipulation min-h-[44px] flex items-center justify-center ${
                     paymentMethod === 'cod'
                       ? 'border-[#251811] bg-[#FAF5EB] text-[#251811] ring-1 ring-[#A27B5C]'
                       : 'border-[#E0D5C6] bg-white text-[#5C4A3E]'

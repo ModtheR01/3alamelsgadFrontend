@@ -11,10 +11,10 @@ import CartDrawer from '@/components/CartDrawer';
 import {
   HomeHero,
   NewArrivalSection,
-  CategoriesShowcase,
   StoryTeaserSection,
   CustomersReviewsSection,
 } from '@/components/HomeSections';
+import HomeCategoriesSection from '@/components/HomeCategoriesSection';
 import ShopCatalog from '@/components/ShopCatalog';
 import ProductDetailView from '@/components/ProductDetailView';
 import CustomDesignView from '@/components/CustomDesignView';
@@ -58,22 +58,39 @@ function AlamelsgadApp() {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [activeView]);
 
-  // Read URL query parameters and pathname on initial mount
+  // Read URL query parameters and pathname on initial mount & handle browser Back/Forward (popstate)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return;
+
+    const parseRouteAndNavigate = () => {
       const pathname = window.location.pathname.replace(/^\/|\/$/g, '');
       const params = new URLSearchParams(window.location.search);
       const routeParam = params.get('route');
       const productParam = params.get('product');
+      const categoryParam = params.get('category');
+      const subcategoryParam = params.get('subcategory');
 
       if (pathname === 'dashboard' || pathname === 'admin' || routeParam === 'dashboard' || routeParam === 'admin') {
         navigateTo('admin');
       } else if (productParam) {
         navigateTo('product', { productId: productParam });
+      } else if (pathname === 'shop' || routeParam === 'shop' || categoryParam || subcategoryParam) {
+        navigateTo('shop', {
+          categoryId: categoryParam || undefined,
+          subcategoryId: subcategoryParam || undefined,
+        });
       } else if (routeParam) {
         navigateTo(routeParam as any);
+      } else {
+        navigateTo('home');
       }
-    }
+    };
+
+    parseRouteAndNavigate();
+    window.addEventListener('popstate', parseRouteAndNavigate);
+    return () => {
+      window.removeEventListener('popstate', parseRouteAndNavigate);
+    };
   }, [navigateTo]);
 
   return (
@@ -87,7 +104,7 @@ function AlamelsgadApp() {
           <div>
             <HomeHero />
             <NewArrivalSection />
-            <CategoriesShowcase />
+            <HomeCategoriesSection />
             <StoryTeaserSection />
             <CustomersReviewsSection />
           </div>

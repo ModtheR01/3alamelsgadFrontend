@@ -233,17 +233,18 @@ export default function NewArrivalSection() {
           </h2>
         </div>
 
-        {/* Carousel / Slider Track — No Arrow Buttons, Smooth Mouse Drag & Touch Swipe */}
+        {/* Carousel / Slider Track — Smooth Mouse Drag (Desktop) & Native Dual-Axis Touch Gesture (Mobile) */}
         <div
           ref={scrollContainerRef}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUpOrLeave}
           onMouseLeave={handleMouseUpOrLeave}
-          className="flex gap-4 sm:gap-6 overflow-x-auto scrollbar-none pb-4 select-none cursor-grab active:cursor-grabbing scroll-smooth"
+          className="flex gap-4 sm:gap-6 overflow-x-auto scrollbar-none pb-4 select-none lg:cursor-grab lg:active:cursor-grabbing snap-x snap-proximity scroll-smooth"
           style={{
             WebkitOverflowScrolling: 'touch',
-            touchAction: 'pan-x',
+            touchAction: 'pan-x pan-y',
+            overscrollBehaviorX: 'contain',
           }}
         >
           {isCatalogLoading && newArrivals.length === 0
@@ -251,14 +252,14 @@ export default function NewArrivalSection() {
               Array.from({ length: 6 }).map((_, idx) => (
                 <div
                   key={`skeleton-${idx}`}
-                  className="w-[195px] sm:w-[250px] md:w-[270px] lg:w-[280px] shrink-0 animate-pulse flex flex-col"
+                  className="w-[195px] sm:w-[250px] md:w-[270px] lg:w-[280px] shrink-0 animate-pulse flex flex-col snap-start"
                 >
-                  <div className="aspect-[4/5] bg-[#EFE9DF] rounded-none sm:rounded-xs" />
+                  <div className="aspect-[4/5] bg-[#EFE9DF] rounded-xl" />
                   <div className="pt-3 space-y-2">
                     <div className="h-4 bg-[#EAE3D8] rounded w-3/4" />
                     <div className="h-3 bg-[#EAE3D8] rounded w-1/3" />
                     <div className="h-4 bg-[#EAE3D8] rounded w-1/2" />
-                    <div className="h-10 bg-[#EAE3D8] rounded mt-3" />
+                    <div className="h-10 bg-[#EAE3D8] rounded-lg mt-3" />
                   </div>
                 </div>
               ))
@@ -270,10 +271,10 @@ export default function NewArrivalSection() {
                   <article
                     key={product.id}
                     onClick={() => handleCardClick(product.id)}
-                    className="w-[195px] sm:w-[250px] md:w-[270px] lg:w-[280px] shrink-0 flex flex-col group cursor-pointer"
+                    className="w-[195px] sm:w-[250px] md:w-[270px] lg:w-[280px] shrink-0 flex flex-col group cursor-pointer snap-start"
                   >
                     {/* Product Image Container (object-contain preserving carpet edges) */}
-                    <div className="relative aspect-[4/5] bg-[#F7F5F0] overflow-hidden rounded-xl p-2.5 flex items-center justify-center">
+                    <div className="relative aspect-[4/5] bg-[#F7F5F0] overflow-hidden rounded-xl p-2.5 flex items-center justify-center border border-[#EFE9DF]">
                       <Image
                         src={
                           product.images[0] ||
@@ -288,7 +289,7 @@ export default function NewArrivalSection() {
 
                       {/* Discount Badge (e.g. -15% OFF) in bottom-left */}
                       {discount.hasDiscount && (
-                        <div className="absolute bottom-3 start-3 bg-[#94622D] text-white text-[11px] sm:text-xs font-semibold px-3 py-1 rounded-full shadow-sm select-none">
+                        <div className="absolute bottom-2.5 start-2.5 sm:bottom-3 sm:start-3 bg-[#94622D] text-white text-[10px] sm:text-xs font-semibold px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full shadow-xs select-none">
                           -{discount.percentage}% {t('خصم', 'OFF')}
                         </div>
                       )}
@@ -326,11 +327,11 @@ export default function NewArrivalSection() {
                         </div>
                       </div>
 
-                      {/* Buy Now Button — Outlined style from reference */}
+                      {/* Buy Now Button — Outlined style with enhanced touch ergonomics */}
                       <button
                         type="button"
                         onClick={(e) => handleBuyNow(e, product, discount.currentPrice)}
-                        className="w-full mt-3.5 py-2.5 px-4 border border-[#9E734F] text-[#9E734F] hover:bg-[#9E734F] hover:text-white active:scale-[0.99] text-xs sm:text-sm font-medium tracking-wide transition-all duration-200 text-center rounded-none sm:rounded-xs"
+                        className="w-full mt-3.5 py-2.5 px-4 border border-[#9E734F] text-[#9E734F] hover:bg-[#9E734F] hover:text-white active:scale-[0.98] text-xs sm:text-sm font-semibold tracking-wide transition-all duration-200 text-center rounded-lg sm:rounded-xs touch-manipulation min-h-[40px] flex items-center justify-center"
                       >
                         {t('شراء الآن', 'Buy Now')}
                       </button>
