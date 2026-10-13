@@ -193,7 +193,7 @@ export default function NewArrivalSection() {
     addToCart({
       productId: product.id,
       productName: getName(product),
-      productImage: product.images[0] || 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85',
+      productImage: product.images[0] || '',
       unitPrice: finalPrice,
       selectedFinish: product.finishes?.[0] || 'MATTE',
       selectedColor: product.colors?.[0] || { id: 'c-default', name: 'البيج الطبيعي', hex: '#D2C1AF' },
@@ -276,10 +276,7 @@ export default function NewArrivalSection() {
                     {/* Product Image Container (object-contain preserving carpet edges) */}
                     <div className="relative aspect-[4/5] bg-[#F7F5F0] overflow-hidden rounded-xl p-2.5 flex items-center justify-center border border-[#EFE9DF]">
                       <Image
-                        src={
-                          product.images[0] ||
-                          'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1200&q=85'
-                        }
+                        src={product.images[0] || ''}
                         alt={getName(product)}
                         fill
                         draggable={false}

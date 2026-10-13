@@ -45,6 +45,8 @@ import { BackendEvent } from '@/types/event';
 import { BackendCollaboration } from '@/types/collaboration';
 import { spaceProjectService } from '@/lib/api/services/spaceProjectService';
 import { BackendSpaceProject, SpaceProjectRequest } from '@/types/spaceProject';
+import { offerService } from '@/lib/api/services/offerService';
+import { BackendOffer } from '@/types/offer';
 
 const EMPTY_SETTINGS: StoreSettings = {
   brandName: 'عالم السجاد',
@@ -666,6 +668,10 @@ interface StoreContextType {
   isCatalogLoading: boolean;
   catalogError: string | null;
   reloadCatalog: () => Promise<void>;
+  offers: BackendOffer[];
+  isOffersLoading: boolean;
+  offersError: string | null;
+  reloadOffers: () => Promise<void>;
   isEventsLoading: boolean;
   isProjectsLoading: boolean;
   cart: CartItem[];
@@ -774,6 +780,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<CustomerUser | null>(null);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<BackendOrder | Order | null>(null);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
+  const [offers, setOffers] = useState<BackendOffer[]>([]);
+  const [isOffersLoading, setIsOffersLoading] = useState<boolean>(true);
+  const [offersError, setOffersError] = useState<string | null>(null);
+
+  const reloadOffers = useCallback(async () => {
+    setIsOffersLoading(true);
+    setOffersError(null);
+    try {
+      const data = await offerService.getOffers();
+      setOffers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setOffers([]);
+      setOffersError(normalizeApiError(err).message || 'تعذر تحميل العروض من الخادم.');
+    } finally {
+      setIsOffersLoading(false);
+    }
+  }, []);
+
   const [isEventsLoading, setIsEventsLoading] = useState(true);
   const [isProjectsLoading, setIsProjectsLoading] = useState(true);
 
@@ -835,6 +859,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .finally(() => {
         if (active) setIsCatalogLoading(false);
       });
+
+    offerService.getOffers().then((items) => {
+      if (active) setOffers(Array.isArray(items) ? items : []);
+    }).catch((err) => {
+      if (active) {
+        setOffers([]);
+        setOffersError(normalizeApiError(err).message || 'تعذر تحميل العروض من الخادم.');
+      }
+    }).finally(() => {
+      if (active) setIsOffersLoading(false);
+    });
 
     eventService.getEvents().then((items) => {
       if (active) setEvents(items.map(mapBackendEvent));
@@ -1369,12 +1404,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setCategories((Array.isArray(backendCategories) ? backendCategories : []).map(mapBackendCategory));
       setProducts((Array.isArray(backendProducts) ? backendProducts : []).map((p) => mapBackendProduct(p, subcatList)));
       setCatalogError(null);
+      await reloadOffers().catch(() => {});
     } catch (err) {
       setCatalogError(normalizeApiError(err).message || 'تعذر تحديث بيانات المتجر.');
     } finally {
       setIsCatalogLoading(false);
     }
-  }, []);
+  }, [reloadOffers]);
 
   const deleteProduct = useCallback(async (productId: string) => {
     const numericId = Number(productId);
@@ -1807,6 +1843,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         isCatalogLoading,
         catalogError,
         reloadCatalog: refreshCatalog,
+        offers,
+        isOffersLoading,
+        offersError,
+        reloadOffers,
         isEventsLoading,
         isProjectsLoading,
         cart,

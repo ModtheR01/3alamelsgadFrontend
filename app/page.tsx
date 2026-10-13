@@ -15,6 +15,7 @@ import {
   CustomersReviewsSection,
 } from '@/components/HomeSections';
 import HomeCategoriesSection from '@/components/HomeCategoriesSection';
+import SpecialOffersSection from '@/components/SpecialOffersSection';
 import ShopCatalog from '@/components/ShopCatalog';
 import ProductDetailView from '@/components/ProductDetailView';
 import CustomDesignView from '@/components/CustomDesignView';
@@ -104,6 +105,7 @@ function AlamelsgadApp() {
           <div>
             <HomeHero />
             <NewArrivalSection />
+            <SpecialOffersSection />
             <HomeCategoriesSection />
             <StoryTeaserSection />
             <CustomersReviewsSection />
