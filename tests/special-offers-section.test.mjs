@@ -60,6 +60,30 @@ test('Special Offers Section & Real Backend Discount Architecture', async (t) =>
       'SpecialOffersSection must provide Arabic retry button'
     );
 
+    // Navigation arrows must be completely removed
+    assert.doesNotMatch(
+      content,
+      /scrollTrack/,
+      'SpecialOffersSection must NOT contain arrow scrollTrack function'
+    );
+    assert.doesNotMatch(
+      content,
+      /ChevronRight|ChevronLeft/,
+      'SpecialOffersSection must NOT render navigation arrow buttons'
+    );
+
+    // Image container must use 4:3 aspect ratio matching carpet photography (zero letterbox white space)
+    assert.match(
+      content,
+      /aspect-\[4\/3\]/,
+      'SpecialOffersSection image container must use aspect-[4/3]'
+    );
+    assert.doesNotMatch(
+      content,
+      /aspect-\[4\/5\]/,
+      'SpecialOffersSection must NOT use portrait aspect-[4/5]'
+    );
+
     // Skeleton loading state
     assert.ok(
       content.includes('offer-skeleton'),

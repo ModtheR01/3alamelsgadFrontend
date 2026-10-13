@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useRef, useState, useMemo, useCallback } from 'react';
+import React, { useRef, useMemo, useCallback } from 'react';
 import { useToccoStore } from '@/lib/store';
 import { useLanguage } from '@/lib/context/LanguageContext';
 import { Product } from '@/types';
-import { BackendOffer } from '@/types/offer';
-import { Tag, Sparkles, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, RefreshCw, ShoppingBag } from 'lucide-react';
+import { Tag, Sparkles, AlertCircle, RefreshCw, ShoppingBag } from 'lucide-react';
 import Image from '@/components/SafeImage';
 
 export interface DiscountedProductItem {
@@ -34,7 +33,7 @@ export function SpecialOffersSection() {
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Mouse click-and-drag tracking refs (Desktop)
+  // Mouse click-and-drag tracking refs (Desktop) — Identical to NewArrivalSection
   const isMouseDown = useRef(false);
   const isDragging = useRef(false);
   const startX = useRef(0);
@@ -145,7 +144,7 @@ export function SpecialOffersSection() {
     [categories, subcategories, getName, t]
   );
 
-  // Mouse Drag Interactions for Desktop
+  // Smooth mouse drag interactions on desktop — Identical to NewArrivalSection
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!scrollContainerRef.current) return;
     isMouseDown.current = true;
@@ -180,15 +179,6 @@ export function SpecialOffersSection() {
     navigateTo('product', { productId });
   };
 
-  // Desktop Arrow Navigation
-  const scrollTrack = (direction: 'left' | 'right') => {
-    if (!scrollContainerRef.current) return;
-    const container = scrollContainerRef.current;
-    const scrollAmount = container.clientWidth * 0.75;
-    const factor = isRtl ? (direction === 'left' ? 1 : -1) : direction === 'left' ? -1 : 1;
-    container.scrollBy({ left: factor * scrollAmount, behavior: 'smooth' });
-  };
-
   // Format Egyptian currency
   const formatEgpPrice = (amount: number) => {
     const formatted = amount.toLocaleString('en-US');
@@ -210,43 +200,21 @@ export function SpecialOffersSection() {
       className="py-10 sm:py-14 bg-[#FAF7F2] border-b border-[#EAE3D8] overflow-hidden"
     >
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header: Title, Subtitle, Badges and Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 sm:mb-8">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#94622D]/10 text-[#94622D] text-xs font-semibold mb-2">
-              <Sparkles className="w-3.5 h-3.5 text-[#94622D]" />
-              <span>{t('تخفيضات حصرية لفترة محدودة', 'Limited Time Exclusive Discounts')}</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-normal text-[#1C1A19] tracking-tight">
-              {t('عروض مميزة', 'Special Offers')}
-            </h2>
-            <p className="text-xs sm:text-sm text-[#8A796B] mt-1.5 max-w-xl">
-              {t(
-                'وفّر أكثر مع عروضنا الحالية وتخفيضات حقيقية على أرقى أنواع السجاد التركي والشرقي',
-                'Save more with our active discounts and verified offers on fine Turkish & Oriental carpets'
-              )}
-            </p>
+        {/* Section Header: Clean, minimal, left/start aligned — No navigation arrows */}
+        <div className="mb-6 sm:mb-8">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#94622D]/10 text-[#94622D] text-xs font-semibold mb-2 select-none">
+            <Sparkles className="w-3.5 h-3.5 text-[#94622D]" />
+            <span>{t('تخفيضات حصرية لفترة محدودة', 'Limited Time Exclusive Discounts')}</span>
           </div>
-
-          {/* Desktop Arrow Controls and View All */}
-          <div className="hidden sm:flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => scrollTrack('right')}
-              aria-label="Scroll right"
-              className="w-10 h-10 rounded-full border border-[#D5C7B6] bg-white text-[#21160F] hover:bg-[#F3ECE0] hover:border-[#94622D] flex items-center justify-center transition-colors shadow-2xs cursor-pointer touch-manipulation"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollTrack('left')}
-              aria-label="Scroll left"
-              className="w-10 h-10 rounded-full border border-[#D5C7B6] bg-white text-[#21160F] hover:bg-[#F3ECE0] hover:border-[#94622D] flex items-center justify-center transition-colors shadow-2xs cursor-pointer touch-manipulation"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          </div>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-normal text-[#1C1A19] tracking-tight">
+            {t('عروض مميزة', 'Special Offers')}
+          </h2>
+          <p className="text-xs sm:text-sm text-[#8A796B] mt-1.5 max-w-xl">
+            {t(
+              'وفّر أكثر مع عروضنا الحالية وتخفيضات حقيقية على أرقى أنواع السجاد التركي والشرقي',
+              'Save more with our active discounts and verified offers on fine Turkish & Oriental carpets'
+            )}
+          </p>
         </div>
 
         {/* Error State Banner with Arabic Retry Button */}
@@ -274,14 +242,14 @@ export function SpecialOffersSection() {
           </div>
         )}
 
-        {/* Carousel / Slider Track — Dual-Axis Native Touch Gesture pan-x pan-y */}
+        {/* Carousel / Slider Track — Matches NewArrivalSection Carousel Behavior Exactly */}
         <div
           ref={scrollContainerRef}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUpOrLeave}
           onMouseLeave={handleMouseUpOrLeave}
-          className="flex gap-3.5 sm:gap-6 overflow-x-auto scrollbar-none pb-4 select-none lg:cursor-grab lg:active:cursor-grabbing snap-x snap-proximity scroll-smooth"
+          className="flex gap-4 sm:gap-6 overflow-x-auto scrollbar-none pb-4 select-none lg:cursor-grab lg:active:cursor-grabbing snap-x snap-proximity scroll-smooth"
           style={{
             WebkitOverflowScrolling: 'touch',
             touchAction: 'pan-x pan-y',
@@ -289,18 +257,18 @@ export function SpecialOffersSection() {
           }}
         >
           {isLoading && discountedProducts.length === 0
-            ? // Skeleton loading cards
-              Array.from({ length: 5 }).map((_, idx) => (
+            ? // Skeleton loading cards with matching 4:3 image ratio
+              Array.from({ length: 6 }).map((_, idx) => (
                 <div
                   key={`offer-skeleton-${idx}`}
-                  className="w-[185px] sm:w-[245px] md:w-[265px] lg:w-[280px] shrink-0 animate-pulse flex flex-col snap-start"
+                  className="w-[195px] sm:w-[250px] md:w-[270px] lg:w-[280px] shrink-0 animate-pulse flex flex-col snap-start bg-white rounded-2xl border border-[#EAE3D8] overflow-hidden"
                 >
-                  <div className="aspect-[4/5] bg-[#EFE9DF] rounded-xl" />
-                  <div className="pt-3 space-y-2">
+                  <div className="aspect-[4/3] w-full bg-[#EFE9DF]" />
+                  <div className="p-3 sm:p-4 space-y-2">
                     <div className="h-4 bg-[#EAE3D8] rounded w-3/4" />
                     <div className="h-3 bg-[#EAE3D8] rounded w-1/3" />
                     <div className="h-4 bg-[#EAE3D8] rounded w-1/2" />
-                    <div className="h-10 bg-[#EAE3D8] rounded-lg mt-3" />
+                    <div className="h-10 bg-[#EAE3D8] rounded-xl mt-3" />
                   </div>
                 </div>
               ))
@@ -313,42 +281,42 @@ export function SpecialOffersSection() {
                   <article
                     key={`offer-card-${product.id}`}
                     onClick={() => handleCardClick(product.id)}
-                    className="w-[185px] sm:w-[245px] md:w-[265px] lg:w-[280px] shrink-0 flex flex-col group cursor-pointer snap-start bg-white rounded-2xl p-3 sm:p-4 border border-[#EAE3D8] hover:border-[#94622D] hover:shadow-md transition-all duration-300"
+                    className="w-[195px] sm:w-[250px] md:w-[270px] lg:w-[280px] shrink-0 flex flex-col group cursor-pointer snap-start bg-white rounded-2xl border border-[#EAE3D8] hover:border-[#94622D] hover:shadow-md transition-all duration-300 overflow-hidden"
                   >
-                    {/* Product Image Box */}
-                    <div className="relative aspect-[4/5] bg-[#F7F5F0] overflow-hidden rounded-xl p-2 flex items-center justify-center border border-[#EFE9DF]">
+                    {/* Product Image Container — Exact 4:3 Carpet Aspect Ratio with Zero Dead Space */}
+                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#F7F5F0]">
                       {primaryImage ? (
                         <Image
                           src={primaryImage}
                           alt={getName(product)}
                           fill
                           draggable={false}
-                          className="object-contain object-center transition-transform duration-500 group-hover:scale-105 pointer-events-none p-1"
+                          className="object-contain object-center transition-transform duration-500 group-hover:scale-105 pointer-events-none"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className="flex flex-col items-center justify-center text-[#B5A595] p-4 text-center">
+                        <div className="w-full h-full flex flex-col items-center justify-center text-[#B5A595] p-4 text-center">
                           <ShoppingBag className="w-8 h-8 opacity-40 mb-1" />
                           <span className="text-[10px]">{getName(product)}</span>
                         </div>
                       )}
 
                       {/* Floating Discount Badge */}
-                      <div className="absolute top-2.5 start-2.5 bg-[#94622D] text-white text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-xs flex items-center gap-1 select-none">
+                      <div className="absolute top-2.5 start-2.5 bg-[#94622D] text-white text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-xs flex items-center gap-1 select-none z-10">
                         <span>-{discountPercentage}%</span>
                         <span className="text-[9px] font-normal">{t('خصم', 'OFF')}</span>
                       </div>
 
                       {/* Floating Offer Title Pill if specific named offer */}
                       {offerName && (
-                        <div className="absolute bottom-2.5 end-2.5 max-w-[85%] truncate bg-[#21160F]/85 text-[#FAF7F2] text-[9px] sm:text-[10px] font-medium px-2 py-0.5 rounded-md backdrop-blur-xs select-none">
+                        <div className="absolute bottom-2.5 end-2.5 max-w-[85%] truncate bg-[#21160F]/85 text-[#FAF7F2] text-[9px] sm:text-[10px] font-medium px-2 py-0.5 rounded-md backdrop-blur-xs select-none z-10">
                           {offerName}
                         </div>
                       )}
                     </div>
 
-                    {/* Product Details */}
-                    <div className="pt-3 flex-1 flex flex-col justify-between">
+                    {/* Product Information */}
+                    <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between">
                       <div>
                         {/* Subcategory / Collection Tag */}
                         <span className="text-[10px] sm:text-[11px] text-[#8A796B] uppercase tracking-wider block font-medium">
