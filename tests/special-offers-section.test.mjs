@@ -72,11 +72,11 @@ test('Special Offers Section & Real Backend Discount Architecture', async (t) =>
       'SpecialOffersSection must NOT render navigation arrow buttons'
     );
 
-    // Image container must use 4:3 aspect ratio matching carpet photography (zero letterbox white space)
+    // Image container and tag must use natural responsive w-full h-auto scaling with zero letterbox padding
     assert.match(
       content,
-      /aspect-\[4\/3\]/,
-      'SpecialOffersSection image container must use aspect-[4/3]'
+      /w-full\s+h-auto\s+block/,
+      'SpecialOffersSection must render product image with w-full h-auto block to allow natural dimensions'
     );
     assert.doesNotMatch(
       content,

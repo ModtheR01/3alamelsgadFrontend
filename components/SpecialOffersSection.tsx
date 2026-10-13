@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useRef, useMemo, useCallback } from 'react';
+import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import { useToccoStore } from '@/lib/store';
 import { useLanguage } from '@/lib/context/LanguageContext';
 import { Product } from '@/types';
 import { Tag, Sparkles, AlertCircle, RefreshCw, ShoppingBag } from 'lucide-react';
-import Image from '@/components/SafeImage';
 
 export interface DiscountedProductItem {
   product: Product;
@@ -15,6 +14,43 @@ export interface DiscountedProductItem {
   savingsAmount: number;
   offerName?: string;
   inStock: boolean;
+}
+
+/**
+ * Renders the product image with width: 100% and height: auto so that the image
+ * itself dictates its exact rendered height without any pillarbox or letterbox dead space.
+ */
+function OfferCardImage({
+  src,
+  alt,
+}: {
+  src?: string | null;
+  alt: string;
+}) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
+  if (!src || hasError) {
+    return (
+      <div className="w-full aspect-[4/3] flex flex-col items-center justify-center text-[#B5A595] p-4 text-center bg-[#F7F5F0]">
+        <ShoppingBag className="w-8 h-8 opacity-40 mb-1" />
+        <span className="text-[10px]">{alt}</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      onError={() => setHasError(true)}
+      className="w-full h-auto block transition-transform duration-500 group-hover:scale-105"
+    />
+  );
 }
 
 export function SpecialOffersSection() {
@@ -257,13 +293,13 @@ export function SpecialOffersSection() {
           }}
         >
           {isLoading && discountedProducts.length === 0
-            ? // Skeleton loading cards with matching 4:3 image ratio
+            ? // Skeleton loading cards
               Array.from({ length: 6 }).map((_, idx) => (
                 <div
                   key={`offer-skeleton-${idx}`}
                   className="w-[195px] sm:w-[250px] md:w-[270px] lg:w-[280px] shrink-0 animate-pulse flex flex-col snap-start bg-white rounded-2xl border border-[#EAE3D8] overflow-hidden"
                 >
-                  <div className="aspect-[4/3] w-full bg-[#EFE9DF]" />
+                  <div className="w-full aspect-[4/3] bg-[#EFE9DF]" />
                   <div className="p-3 sm:p-4 space-y-2">
                     <div className="h-4 bg-[#EAE3D8] rounded w-3/4" />
                     <div className="h-3 bg-[#EAE3D8] rounded w-1/3" />
@@ -283,23 +319,9 @@ export function SpecialOffersSection() {
                     onClick={() => handleCardClick(product.id)}
                     className="w-[195px] sm:w-[250px] md:w-[270px] lg:w-[280px] shrink-0 flex flex-col group cursor-pointer snap-start bg-white rounded-2xl border border-[#EAE3D8] hover:border-[#94622D] hover:shadow-md transition-all duration-300 overflow-hidden"
                   >
-                    {/* Product Image Container — Exact 4:3 Carpet Aspect Ratio with Zero Dead Space */}
-                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#F7F5F0]">
-                      {primaryImage ? (
-                        <Image
-                          src={primaryImage}
-                          alt={getName(product)}
-                          fill
-                          draggable={false}
-                          className="object-contain object-center transition-transform duration-500 group-hover:scale-105 pointer-events-none"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-[#B5A595] p-4 text-center">
-                          <ShoppingBag className="w-8 h-8 opacity-40 mb-1" />
-                          <span className="text-[10px]">{getName(product)}</span>
-                        </div>
-                      )}
+                    {/* Product Image Area — Pure Image, Zero Padding, Natural Height without Dead Space */}
+                    <div className="relative w-full overflow-hidden bg-transparent rounded-t-2xl">
+                      <OfferCardImage src={primaryImage} alt={getName(product)} />
 
                       {/* Floating Discount Badge */}
                       <div className="absolute top-2.5 start-2.5 bg-[#94622D] text-white text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-xs flex items-center gap-1 select-none z-10">
@@ -315,8 +337,8 @@ export function SpecialOffersSection() {
                       )}
                     </div>
 
-                    {/* Product Information */}
-                    <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between">
+                    {/* Product Information — Starts immediately at the bottom edge of the image */}
+                    <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between bg-white">
                       <div>
                         {/* Subcategory / Collection Tag */}
                         <span className="text-[10px] sm:text-[11px] text-[#8A796B] uppercase tracking-wider block font-medium">
