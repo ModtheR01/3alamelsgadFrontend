@@ -72,11 +72,10 @@ test('Special Offers Section & Real Backend Discount Architecture', async (t) =>
       'SpecialOffersSection must NOT render navigation arrow buttons'
     );
 
-    // Image container and tag must use natural responsive w-full h-auto scaling with zero letterbox padding
-    assert.match(
-      content,
-      /w-full\s+h-auto\s+block/,
-      'SpecialOffersSection must render product image with w-full h-auto block to allow natural dimensions'
+    // Image container and tag must use ProductCardImage or natural responsive w-full h-auto scaling with zero letterbox padding
+    assert.ok(
+      content.includes('ProductCardImage') || /w-full\s+h-auto\s+block/.test(content),
+      'SpecialOffersSection must use ProductCardImage or w-full h-auto block to allow natural dimensions'
     );
     assert.doesNotMatch(
       content,

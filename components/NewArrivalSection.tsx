@@ -7,6 +7,7 @@ import { Product } from '@/types';
 import { BackendOffer } from '@/types/offer';
 import { offerService } from '@/lib/api/services/offerService';
 import Image from '@/components/SafeImage';
+import { ProductCardImage } from '@/components/ProductCardImage';
 
 export default function NewArrivalSection() {
   const { products, categories, subcategories, navigateTo, addToCart, isCatalogLoading } = useToccoStore();
@@ -254,7 +255,7 @@ export default function NewArrivalSection() {
                   key={`skeleton-${idx}`}
                   className="w-[195px] sm:w-[250px] md:w-[270px] lg:w-[280px] shrink-0 animate-pulse flex flex-col snap-start"
                 >
-                  <div className="aspect-[4/5] bg-[#EFE9DF] rounded-xl" />
+                  <div className="aspect-[4/3] bg-[#EFE9DF] rounded-xl" />
                   <div className="pt-3 space-y-2">
                     <div className="h-4 bg-[#EAE3D8] rounded w-3/4" />
                     <div className="h-3 bg-[#EAE3D8] rounded w-1/3" />
@@ -273,20 +274,16 @@ export default function NewArrivalSection() {
                     onClick={() => handleCardClick(product.id)}
                     className="w-[195px] sm:w-[250px] md:w-[270px] lg:w-[280px] shrink-0 flex flex-col group cursor-pointer snap-start"
                   >
-                    {/* Product Image Container (object-contain preserving carpet edges) */}
-                    <div className="relative aspect-[4/5] bg-[#F7F5F0] overflow-hidden rounded-xl p-2.5 flex items-center justify-center border border-[#EFE9DF]">
-                      <Image
+                    {/* Product Image Container (proportional natural height, no dead space) */}
+                    <div className="relative w-full overflow-hidden rounded-xl border border-[#EFE9DF] bg-[#F7F5F0]">
+                      <ProductCardImage
                         src={product.images[0] || ''}
                         alt={getName(product)}
-                        fill
-                        draggable={false}
-                        className="object-contain object-center transition-transform duration-500 group-hover:scale-105 pointer-events-none p-1"
-                        referrerPolicy="no-referrer"
                       />
 
-                      {/* Discount Badge (e.g. -15% OFF) in bottom-left */}
+                      {/* Discount Badge (e.g. -15% OFF) */}
                       {discount.hasDiscount && (
-                        <div className="absolute bottom-2.5 start-2.5 sm:bottom-3 sm:start-3 bg-[#94622D] text-white text-[10px] sm:text-xs font-semibold px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full shadow-xs select-none">
+                        <div className="absolute bottom-2.5 start-2.5 sm:bottom-3 sm:start-3 bg-[#94622D] text-white text-[10px] sm:text-xs font-semibold px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full shadow-xs select-none z-10">
                           -{discount.percentage}% {t('خصم', 'OFF')}
                         </div>
                       )}

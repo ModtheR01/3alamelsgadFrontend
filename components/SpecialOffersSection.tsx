@@ -16,42 +16,7 @@ export interface DiscountedProductItem {
   inStock: boolean;
 }
 
-/**
- * Renders the product image with width: 100% and height: auto so that the image
- * itself dictates its exact rendered height without any pillarbox or letterbox dead space.
- */
-function OfferCardImage({
-  src,
-  alt,
-}: {
-  src?: string | null;
-  alt: string;
-}) {
-  const [hasError, setHasError] = useState(false);
-
-  useEffect(() => {
-    setHasError(false);
-  }, [src]);
-
-  if (!src || hasError) {
-    return (
-      <div className="w-full aspect-[4/3] flex flex-col items-center justify-center text-[#B5A595] p-4 text-center bg-[#F7F5F0]">
-        <ShoppingBag className="w-8 h-8 opacity-40 mb-1" />
-        <span className="text-[10px]">{alt}</span>
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={src}
-      alt={alt}
-      loading="lazy"
-      onError={() => setHasError(true)}
-      className="w-full h-auto block transition-transform duration-500 group-hover:scale-105"
-    />
-  );
-}
+import { ProductCardImage } from '@/components/ProductCardImage';
 
 export function SpecialOffersSection() {
   const {
@@ -321,7 +286,7 @@ export function SpecialOffersSection() {
                   >
                     {/* Product Image Area — Pure Image, Zero Padding, Natural Height without Dead Space */}
                     <div className="relative w-full overflow-hidden bg-transparent rounded-t-2xl">
-                      <OfferCardImage src={primaryImage} alt={getName(product)} />
+                      <ProductCardImage src={primaryImage} alt={getName(product)} />
 
                       {/* Floating Discount Badge */}
                       <div className="absolute top-2.5 start-2.5 bg-[#94622D] text-white text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-xs flex items-center gap-1 select-none z-10">

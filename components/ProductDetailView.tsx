@@ -338,7 +338,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
           {/* Left: Product Imagery Showcase (7 cols) */}
           <div className="lg:col-span-7 space-y-4">
             {/* Primary Main Image with Clean Framing */}
-            <div className="relative aspect-[4/3] sm:aspect-[5/4] w-full rounded-2xl overflow-hidden bg-[#F7F5F0] border border-[#E4DACD] shadow-[0_12px_36px_rgba(40,25,15,0.06)] p-3 sm:p-5 flex items-center justify-center">
+            <div className="relative aspect-[4/3] sm:aspect-[5/4] w-full rounded-2xl overflow-hidden bg-[#F7F5F0] border border-[#E4DACD] shadow-[0_12px_36px_rgba(40,25,15,0.06)] flex items-center justify-center">
               {productImages.length > 0 ? (
                 <Image
                   src={productImages[selectedImageIdx] || productImages[0]}

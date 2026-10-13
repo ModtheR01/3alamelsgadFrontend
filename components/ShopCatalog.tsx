@@ -8,6 +8,7 @@ import { offerService } from '@/lib/api/services/offerService';
 import { Product } from '@/types';
 import { BackendOffer } from '@/types/offer';
 import SafeImage from '@/components/SafeImage';
+import { ProductCardImage } from '@/components/ProductCardImage';
 import {
   Search,
   Ruler,
@@ -399,7 +400,7 @@ export default function ShopCatalog() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 pt-6">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                 <div key={i} className="h-72 bg-white rounded-2xl border border-[#EAE3D8] p-3 space-y-3">
-                  <div className="aspect-[4/5] bg-[#EFE9DF] rounded-xl" />
+                  <div className="aspect-[4/3] bg-[#EFE9DF] rounded-xl" />
                   <div className="h-4 bg-[#EFE9DF] rounded w-3/4" />
                   <div className="h-3 bg-[#EFE9DF] rounded w-1/2" />
                 </div>
@@ -865,20 +866,18 @@ export default function ShopCatalog() {
                       key={product.id}
                       className="group flex flex-col bg-white rounded-2xl overflow-hidden border border-[#E8DEC0] hover:shadow-xl transition-all duration-300"
                     >
-                      {/* Product Image / Brand Fallback */}
+                      {/* Product Image / Brand Fallback (natural height, zero dead space) */}
                       <div
-                        className="relative aspect-[4/5] bg-[#F7F5F0] overflow-hidden cursor-pointer p-2.5 sm:p-3 flex items-center justify-center rounded-t-2xl"
+                        className="relative w-full overflow-hidden cursor-pointer rounded-t-2xl bg-[#F7F5F0]"
                         onClick={() => navigateTo('product', { productId: product.id })}
                       >
                         {hasImage ? (
-                          <SafeImage
+                          <ProductCardImage
                             src={product.images[0]}
                             alt={getName(product)}
-                            fill
-                            className="object-contain p-1.5 sm:p-2 transition-transform duration-500 group-hover:scale-105 pointer-events-none"
                           />
                         ) : (
-                          <div className="w-full h-full rounded-xl bg-gradient-to-br from-[#2C1C13] to-[#1C120B] text-white flex flex-col items-center justify-center p-3 text-center">
+                          <div className="w-full aspect-[4/3] rounded-t-2xl bg-gradient-to-br from-[#2C1C13] to-[#1C120B] text-white flex flex-col items-center justify-center p-3 text-center">
                             <div className="w-10 h-10 rounded-full bg-[#C49F74]/20 border border-[#C49F74]/40 flex items-center justify-center mb-1.5 shadow-inner">
                               <Sparkles className="w-5 h-5 text-[#EED8BE]" />
                             </div>
