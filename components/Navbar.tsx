@@ -219,24 +219,6 @@ export default function Navbar() {
               </button>
             );
           })}
-
-          {/* Showroom */}
-          <button
-            id="nav-link-contact"
-            onClick={() => handleNavClick('contact')}
-            className={`relative py-1.5 transition-colors duration-200 ${
-              isTransparent
-                ? 'text-white/85 hover:text-white'
-                : activeView === 'contact'
-                ? 'text-[#241710] font-bold'
-                : 'text-[#5C4A3E] hover:text-[#241710]'
-            }`}
-          >
-            <span>{t('معرض المنصورة', 'Showroom')}</span>
-            {activeView === 'contact' && (
-              <span className="absolute bottom-0 inset-x-0 h-[2px] rounded-full animate-in fade-in duration-200 bg-[#A27B5C]" />
-            )}
-          </button>
         </nav>
 
         {/* Right: Actions (Language Switcher, Search, Account/User Dropdown, Cart, Mobile Toggle) */}
@@ -639,17 +621,6 @@ export default function Navbar() {
                   </button>
                 );
               })}
-
-              {/* Showroom */}
-              <button
-                onClick={() => handleNavClick('contact')}
-                className={`w-full py-2.5 flex items-center justify-between text-start text-sm font-semibold transition-colors ${
-                  activeView === 'contact' ? 'text-[#A27B5C]' : 'text-[#241710] hover:text-[#A27B5C]'
-                }`}
-              >
-                <span>{t('معرض المنصورة', 'Showroom')}</span>
-                <ArrowIcon className="w-4 h-4 text-[#9C8A7C]" />
-              </button>
             </div>
 
             {/* Quick Contact & Showroom Links in Mobile Menu */}
