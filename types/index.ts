@@ -212,6 +212,7 @@ export interface StoreSettings {
     instapay: {
       active: boolean;
       address: string;
+      number?: string;
       accountName: string;
       instructions: string;
     };

@@ -77,18 +77,31 @@ export default function OrderConfirmationView() {
     setProofSubmitted(true);
   };
 
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
   const copyOrderNumber = () => {
     navigator.clipboard.writeText(orderNumber);
     setCopiedOrder(true);
     setTimeout(() => setCopiedOrder(false), 2000);
   };
 
-  // WhatsApp prefilled proof-submission message
-  const proofWhatsappUrl = `https://wa.me/${toWhatsAppNumber(BRAND_CONFIG.whatsappNumber)}?text=${encodeURIComponent(
+  const copyToClipboard = (text: string, field: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const whatsappTargetNumber = settings.contact?.whatsapp || BRAND_CONFIG.whatsappNumber;
+  const proofWhatsappUrl = `https://wa.me/${toWhatsAppNumber(whatsappTargetNumber)}?text=${encodeURIComponent(
     `مرحباً عالم السجاد، تم تسجيل الطلب رقم #${orderNumber} بإجمالي ${totalAmount.toLocaleString()} ج.م. مرفق إيصال التحويل للمراجعة والتأكيد.`
   )}`;
 
   const ArrowIcon = isRtl ? ArrowLeft : ArrowRight;
+
+  const dynamicInstapayAddress = settings.paymentMethods?.instapay?.address;
+  const dynamicInstapayNumber = settings.paymentMethods?.instapay?.number;
+  const dynamicWalletNumber = settings.paymentMethods?.mobileWallet?.number || settings.paymentMethods?.vodafoneCash?.number;
 
   return (
     <div id="order-confirmation-page" className="pt-24 sm:pt-32 pb-24 sm:pb-32 bg-[#FAF8F5] min-h-screen">
@@ -176,17 +189,76 @@ export default function OrderConfirmationView() {
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="p-3.5 rounded-xl bg-white border border-[#DFD6C9] space-y-1">
-              <span className="text-[#8A796B] block">{t('إنستاباي (InstaPay):', 'InstaPay:')}</span>
-              <span className="font-mono font-bold text-sm text-[#251811] block">alamelsgad@instapay</span>
-              <span className="text-[11px] text-[#A27B5C]">{t('باسم: عالم السجاد', 'Account: Alamelsgad')}</span>
-            </div>
+            {Boolean(dynamicInstapayAddress?.trim() || dynamicInstapayNumber?.trim()) && (
+              <div className="p-3.5 rounded-xl bg-white border border-[#DFD6C9] space-y-2">
+                <span className="text-[#8A796B] font-bold block">{t('إنستاباي (InstaPay):', 'InstaPay:')}</span>
+                {Boolean(dynamicInstapayAddress?.trim()) && (
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#FAF8F5] border border-[#EAE3D8]">
+                    <div>
+                      <span className="text-[10px] text-[#8A796B] block">{t('عنوان التحويل (IPA):', 'Address (IPA):')}</span>
+                      <span className="font-mono font-bold text-xs text-[#251811] block">{dynamicInstapayAddress}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(dynamicInstapayAddress!, 'order_insta_addr')}
+                      className="p-1 text-[#A27B5C] hover:text-[#7A5437] transition-colors"
+                      title={t('نسخ عنوان إنستاباي', 'Copy InstaPay Address')}
+                      aria-label="نسخ عنوان إنستاباي"
+                    >
+                      {copiedField === 'order_insta_addr' ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                )}
+                {Boolean(dynamicInstapayNumber?.trim()) && (
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#FAF8F5] border border-[#EAE3D8]">
+                    <div>
+                      <span className="text-[10px] text-[#8A796B] block">{t('رقم إنستا باي:', 'InstaPay Phone:')}</span>
+                      <span className="font-mono font-bold text-xs text-[#251811] block">{dynamicInstapayNumber}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(dynamicInstapayNumber!, 'order_insta_num')}
+                      className="p-1 text-[#A27B5C] hover:text-[#7A5437] transition-colors"
+                      title={t('نسخ رقم إنستا باي', 'Copy InstaPay Number')}
+                      aria-label="نسخ رقم إنستا باي"
+                    >
+                      {copiedField === 'order_insta_num' ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                )}
+                <span className="text-[11px] text-[#A27B5C] block">{t('باسم: عالم السجاد', 'Account: Alamelsgad')}</span>
+              </div>
+            )}
 
-            <div className="p-3.5 rounded-xl bg-white border border-[#DFD6C9] space-y-1">
-              <span className="text-[#8A796B] block">{t('فودافون كاش / محفظة:', 'Vodafone Cash / Wallet:')}</span>
-              <span className="font-mono font-bold text-sm text-[#251811] block">01010750072</span>
-              <span className="text-[11px] text-[#A27B5C]">{t('تحويل مباشر لرقم الإدارة', 'Direct official number')}</span>
-            </div>
+            {Boolean(dynamicWalletNumber?.trim()) && (
+              <div className="p-3.5 rounded-xl bg-white border border-[#DFD6C9] space-y-2">
+                <span className="text-[#8A796B] font-bold block">{t('المحفظة الإلكترونية:', 'Electronic Wallet:')}</span>
+                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#FAF8F5] border border-[#EAE3D8]">
+                  <div>
+                    <span className="text-[10px] text-[#8A796B] block">{t('رقم المحفظة:', 'Wallet Number:')}</span>
+                    <span className="font-mono font-bold text-xs text-[#251811] block">{dynamicWalletNumber}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(dynamicWalletNumber!, 'order_wallet_num')}
+                    className="p-1 text-[#A27B5C] hover:text-[#7A5437] transition-colors"
+                    title={t('نسخ رقم المحفظة', 'Copy Wallet Number')}
+                    aria-label="نسخ رقم المحفظة"
+                  >
+                    {copiedField === 'order_wallet_num' ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+                <span className="text-[11px] text-[#A27B5C] block">{t('مثال: فودافون كاش ومحافظ الهواتف', 'e.g. Vodafone Cash / Mobile Wallets')}</span>
+              </div>
+            )}
+
+            {!dynamicInstapayAddress?.trim() && !dynamicInstapayNumber?.trim() && !dynamicWalletNumber?.trim() && (
+              <div className="sm:col-span-2 p-3.5 rounded-xl bg-white border border-[#DFD6C9]">
+                <p className="text-xs text-[#5C4A3E]">
+                  {t('يرجى التواصل مع خدمة العملاء عبر واتساب للحصول على تفاصيل الدفع والتحويل.', 'Please contact customer support via WhatsApp for payment details.')}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Direct WhatsApp Share CTA */}

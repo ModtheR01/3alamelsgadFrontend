@@ -42,6 +42,7 @@ export default function CheckoutView() {
     setLastCreatedOrder,
     navigateTo,
     user: legacyUser,
+    settings,
   } = useToccoStore();
 
   const { user: authUser, addresses: authAddresses, createAddress, isLoading: isAuthLoading } = useAuth();
@@ -878,40 +879,100 @@ export default function CheckoutView() {
               </div>
 
               {/* Instructions Box */}
-              <div className="p-4 rounded-xl bg-[#FAF6F0] border border-[#E8DEC0] text-xs space-y-2">
+              <div className="p-4 rounded-xl bg-[#FAF6F0] border border-[#E8DEC0] text-xs space-y-3">
                 {paymentMethod === 'instapay' && (
-                  <div className="space-y-1.5">
-                    <p className="font-bold text-[#251811]">
-                      {t('عنوان إنستاباي الرسمي للتحويل:', 'Official InstaPay Address:')}
-                    </p>
-                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-[#DFD6C9]">
-                      <span className="font-mono font-bold text-sm text-[#251811]">alamelsgad@instapay</span>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard('alamelsgad@instapay', 'instapay')}
-                        className="p-1 text-[#A27B5C] hover:text-[#7A5437]"
-                      >
-                        {copiedField === 'instapay' ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                      </button>
-                    </div>
+                  <div className="space-y-3">
+                    {/* InstaPay Address */}
+                    {Boolean(settings.paymentMethods?.instapay?.address?.trim()) && (
+                      <div className="space-y-1.5">
+                        <p className="font-bold text-[#251811]">
+                          {t('عنوان إنستاباي الرسمي للتحويل (IPA):', 'Official InstaPay Address (IPA):')}
+                        </p>
+                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-[#DFD6C9]">
+                          <span className="font-mono font-bold text-sm text-[#251811]">
+                            {settings.paymentMethods.instapay.address}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(settings.paymentMethods.instapay.address, 'instapay_address')}
+                            className="p-1 text-[#A27B5C] hover:text-[#7A5437]"
+                            title="نسخ عنوان إنستاباي"
+                            aria-label="نسخ عنوان إنستاباي"
+                          >
+                            {copiedField === 'instapay_address' ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* InstaPay Number */}
+                    {Boolean(settings.paymentMethods?.instapay?.number?.trim()) && (
+                      <div className="space-y-1.5">
+                        <p className="font-bold text-[#251811]">
+                          {t('رقم إنستا باي للتحويل:', 'InstaPay Phone Number:')}
+                        </p>
+                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-[#DFD6C9]">
+                          <span className="font-mono font-bold text-sm text-[#251811]">
+                            {settings.paymentMethods.instapay.number}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(settings.paymentMethods.instapay.number!, 'instapay_number')}
+                            className="p-1 text-[#A27B5C] hover:text-[#7A5437]"
+                            title="نسخ رقم إنستا باي"
+                            aria-label="نسخ رقم إنستا باي"
+                          >
+                            {copiedField === 'instapay_number' ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {!settings.paymentMethods?.instapay?.address?.trim() && !settings.paymentMethods?.instapay?.number?.trim() && (
+                      <p className="text-[#5C4A3E]">
+                        {t('يرجى التواصل مع خدمة العملاء للحصول على بيانات التحويل عبر إنستاباي.', 'Please contact customer support for InstaPay transfer details.')}
+                      </p>
+                    )}
                   </div>
                 )}
 
                 {paymentMethod === 'vodafone_cash' && (
                   <div className="space-y-1.5">
                     <p className="font-bold text-[#251811]">
-                      {t('رقم المحفظة الإلكترونية (فودافون كاش):', 'Mobile Wallet Number (Vodafone Cash):')}
+                      {t('رقم المحفظة الإلكترونية:', 'Electronic Wallet Number:')}
                     </p>
-                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-[#DFD6C9]">
-                      <span className="font-mono font-bold text-sm text-[#251811]">01010750072</span>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard('01010750072', 'wallet')}
-                        className="p-1 text-[#A27B5C] hover:text-[#7A5437]"
-                      >
-                        {copiedField === 'wallet' ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                      </button>
-                    </div>
+                    {Boolean(
+                      (settings.paymentMethods?.mobileWallet?.number || settings.paymentMethods?.vodafoneCash?.number)?.trim()
+                    ) ? (
+                      <>
+                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-[#DFD6C9]">
+                          <span className="font-mono font-bold text-sm text-[#251811]">
+                            {settings.paymentMethods.mobileWallet?.number || settings.paymentMethods.vodafoneCash?.number}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              copyToClipboard(
+                                settings.paymentMethods.mobileWallet?.number || settings.paymentMethods.vodafoneCash?.number || '',
+                                'wallet'
+                              )
+                            }
+                            className="p-1 text-[#A27B5C] hover:text-[#7A5437]"
+                            title="نسخ رقم المحفظة"
+                            aria-label="نسخ رقم المحفظة"
+                          >
+                            {copiedField === 'wallet' ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-[#8C7A6B]">
+                          {t('مثال: فودافون كاش / اتصالات كاش / وي باي / أورنج كاش', 'e.g. Vodafone Cash / Etisalat Cash / WE Pay / Orange Cash')}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-[#5C4A3E]">
+                        {t('يرجى التواصل مع خدمة العملاء للحصول على رقم المحفظة الإلكترونية.', 'Please contact customer support for wallet transfer details.')}
+                      </p>
+                    )}
                   </div>
                 )}
 

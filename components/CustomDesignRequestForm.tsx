@@ -7,6 +7,7 @@ import { normalizeApiError } from '@/lib/api/errors';
 import { customDesignService } from '@/lib/api/services/customDesignService';
 import { uploadDirectToCloudinary } from '@/lib/api/cloudinary';
 import { toWhatsAppNumber } from '@/lib/utils';
+import { BRAND_CONFIG } from '@/lib/brandConfig';
 import { CustomDesignRequestCreate, CustomDesignRequestType } from '@/types/customDesign';
 import {
   AlertCircle,
@@ -191,8 +192,9 @@ export default function CustomDesignRequestForm({ requestType }: CustomDesignReq
     );
   }
 
-  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
-    `Hello Tocco House, I have a question about my ${requestLabel}.`
+  const targetWhatsapp = settings.contact?.whatsapp || BRAND_CONFIG.whatsappNumber;
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(targetWhatsapp)}?text=${encodeURIComponent(
+    `مرحباً عالم السجاد، أود الاستفسار بخصوص ${requestLabel}.`
   )}`;
 
   return (

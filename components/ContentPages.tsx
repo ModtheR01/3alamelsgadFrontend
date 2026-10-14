@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import { useLanguage } from '@/lib/context/LanguageContext';
+import { useToccoStore } from '@/lib/store';
 import { BRAND_CONFIG } from '@/lib/brandConfig';
+import { toWhatsAppNumber } from '@/lib/utils';
 import {
   Truck,
   ShieldCheck,
@@ -223,14 +225,22 @@ export function FaqView() {
 
 export function ContactView() {
   const { t } = useLanguage();
+  const { settings } = useToccoStore();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
   const [sent, setSent] = useState(false);
 
+  const whatsappNumber = settings.contact?.whatsapp || BRAND_CONFIG.whatsappNumber;
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(whatsappNumber)}`;
+  const displayPhone = settings.contact?.phone || BRAND_CONFIG.phoneDisplay;
+  const rawPhone = settings.contact?.phone || BRAND_CONFIG.phone;
+  const displayAddress = settings.contact?.atelierAddress || t(BRAND_CONFIG.addressAr, BRAND_CONFIG.addressEn);
+  const displayHours = settings.contact?.hours || t(BRAND_CONFIG.hoursAr, BRAND_CONFIG.hoursEn);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const url = `https://wa.me/${BRAND_CONFIG.whatsappNumber}?text=${encodeURIComponent(
+    const url = `https://wa.me/${toWhatsAppNumber(whatsappNumber)}?text=${encodeURIComponent(
       `رسالة من الموقع:\nالاسم: ${name}\nالهاتف: ${phone}\nالرسالة: ${message}`
     )}`;
     window.open(url, '_blank');
@@ -266,7 +276,7 @@ export function ContactView() {
                   <div>
                     <span className="font-bold text-[#251811] block mb-0.5">{t('المعرض الرئيسي:', 'Main Showroom:')}</span>
                     <a href={BRAND_CONFIG.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="hover:text-[#A27B5C] underline">
-                      {t(BRAND_CONFIG.addressAr, BRAND_CONFIG.addressEn)}
+                      {displayAddress}
                       <ArrowUpRight className="w-3.5 h-3.5 inline ms-1" />
                     </a>
                   </div>
@@ -276,8 +286,8 @@ export function ContactView() {
                   <Phone className="w-5 h-5 text-[#A27B5C] shrink-0" />
                   <div>
                     <span className="font-bold text-[#251811] block mb-0.5">{t('الهاتف والواتساب:', 'Phone & WhatsApp:')}</span>
-                    <a href={`tel:${BRAND_CONFIG.phone}`} className="font-mono text-sm font-bold text-[#251811]">
-                      {BRAND_CONFIG.phoneDisplay}
+                    <a href={`tel:${rawPhone}`} className="font-mono text-sm font-bold text-[#251811]">
+                      {displayPhone}
                     </a>
                   </div>
                 </div>
@@ -286,7 +296,7 @@ export function ContactView() {
                   <Clock className="w-5 h-5 text-[#A27B5C] shrink-0 mt-0.5" />
                   <div>
                     <span className="font-bold text-[#251811] block mb-0.5">{t('مواعيد العمل:', 'Working Hours:')}</span>
-                    <span>{t(BRAND_CONFIG.hoursAr, BRAND_CONFIG.hoursEn)}</span>
+                    <span>{displayHours}</span>
                   </div>
                 </div>
               </div>
@@ -294,7 +304,7 @@ export function ContactView() {
               {/* Direct WhatsApp Action */}
               <div className="pt-2">
                 <a
-                  href={BRAND_CONFIG.whatsappUrl}
+                  href={whatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full py-3 px-4 rounded-xl bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all"

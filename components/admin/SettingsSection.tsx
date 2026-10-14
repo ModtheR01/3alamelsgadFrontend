@@ -23,19 +23,38 @@ export default function SettingsSection({
   settings,
   onUpdateSettings,
 }: SettingsSectionProps) {
-  const [phone, setPhone] = useState(settings.contact?.phone || BRAND_CONFIG.phone);
-  const [whatsapp, setWhatsapp] = useState(settings.contact?.whatsapp || BRAND_CONFIG.whatsappNumber);
-  const [address, setAddress] = useState(settings.contact?.atelierAddress || BRAND_CONFIG.addressAr);
-  const [hours, setHours] = useState(settings.contact?.hours || BRAND_CONFIG.hoursAr);
+  const [phone, setPhone] = useState(settings.contact?.phone ?? BRAND_CONFIG.phone);
+  const [whatsapp, setWhatsapp] = useState(settings.contact?.whatsapp ?? BRAND_CONFIG.whatsappNumber);
+  const [address, setAddress] = useState(settings.contact?.atelierAddress ?? BRAND_CONFIG.addressAr);
+  const [hours, setHours] = useState(settings.contact?.hours ?? BRAND_CONFIG.hoursAr);
 
   const [instapayAddress, setInstapayAddress] = useState(
-    settings.paymentMethods?.instapay?.address || 'alamelsgad@instapay'
+    settings.paymentMethods?.instapay?.address ?? ''
   );
-  const [vodafoneNumber, setVodafoneNumber] = useState(
-    settings.paymentMethods?.vodafoneCash?.number || '01010750072'
+  const [instapayNumber, setInstapayNumber] = useState(
+    settings.paymentMethods?.instapay?.number ?? ''
+  );
+  const [walletNumber, setWalletNumber] = useState(
+    settings.paymentMethods?.mobileWallet?.number ||
+    settings.paymentMethods?.vodafoneCash?.number ||
+    ''
   );
 
   const [toast, setToast] = useState<string | null>(null);
+
+  // Sync state when settings prop updates
+  React.useEffect(() => {
+    if (settings.contact?.phone !== undefined) setPhone(settings.contact.phone);
+    if (settings.contact?.whatsapp !== undefined) setWhatsapp(settings.contact.whatsapp);
+    if (settings.contact?.atelierAddress !== undefined) setAddress(settings.contact.atelierAddress);
+    if (settings.contact?.hours !== undefined) setHours(settings.contact.hours);
+    if (settings.paymentMethods?.instapay?.address !== undefined) setInstapayAddress(settings.paymentMethods.instapay.address);
+    if (settings.paymentMethods?.instapay?.number !== undefined) setInstapayNumber(settings.paymentMethods.instapay.number);
+    const wNum = settings.paymentMethods?.mobileWallet?.number || settings.paymentMethods?.vodafoneCash?.number;
+    if (wNum !== undefined) {
+      setWalletNumber(wNum);
+    }
+  }, [settings]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,10 +71,15 @@ export default function SettingsSection({
         instapay: {
           ...settings.paymentMethods.instapay,
           address: instapayAddress,
+          number: instapayNumber,
+        },
+        mobileWallet: {
+          ...settings.paymentMethods.mobileWallet,
+          number: walletNumber,
         },
         vodafoneCash: {
           ...settings.paymentMethods.vodafoneCash,
-          number: vodafoneNumber,
+          number: walletNumber,
         },
       },
     });
@@ -128,18 +152,35 @@ export default function SettingsSection({
 
             <div className="space-y-1.5">
               <label className="block font-bold text-[#241710] flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-[#A27B5C]" />
-                <span>رقم محفظة فودافون كاش (Vodafone Cash)</span>
+                <Smartphone className="w-3.5 h-3.5 text-[#A27B5C]" />
+                <span>رقم إنستا باي</span>
               </label>
               <input
                 type="text"
-                value={vodafoneNumber}
-                onChange={(e) => setVodafoneNumber(e.target.value)}
+                value={instapayNumber}
+                onChange={(e) => setInstapayNumber(e.target.value)}
                 placeholder="مثال: 01010750072"
                 className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-mono focus:outline-none focus:border-[#241710]"
               />
               <p className="text-[10px] text-[#8C7A6B]">
-                رقم الهاتف المعتمد لاستلام تحويلات فودافون كاش والمحافظ الإلكترونية
+                رقم الهاتف المرتبط بحساب إنستا باي لاستقبال التحويلات
+              </p>
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="block font-bold text-[#241710] flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-[#A27B5C]" />
+                <span>رقم المحفظة الإلكترونية</span>
+              </label>
+              <input
+                type="text"
+                value={walletNumber}
+                onChange={(e) => setWalletNumber(e.target.value)}
+                placeholder="مثال: فودافون كاش"
+                className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-mono focus:outline-none focus:border-[#241710]"
+              />
+              <p className="text-[10px] text-[#8C7A6B]">
+                مثال: فودافون كاش · رقم الهاتف المعتمد لاستلام تحويلات المحافظ الإلكترونية
               </p>
             </div>
           </div>

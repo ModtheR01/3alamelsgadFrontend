@@ -4,13 +4,17 @@ import React from 'react';
 import { useToccoStore } from '@/lib/store';
 import { useLanguage } from '@/lib/context/LanguageContext';
 import { BRAND_CONFIG } from '@/lib/brandConfig';
+import { toWhatsAppNumber } from '@/lib/utils';
 import AlamelsgadLogo, { AlamelsgadMark } from './AlamelsgadLogo';
 import Image from '@/components/SafeImage';
 import { Sparkles, ArrowRight, ArrowLeft, ShieldCheck, Truck, Ruler, MapPin, MessageCircle } from 'lucide-react';
 
 export default function OurStoryView() {
-  const { navigateTo } = useToccoStore();
+  const { navigateTo, settings } = useToccoStore();
   const { t, isRtl } = useLanguage();
+
+  const whatsappNumber = settings.contact?.whatsapp || BRAND_CONFIG.whatsappNumber;
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(whatsappNumber)}`;
 
   const ArrowIcon = isRtl ? ArrowLeft : ArrowRight;
 
@@ -171,7 +175,7 @@ export default function OurStoryView() {
             </a>
 
             <a
-              href={BRAND_CONFIG.whatsappUrl}
+              href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="px-6 py-3 rounded-full bg-[#25D366] hover:bg-[#20BA5A] text-white text-xs font-bold flex items-center gap-2 shadow-md transition-colors"

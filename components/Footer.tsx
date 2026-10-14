@@ -4,6 +4,7 @@ import React from 'react';
 import { useToccoStore, AppView } from '@/lib/store';
 import { useLanguage } from '@/lib/context/LanguageContext';
 import { BRAND_CONFIG } from '@/lib/brandConfig';
+import { toWhatsAppNumber } from '@/lib/utils';
 import AlamelsgadLogo from './AlamelsgadLogo';
 import {
   MessageCircle,
@@ -15,13 +16,20 @@ import {
 } from 'lucide-react';
 
 export default function Footer() {
-  const { navigateTo } = useToccoStore();
+  const { navigateTo, settings } = useToccoStore();
   const { t } = useLanguage();
 
   const handleLink = (view: AppView) => {
     navigateTo(view);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const whatsappNumber = settings.contact?.whatsapp || BRAND_CONFIG.whatsappNumber;
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(whatsappNumber)}`;
+  const displayPhone = settings.contact?.phone || BRAND_CONFIG.phoneDisplay;
+  const rawPhone = settings.contact?.phone || BRAND_CONFIG.phone;
+  const displayAddress = settings.contact?.atelierAddress || t(BRAND_CONFIG.addressAr, BRAND_CONFIG.addressEn);
+  const displayHours = settings.contact?.hours || t(BRAND_CONFIG.hoursAr, BRAND_CONFIG.hoursEn);
 
   return (
     <footer
@@ -46,7 +54,7 @@ export default function Footer() {
             <div className="flex items-center gap-3 pt-2">
               {/* WhatsApp */}
               <a
-                href={BRAND_CONFIG.whatsappUrl}
+                href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-full bg-[#2B1D15] hover:bg-[#25D366] text-[#D8C7B5] hover:text-white flex items-center justify-center transition-all"
@@ -239,7 +247,7 @@ export default function Footer() {
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors leading-relaxed"
                 >
-                  {t(BRAND_CONFIG.addressAr, BRAND_CONFIG.addressEn)}
+                  {displayAddress}
                   <ArrowUpRight className="w-3 h-3 inline ms-1 text-[#C49F74]" />
                 </a>
               </div>
@@ -247,16 +255,16 @@ export default function Footer() {
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-[#C49F74] shrink-0" />
                 <a
-                  href={`tel:${BRAND_CONFIG.phone}`}
-                  className="hover:text-white transition-colors font-medium"
+                  href={`tel:${rawPhone}`}
+                  className="hover:text-white transition-colors font-medium font-mono"
                 >
-                  {BRAND_CONFIG.phoneDisplay}
+                  {displayPhone}
                 </a>
               </div>
 
               <div className="flex items-start gap-2">
                 <Clock className="w-4 h-4 text-[#C49F74] shrink-0 mt-0.5" />
-                <span>{t(BRAND_CONFIG.hoursAr, BRAND_CONFIG.hoursEn)}</span>
+                <span>{displayHours}</span>
               </div>
             </div>
           </div>

@@ -23,6 +23,7 @@ import {
   RefreshCw,
   FolderTree,
 } from 'lucide-react';
+import { toWhatsAppNumber } from '@/lib/utils';
 import { normalizeApiError } from '@/lib/api/errors';
 
 export default function Navbar() {
@@ -35,6 +36,7 @@ export default function Navbar() {
     setSearchQuery,
     categories,
     selectedCategoryId,
+    settings,
   } = useToccoStore();
 
   const { user, logout } = useAuth();
@@ -625,15 +627,22 @@ export default function Navbar() {
 
             {/* Quick Contact & Showroom Links in Mobile Menu */}
             <div className="pt-3 border-t border-[#EAE3D8] flex flex-col gap-2.5 text-xs text-[#5C4A3E]">
-              <a
-                href={BRAND_CONFIG.whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 p-2.5 rounded-xl bg-[#EFE8DD] text-[#241710] font-medium"
-              >
-                <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                <span>{t('تواصل عبر واتساب:', 'Chat on WhatsApp:')} {BRAND_CONFIG.phoneDisplay}</span>
-              </a>
+              {(() => {
+                const navWhatsapp = settings.contact?.whatsapp || BRAND_CONFIG.whatsappNumber;
+                const navWhatsappUrl = `https://wa.me/${toWhatsAppNumber(navWhatsapp)}`;
+                const navPhoneDisplay = settings.contact?.phone || BRAND_CONFIG.phoneDisplay;
+                return (
+                  <a
+                    href={navWhatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 p-2.5 rounded-xl bg-[#EFE8DD] text-[#241710] font-medium"
+                  >
+                    <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                    <span>{t('تواصل عبر واتساب:', 'Chat on WhatsApp:')} {navPhoneDisplay}</span>
+                  </a>
+                );
+              })()}
               <a
                 href={BRAND_CONFIG.googleMapsUrl}
                 target="_blank"

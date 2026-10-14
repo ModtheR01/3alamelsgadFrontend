@@ -3,6 +3,7 @@
 import React from 'react';
 import { useToccoStore, AppView } from '@/lib/store';
 import { toWhatsAppNumber } from '@/lib/utils';
+import { BRAND_CONFIG } from '@/lib/brandConfig';
 import { Home, Compass, Sparkles, ShoppingBag, MessageCircle } from 'lucide-react';
 
 export default function MobileBottomNav() {
@@ -19,8 +20,9 @@ export default function MobileBottomNav() {
     return null;
   }
 
-  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
-    'Hello Tocco House Atelier Concierge, I would like to inquire about your pieces.'
+  const targetWhatsapp = settings.contact?.whatsapp || BRAND_CONFIG.whatsappNumber;
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(targetWhatsapp)}?text=${encodeURIComponent(
+    'مرحباً عالم السجاد، أود الاستفسار عن المعروضات والمنتجات المتاحة.'
   )}`;
 
   const tabs: {

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useToccoStore } from '@/lib/store';
 import { toWhatsAppNumber } from '@/lib/utils';
+import { BRAND_CONFIG } from '@/lib/brandConfig';
 import Image from '@/components/SafeImage';
 import { Calendar, MapPin, ArrowRight, Sparkles, MessageCircle } from 'lucide-react';
 
@@ -16,8 +17,9 @@ export default function EventsView() {
     return true;
   });
 
-  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
-    'Hello Tocco House, I would like to inquire about attending your upcoming exhibition or atelier viewing.'
+  const targetWhatsapp = settings.contact?.whatsapp || BRAND_CONFIG.whatsappNumber;
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(targetWhatsapp)}?text=${encodeURIComponent(
+    'مرحباً عالم السجاد، أود الاستفسار عن فعاليات ومعارض عالم السجاد.'
   )}`;
 
   return (

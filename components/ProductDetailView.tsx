@@ -241,7 +241,8 @@ export default function ProductDetailView() {
 ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
 السعر: ${effectiveUnitPrice} ج.م`;
 
-  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(BRAND_CONFIG.whatsappNumber)}?text=${encodeURIComponent(
+  const targetWhatsapp = settings.contact?.whatsapp || BRAND_CONFIG.whatsappNumber;
+  const whatsappUrl = `https://wa.me/${toWhatsAppNumber(targetWhatsapp)}?text=${encodeURIComponent(
     whatsappPrefill
   )}`;
 

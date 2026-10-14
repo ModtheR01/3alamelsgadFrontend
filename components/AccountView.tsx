@@ -8,6 +8,7 @@ import { Order, OrderStatus, PaymentStatus } from '@/types';
 import { Address } from '@/types/auth';
 import { orderService } from '@/lib/api/services/orderService';
 import { BackendOrder, BackendOrderStatus } from '@/types/order';
+import { BRAND_CONFIG } from '@/lib/brandConfig';
 import { normalizeApiError } from '@/lib/api/errors';
 import ProfileSection from './ProfileSection';
 import SafeImage from './SafeImage';
@@ -963,7 +964,8 @@ export default function AccountView() {
                 ) : (
                   <div className="space-y-6">
                     {backendOrders.map((ord) => {
-                      const whatsappUrl = `https://wa.me/${toWhatsAppNumber(settings.contact.whatsapp)}?text=${encodeURIComponent(
+                      const targetWhatsapp = settings.contact?.whatsapp || BRAND_CONFIG.whatsappNumber;
+                      const whatsappUrl = `https://wa.me/${toWhatsAppNumber(targetWhatsapp)}?text=${encodeURIComponent(
                         `مرحباً عالم السجاد، أود الاستفسار عن حالة طلبي رقم #${ord.order_number}.`
                       )}`;
 

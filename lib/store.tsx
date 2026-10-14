@@ -40,6 +40,7 @@ import {
 } from '@/types/cart';
 import { eventService } from '@/lib/api/services/eventService';
 import { dashboardService } from '@/lib/api/services/dashboardService';
+import { DashboardSettingsPatch } from '@/types/dashboard';
 import { collaborationService } from '@/lib/api/services/collaborationService';
 import { BackendEvent } from '@/types/event';
 import { BackendCollaboration } from '@/types/collaboration';
@@ -896,24 +897,41 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     dashboardService.getSettings().then((data) => {
       if (!active || !data) return;
       const wallets = data.payment_wallets || {};
+
+      let instapayAddress = '';
+      let instapayNumber = '';
+      if (typeof wallets.instapay === 'string') {
+        instapayAddress = wallets.instapay;
+      } else if (wallets.instapay && typeof wallets.instapay === 'object') {
+        instapayAddress = wallets.instapay.address ?? '';
+        instapayNumber = wallets.instapay.number ?? '';
+      }
+
       setSettings((current) => ({
         ...current,
         depositPercentage: data.deposit_percentage !== undefined && data.deposit_percentage !== null
           ? Number(data.deposit_percentage)
           : current.depositPercentage,
+        contact: {
+          ...current.contact,
+          phone: data.phone !== undefined && data.phone !== '' ? data.phone : current.contact.phone,
+          whatsapp: data.whatsapp !== undefined && data.whatsapp !== '' ? data.whatsapp : current.contact.whatsapp,
+          atelierAddress: data.address !== undefined && data.address !== '' ? data.address : current.contact.atelierAddress,
+        },
         paymentMethods: {
           ...current.paymentMethods,
           mobileWallet: {
             ...current.paymentMethods.mobileWallet,
-            number: wallets.mobile_wallet || current.paymentMethods.mobileWallet.number,
+            number: wallets.mobile_wallet || wallets.vodafone_cash || current.paymentMethods.mobileWallet.number,
           },
           instapay: {
             ...current.paymentMethods.instapay,
-            address: wallets.instapay || current.paymentMethods.instapay.address,
+            address: instapayAddress || current.paymentMethods.instapay.address,
+            number: instapayNumber || current.paymentMethods.instapay.number,
           },
           vodafoneCash: {
             ...current.paymentMethods.vodafoneCash,
-            number: wallets.vodafone_cash || current.paymentMethods.vodafoneCash.number,
+            number: wallets.vodafone_cash || wallets.mobile_wallet || current.paymentMethods.vodafoneCash.number,
           },
         },
       }));
@@ -1704,51 +1722,103 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Settings
   const updateSettings = useCallback(async (newSettings: Partial<StoreSettings>) => {
-    // PATCH merges by key: untouched wallet keys are left as-is server-side, so only send
-    // keys that actually changed; a key cleared to '' is sent as `null` to delete it.
-    let paymentWallets: Record<string, string | null> | undefined;
+    const paymentWalletsPatch: Record<string, any> = {};
+    let hasWalletChanges = false;
+
     if (newSettings.paymentMethods) {
-      const candidates: Array<[string, string | undefined, string]> = [
-        ['mobile_wallet', newSettings.paymentMethods.mobileWallet?.number, settings.paymentMethods.mobileWallet.number],
-        ['vodafone_cash', newSettings.paymentMethods.vodafoneCash?.number, settings.paymentMethods.vodafoneCash.number],
-        ['instapay', newSettings.paymentMethods.instapay?.address, settings.paymentMethods.instapay.address],
-      ];
-      const changed: Record<string, string | null> = {};
-      for (const [key, next, current] of candidates) {
-        if (next === undefined || next === current) continue;
-        changed[key] = next.trim() === '' ? null : next.trim();
+      const pm = newSettings.paymentMethods;
+
+      // Mobile Wallet / Vodafone Cash
+      const nextMobile = pm.mobileWallet?.number ?? pm.vodafoneCash?.number;
+      const currentMobile = settings.paymentMethods.mobileWallet?.number || settings.paymentMethods.vodafoneCash?.number;
+      if (nextMobile !== undefined && nextMobile !== currentMobile) {
+        hasWalletChanges = true;
+        const val = nextMobile.trim() === '' ? null : nextMobile.trim();
+        paymentWalletsPatch.mobile_wallet = val;
+        paymentWalletsPatch.vodafone_cash = val;
       }
-      paymentWallets = Object.keys(changed).length > 0 ? changed : undefined;
+
+      // InstaPay: address and number inside payment_wallets.instapay
+      const nextInstaAddress = pm.instapay?.address;
+      const currentInstaAddress = settings.paymentMethods.instapay?.address;
+      const nextInstaNumber = pm.instapay?.number;
+      const currentInstaNumber = settings.paymentMethods.instapay?.number;
+
+      const addressChanged = nextInstaAddress !== undefined && nextInstaAddress !== currentInstaAddress;
+      const numberChanged = nextInstaNumber !== undefined && nextInstaNumber !== currentInstaNumber;
+
+      if (addressChanged || numberChanged) {
+        hasWalletChanges = true;
+        const instapayPatch: Record<string, string | null> = {};
+        if (addressChanged) {
+          instapayPatch.address = nextInstaAddress?.trim() === '' ? '' : (nextInstaAddress?.trim() ?? '');
+        }
+        if (numberChanged) {
+          instapayPatch.number = nextInstaNumber?.trim() === '' ? '' : (nextInstaNumber?.trim() ?? '');
+        }
+        paymentWalletsPatch.instapay = instapayPatch;
+      }
     }
 
-    const dashboardPatch = {
-      deposit_percentage: newSettings.depositPercentage,
-      payment_wallets: paymentWallets,
-    };
-    if (dashboardPatch.deposit_percentage === undefined && !dashboardPatch.payment_wallets) {
+    const dashboardPatch: DashboardSettingsPatch = {};
+    if (newSettings.depositPercentage !== undefined) {
+      dashboardPatch.deposit_percentage = newSettings.depositPercentage;
+    }
+    if (hasWalletChanges) {
+      dashboardPatch.payment_wallets = paymentWalletsPatch;
+    }
+    if (newSettings.contact?.phone !== undefined) {
+      dashboardPatch.phone = newSettings.contact.phone.trim();
+    }
+    if (newSettings.contact?.whatsapp !== undefined) {
+      dashboardPatch.whatsapp = newSettings.contact.whatsapp.trim();
+    }
+    if (newSettings.contact?.atelierAddress !== undefined) {
+      dashboardPatch.address = newSettings.contact.atelierAddress.trim();
+    }
+
+    if (Object.keys(dashboardPatch).length === 0) {
       return;
     }
 
     const saved = await dashboardService.updateSettings(dashboardPatch);
     const savedWallets = saved?.payment_wallets || {};
+
+    let savedInstaAddr: string | undefined;
+    let savedInstaNum: string | undefined;
+    if (typeof savedWallets.instapay === 'string') {
+      savedInstaAddr = savedWallets.instapay;
+    } else if (savedWallets.instapay && typeof savedWallets.instapay === 'object') {
+      savedInstaAddr = savedWallets.instapay.address;
+      savedInstaNum = savedWallets.instapay.number;
+    }
+
     setSettings((prev) => ({
       ...prev,
       depositPercentage: saved?.deposit_percentage !== undefined && saved?.deposit_percentage !== null
         ? Number(saved.deposit_percentage)
         : prev.depositPercentage,
+      contact: {
+        ...prev.contact,
+        phone: saved?.phone !== undefined ? saved.phone : (newSettings.contact?.phone ?? prev.contact.phone),
+        whatsapp: saved?.whatsapp !== undefined ? saved.whatsapp : (newSettings.contact?.whatsapp ?? prev.contact.whatsapp),
+        atelierAddress: saved?.address !== undefined ? saved.address : (newSettings.contact?.atelierAddress ?? prev.contact.atelierAddress),
+        hours: newSettings.contact?.hours ?? prev.contact.hours,
+      },
       paymentMethods: {
         ...prev.paymentMethods,
         mobileWallet: {
           ...prev.paymentMethods.mobileWallet,
-          number: savedWallets.mobile_wallet || '',
+          number: savedWallets.mobile_wallet || savedWallets.vodafone_cash || (newSettings.paymentMethods?.mobileWallet?.number ?? prev.paymentMethods.mobileWallet.number),
         },
         vodafoneCash: {
           ...prev.paymentMethods.vodafoneCash,
-          number: savedWallets.vodafone_cash || '',
+          number: savedWallets.vodafone_cash || savedWallets.mobile_wallet || (newSettings.paymentMethods?.vodafoneCash?.number ?? prev.paymentMethods.vodafoneCash.number),
         },
         instapay: {
           ...prev.paymentMethods.instapay,
-          address: savedWallets.instapay || '',
+          address: savedInstaAddr !== undefined ? savedInstaAddr : (newSettings.paymentMethods?.instapay?.address ?? prev.paymentMethods.instapay.address),
+          number: savedInstaNum !== undefined ? savedInstaNum : (newSettings.paymentMethods?.instapay?.number ?? prev.paymentMethods.instapay.number),
         },
       },
     }));

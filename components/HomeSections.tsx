@@ -370,10 +370,15 @@ export function CategoriesShowcase() {
  * 3. BRAND STORY & SHOWROOM HIGHLIGHT
  */
 export function StoryTeaserSection() {
-  const { navigateTo } = useToccoStore();
+  const { navigateTo, settings } = useToccoStore();
   const { t, isRtl } = useLanguage();
 
   const ArrowIcon = isRtl ? ArrowLeft : ArrowRight;
+
+  const displayPhone = settings.contact?.phone || BRAND_CONFIG.phoneDisplay;
+  const rawPhone = settings.contact?.phone || BRAND_CONFIG.phone;
+  const displayAddress = settings.contact?.atelierAddress || t(BRAND_CONFIG.addressAr, BRAND_CONFIG.addressEn);
+  const displayHours = settings.contact?.hours || t(BRAND_CONFIG.hoursAr, BRAND_CONFIG.hoursEn);
 
   return (
     <section id="story-teaser-section" className="pt-6 sm:pt-10 pb-12 sm:pb-16 bg-white border-b border-[#EAE3D8]">
@@ -442,7 +447,7 @@ export function StoryTeaserSection() {
                 className="inline-flex items-center gap-1.5 text-xs font-bold text-[#A27B5C] hover:underline"
               >
                 <MapPin className="w-3.5 h-3.5" />
-                <span>{t('موقع المعرض على خرائط جوجل', 'View Mansoura Showroom')}</span>
+                <span>{displayAddress}</span>
               </a>
             </div>
           </div>
@@ -459,15 +464,15 @@ export function StoryTeaserSection() {
             <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
             <div className="absolute bottom-5 inset-x-5 text-white flex justify-between items-center text-xs">
               <div className="space-y-0.5">
-                <span className="font-bold text-sm block">{t('معرض عالم السجاد · المنصورة', 'Alamelsgad Showroom · Mansoura')}</span>
-                <span className="text-[11px] text-white/80">{t('يومياً من 10 صباحاً حتى 11 مساءً', 'Daily from 10 AM to 11 PM')}</span>
+                <span className="font-bold text-sm block">{displayAddress}</span>
+                <span className="text-[11px] text-white/80">{displayHours}</span>
               </div>
               <a
-                href={`tel:${BRAND_CONFIG.phone}`}
-                className="px-3.5 py-1.5 rounded-full bg-white/20 hover:bg-white text-white hover:text-[#1F150F] backdrop-blur-xs font-bold transition-all flex items-center gap-1"
+                href={`tel:${rawPhone}`}
+                className="px-3.5 py-1.5 rounded-full bg-white/20 hover:bg-white text-white hover:text-[#1F150F] backdrop-blur-xs font-bold transition-all flex items-center gap-1 font-mono"
               >
                 <Phone className="w-3 h-3" />
-                <span>{t('اتصل الآن', 'Call Us')}</span>
+                <span>{displayPhone}</span>
               </a>
             </div>
           </div>
