@@ -98,6 +98,8 @@ export interface BackendProduct {
   description_ar?: string;
   description_en?: string;
   price: string | number;
+  original_price?: string | number | null;
+  discount_percentage?: string | number | null;
   subcategory?: BackendCatalogSubcategory;
   subcategory_ids?: number[];
   sizes?: BackendSize[];

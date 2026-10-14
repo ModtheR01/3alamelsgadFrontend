@@ -72,17 +72,11 @@ export default function NewArrivalSection() {
   // Helper to determine discount details for a product
   const getProductDiscount = useCallback(
     (product: Product) => {
-      // 1. Direct product discount if attached
-      if (product.discountPercentage && product.discountPercentage > 0) {
-        return {
-          hasDiscount: true,
-          percentage: product.discountPercentage,
-          originalPrice: product.originalPrice || Math.round(product.price / (1 - product.discountPercentage / 100)),
-          currentPrice: product.price,
-        };
-      }
+      // 1. Direct product discount data on product itself (price is final discounted price, originalPrice is base price)
       if (product.originalPrice && product.originalPrice > product.price) {
-        const pct = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+        const pct = product.discountPercentage && product.discountPercentage > 0
+          ? Math.round(product.discountPercentage)
+          : Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
         return {
           hasDiscount: true,
           percentage: pct,
@@ -91,30 +85,38 @@ export default function NewArrivalSection() {
         };
       }
 
-      // 2. Check active backend offers
-      const matchingOffer = offers.find(
-        (o) => o.is_active && o.products?.some((op) => String(op.product_id) === String(product.id))
-      );
-      if (matchingOffer) {
-        const pct = matchingOffer.percentage
-          ? Number(matchingOffer.percentage)
-          : matchingOffer.original_price && matchingOffer.offer_price
-          ? Math.round(
-              ((Number(matchingOffer.original_price) - Number(matchingOffer.offer_price)) /
-                Number(matchingOffer.original_price)) *
-                100
-            )
-          : 15;
-        const origPrice = matchingOffer.original_price
-          ? Number(matchingOffer.original_price)
-          : Math.round(product.price * 1.18);
-        const currPrice = matchingOffer.offer_price ? Number(matchingOffer.offer_price) : product.price;
+      // If product has discountPercentage and price > 0, but originalPrice is missing
+      if (product.discountPercentage && product.discountPercentage > 0 && product.price > 0) {
+        const origPrice = Math.round(product.price / (1 - product.discountPercentage / 100));
         return {
           hasDiscount: true,
-          percentage: pct,
+          percentage: Math.round(product.discountPercentage),
           originalPrice: origPrice,
-          currentPrice: currPrice,
+          currentPrice: product.price,
         };
+      }
+
+      // 2. Check active backend percentage offers ONLY if the product does not have direct discount data
+      const now = new Date();
+      const matchingOffer = offers.find(
+        (o) =>
+          o.is_active &&
+          (!o.starts_at || new Date(o.starts_at) <= now) &&
+          (!o.ends_at || new Date(o.ends_at) >= now) &&
+          (o.offer_type === 'PERCENTAGE' || (o as any).type === 'PERCENTAGE') &&
+          ((o.products || []).some((op) => String(op.product_id) === String(product.id) || String(op.id) === String(product.id)) ||
+            ((o as any).offer_products || []).some((op: any) => String(op.product_id) === String(product.id)))
+      );
+      if (matchingOffer && matchingOffer.percentage) {
+        const pct = Math.round(Number(matchingOffer.percentage));
+        if (pct > 0 && pct < 100 && product.price > 0) {
+          return {
+            hasDiscount: true,
+            percentage: pct,
+            originalPrice: product.price,
+            currentPrice: Math.round(product.price * (1 - pct / 100)),
+          };
+        }
       }
 
       return {

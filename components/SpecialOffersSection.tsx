@@ -66,7 +66,7 @@ export function SpecialOffersSection() {
       let calculatedDiscountedPrice = 0;
       let matchedOfferName: string | undefined = undefined;
 
-      // 1. Check matching active backend PERCENTAGE offer
+      // Find matching active backend PERCENTAGE offer if any
       const matchingOffer = activeOffers.find((o) => {
         if (o.offer_type !== 'PERCENTAGE' && (o as any).type !== 'PERCENTAGE') return false;
         const inProducts = (o.products || []).some(
@@ -78,30 +78,26 @@ export function SpecialOffersSection() {
         return inProducts || inOfferProducts;
       });
 
-      if (matchingOffer && matchingOffer.percentage) {
+      // 1. Direct discount data on product itself (from API: price is discounted, originalPrice is base price)
+      if (
+        product.originalPrice &&
+        product.price &&
+        product.originalPrice > product.price
+      ) {
+        bestDiscountPct = product.discountPercentage && product.discountPercentage > 0
+          ? Math.round(product.discountPercentage)
+          : Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+        calculatedOriginalPrice = product.originalPrice;
+        calculatedDiscountedPrice = product.price;
+        matchedOfferName = matchingOffer?.name_ar || matchingOffer?.name || undefined;
+      } else if (matchingOffer && matchingOffer.percentage) {
+        // 2. Fall back to active percentage offer calculation if product does not have direct originalPrice
         const pct = Math.round(Number(matchingOffer.percentage));
         if (pct > 0 && pct < 100 && product.price > 0) {
           bestDiscountPct = pct;
           calculatedOriginalPrice = product.price;
           calculatedDiscountedPrice = Math.round(product.price * (1 - pct / 100));
           matchedOfferName = matchingOffer.name_ar || matchingOffer.name || undefined;
-        }
-      }
-
-      // 2. Check direct discount data on product if exists and verify validity
-      if (
-        product.originalPrice &&
-        product.price &&
-        product.originalPrice > product.price
-      ) {
-        const directPct = product.discountPercentage && product.discountPercentage > 0
-          ? Math.round(product.discountPercentage)
-          : Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
-
-        if (directPct > bestDiscountPct) {
-          bestDiscountPct = directPct;
-          calculatedOriginalPrice = product.originalPrice;
-          calculatedDiscountedPrice = product.price;
         }
       }
 

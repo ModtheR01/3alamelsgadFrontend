@@ -207,6 +207,12 @@ export default function ProductDetailView() {
     ? arawalCalculatedTotal
     : (product.price || 0) + (selectedSize?.priceDelta || 0);
 
+  const discountPct = product.discountPercentage && product.discountPercentage > 0
+    ? Math.round(product.discountPercentage)
+    : product.originalPrice && product.originalPrice > product.price
+    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+    : 0;
+
   const totalCalculatedPrice = effectiveUnitPrice * quantity;
 
   // Construct Arawal selection object if applicable
@@ -495,9 +501,9 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                         {product.originalPrice.toLocaleString()} {t('ج.م', 'EGP')}
                       </span>
                     )}
-                    {product.discountPercentage ? (
+                    {discountPct > 0 ? (
                       <span className="px-2 py-0.5 rounded-full bg-[#94622D] text-white text-xs font-bold">
-                        {t('خصم', 'Save')} {product.discountPercentage}%
+                        {t('خصم', 'Save')} {discountPct}%
                       </span>
                     ) : null}
                   </div>

@@ -405,6 +405,15 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     displayImages = [primaryUrl, ...displayImages];
   }
 
+  const rawOriginalPrice = Number(product?.original_price);
+  const validOriginalPrice = Number.isFinite(rawOriginalPrice) && rawOriginalPrice > parsedPrice ? rawOriginalPrice : undefined;
+  const rawDiscountPercentage = Number(product?.discount_percentage);
+  const validDiscountPercentage = Number.isFinite(rawDiscountPercentage) && rawDiscountPercentage > 0
+    ? Math.round(rawDiscountPercentage)
+    : validOriginalPrice && parsedPrice > 0
+    ? Math.round(((validOriginalPrice - parsedPrice) / validOriginalPrice) * 100)
+    : undefined;
+
   return {
     id: String(product?.id || ''),
     slug: String(product?.id || ''),
@@ -417,8 +426,8 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     description_ar: product?.description_ar || productDesc,
     description_en: product?.description_en || productDesc,
     price: parsedPrice,
-    originalPrice: Number((product as any)?.original_price) || undefined,
-    discountPercentage: Number((product as any)?.discount_percentage) || undefined,
+    originalPrice: validOriginalPrice,
+    discountPercentage: validDiscountPercentage,
     images: displayImages,
     imageRecords,
     dimensions: rawDims || (mappedSizes.length > 0 ? mappedSizes.map((s) => s.name).join('، ') : availableWidths ? availableWidths.map((w) => `${w} سم`).join('، ') : ''),

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useToccoStore, mapBackendProduct } from '@/lib/store';
 import { useLanguage } from '@/lib/context/LanguageContext';
 import { productService } from '@/lib/api/services/productService';
@@ -191,6 +191,62 @@ export default function ShopCatalog() {
     return ids;
   }, [activeOffers]);
 
+  // Helper to determine discount and final price for a product
+  const getProductPricing = useCallback(
+    (product: Product) => {
+      // 1. Direct discount data on product itself (price is final discounted price, originalPrice is base price)
+      if (product.originalPrice && product.originalPrice > product.price) {
+        const pct = product.discountPercentage && product.discountPercentage > 0
+          ? Math.round(product.discountPercentage)
+          : Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+        return {
+          hasDiscount: true,
+          finalPrice: product.price,
+          originalPrice: product.originalPrice,
+          discountPercentage: pct,
+        };
+      }
+
+      // If product has discountPercentage and price > 0, but originalPrice is missing
+      if (product.discountPercentage && product.discountPercentage > 0 && product.price > 0) {
+        const origPrice = Math.round(product.price / (1 - product.discountPercentage / 100));
+        return {
+          hasDiscount: true,
+          finalPrice: product.price,
+          originalPrice: origPrice,
+          discountPercentage: Math.round(product.discountPercentage),
+        };
+      }
+
+      // 2. Active backend percentage offers
+      const matchingOffer = activeOffers.find(
+        (o) =>
+          (o.offer_type === 'PERCENTAGE' || (o as any).type === 'PERCENTAGE') &&
+          ((o.products || []).some((p) => String(p.product_id) === String(product.id) || String(p.id) === String(product.id)) ||
+            ((o as any).offer_products || []).some((p: any) => String(p.product_id) === String(product.id)))
+      );
+      if (matchingOffer && matchingOffer.percentage) {
+        const pct = Math.round(Number(matchingOffer.percentage));
+        if (pct > 0 && pct < 100 && product.price > 0) {
+          return {
+            hasDiscount: true,
+            finalPrice: Math.round(product.price * (1 - pct / 100)),
+            originalPrice: product.price,
+            discountPercentage: pct,
+          };
+        }
+      }
+
+      return {
+        hasDiscount: false,
+        finalPrice: product.price,
+        originalPrice: undefined,
+        discountPercentage: 0,
+      };
+    },
+    [activeOffers]
+  );
+
   // Debounced server search
   useEffect(() => {
     const query = searchQuery.trim();
@@ -280,12 +336,8 @@ export default function ShopCatalog() {
 
         // Offers filter
         if (offersOnlyFilter) {
-          const hasDiscount = Boolean(
-            (product.discountPercentage && product.discountPercentage > 0) ||
-              (product.originalPrice && product.originalPrice > product.price)
-          );
-          const inActiveOffer = offerProductIds.has(Number(product.id));
-          if (!hasDiscount && !inActiveOffer) return false;
+          const pricing = getProductPricing(product);
+          if (!pricing.hasDiscount) return false;
         }
 
         return true;
@@ -295,10 +347,14 @@ export default function ShopCatalog() {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         }
         if (sortBy === 'price-asc') {
-          return (a.price || 999999) - (b.price || 999999);
+          const priceA = getProductPricing(a).finalPrice ?? 999999;
+          const priceB = getProductPricing(b).finalPrice ?? 999999;
+          return priceA - priceB;
         }
         if (sortBy === 'price-desc') {
-          return (b.price || 0) - (a.price || 0);
+          const priceA = getProductPricing(a).finalPrice ?? 0;
+          const priceB = getProductPricing(b).finalPrice ?? 0;
+          return priceB - priceA;
         }
         return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
       });
@@ -309,9 +365,9 @@ export default function ShopCatalog() {
     activeSubcategoryFilter,
     arawalOnlyFilter,
     offersOnlyFilter,
-    offerProductIds,
     searchQuery,
     sortBy,
+    getProductPricing,
   ]);
 
   return (
@@ -855,10 +911,8 @@ export default function ShopCatalog() {
                 {filteredProducts.map((product) => {
                   const isArawal =
                     product.isArawal || /أروال|arawal|رول/i.test(`${product.name_ar || ''} ${product.name_en || ''} ${product.name || ''}`);
-                  const hasDiscount = Boolean(
-                    (product.discountPercentage && product.discountPercentage > 0) ||
-                      (product.originalPrice && product.originalPrice > product.price)
-                  );
+                  const pricing = getProductPricing(product);
+                  const hasDiscount = pricing.hasDiscount;
                   const hasImage = Boolean(product.images?.[0] && !product.images[0].includes('unsplash.com'));
 
                   return (
@@ -889,7 +943,7 @@ export default function ShopCatalog() {
                         {/* Discount Badge */}
                         {hasDiscount && (
                           <div className="absolute top-2.5 end-2.5 bg-[#94622D] text-white text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full shadow-xs">
-                            {product.discountPercentage ? `-${product.discountPercentage}%` : t('خصم خاص', 'Sale')}
+                            {pricing.discountPercentage > 0 ? `-${pricing.discountPercentage}%` : t('خصم خاص', 'Sale')}
                           </div>
                         )}
 
@@ -930,11 +984,11 @@ export default function ShopCatalog() {
                           <div className="min-w-0">
                             <div className="flex items-baseline gap-1.5 flex-wrap">
                               <span className="text-xs sm:text-sm font-extrabold text-[#251811]">
-                                {product.price?.toLocaleString()} {t('ج.م', 'EGP')}
+                                {pricing.finalPrice?.toLocaleString()} {t('ج.م', 'EGP')}
                               </span>
-                              {product.originalPrice && product.originalPrice > product.price && (
+                              {pricing.hasDiscount && pricing.originalPrice && (
                                 <span className="text-[10px] sm:text-xs text-[#A09386] line-through font-normal">
-                                  {product.originalPrice.toLocaleString()}
+                                  {pricing.originalPrice.toLocaleString()}
                                 </span>
                               )}
                             </div>
