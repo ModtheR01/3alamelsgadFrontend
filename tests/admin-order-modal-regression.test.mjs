@@ -369,4 +369,195 @@ test('Admin Order Modal — Component Structure, Scrolling & Responsiveness Veri
   assert.ok(content.includes('role="dialog"'), 'Modal must have role="dialog"');
   assert.ok(content.includes('aria-modal="true"'), 'Modal must have aria-modal="true"');
   assert.ok(content.includes('aria-labelledby="order-details-title"'), 'Modal must have aria-labelledby');
+
+  // 10. Ordered Items Table resolves real backend fields
+  assert.ok(
+    content.includes('getOrderItemTitle') && content.includes('getOrderItemColor') && content.includes('getOrderItemSpecs'),
+    'OrdersSection must use resolution helpers for title, color, and specs'
+  );
+  assert.ok(
+    content.includes('product_name_ar') && content.includes('arwal_name_ar'),
+    'OrdersSection must support DRF product_name_ar and arwal_name_ar'
+  );
+  assert.ok(
+    content.includes('color_name_ar') && content.includes('color_hex_code'),
+    'OrdersSection must support DRF color_name_ar and color_hex_code'
+  );
+  assert.ok(
+    content.includes('size_width') && content.includes('size_length'),
+    'OrdersSection must support DRF carpet dimensions (size_width x size_length)'
+  );
+  assert.ok(
+    content.includes('selectedOrderForModal.bundles'),
+    'OrdersSection must support rendering promotional bundle offer items'
+  );
+  assert.ok(
+    content.includes('غير متوفر'),
+    'OrdersSection must render fallback text instead of leaving specs/color blank'
+  );
+});
+
+// Helper mirror for getOrderItemTitle
+function getOrderItemTitle(item) {
+  if (!item) return 'منتج غير محدد';
+  if (item.item_type === 'arwal') {
+    return (
+      item.arwal_name_ar ||
+      item.arwal_name_en ||
+      item.name_ar ||
+      item.name_en ||
+      (typeof item.arwal === 'object' &&
+        (item.arwal?.name_ar || item.arwal?.name_en || item.arwal?.name)) ||
+      'رول سجاد بالمتر'
+    );
+  }
+  return (
+    item.product_name_ar ||
+    item.product_name_en ||
+    item.product_name ||
+    item.name_ar ||
+    item.name_en ||
+    item.name ||
+    (typeof item.product === 'object' &&
+      (item.product?.name_ar || item.product?.name_en || item.product?.name)) ||
+    item.arwal_name_ar ||
+    item.arwal_name_en ||
+    'سجادة فاخرة'
+  );
+}
+
+// Helper mirror for getOrderItemColor
+function getOrderItemColor(item) {
+  if (!item) return { name: null, hex: null };
+  const name =
+    item.color_name_ar ||
+    item.color_name_en ||
+    item.color_name ||
+    item.selected_color_name ||
+    (typeof item.selected_color === 'object' &&
+      (item.selected_color?.name_ar ||
+        item.selected_color?.name_en ||
+        item.selected_color?.name)) ||
+    (typeof item.color === 'object' &&
+      (item.color?.name_ar || item.color?.name_en || item.color?.name)) ||
+    null;
+  const hex =
+    item.color_hex_code ||
+    item.color_hex ||
+    (typeof item.selected_color === 'object' && item.selected_color?.hex) ||
+    (typeof item.color === 'object' && item.color?.hex) ||
+    null;
+  return { name, hex };
+}
+
+// Helper mirror for getOrderItemSpecs
+function getOrderItemSpecs(item) {
+  if (!item) return null;
+  if (item.item_type === 'arwal' || item.length || item.price_per_length) {
+    const parts = [];
+    if (item.width) {
+      parts.push(`عرض ${item.width} سم`);
+    }
+    if (item.length) {
+      parts.push(`طول ${item.length} م`);
+    }
+    return parts.length > 0 ? parts.join(' × ') : 'رول بالمتر';
+  }
+  if (item.size_width && item.size_length) {
+    let spec = `${item.size_width} × ${item.size_length} سم`;
+    if (item.selected_finish) {
+      spec += ` (${item.selected_finish === 'GLOSSY' ? 'لامع' : 'مطفي'})`;
+    }
+    return spec;
+  }
+  if (item.selected_size_name) {
+    return item.selected_size_name;
+  }
+  return null;
+}
+
+test('Admin Order Modal — Order Items & Specifications Contract Resolution', async (t) => {
+  await t.test('1. Resolves standard carpet product title from DRF product_name_ar snapshot', () => {
+    const item = {
+      id: 101,
+      item_type: 'product',
+      product: 42,
+      product_name_ar: 'سجادة تبريز كلاسيك فاخرة',
+      product_name_en: 'Tabriz Classic Luxury Carpet',
+      unit_price: '9000.00',
+      quantity: 1,
+      subtotal: '9000.00',
+    };
+    assert.equal(getOrderItemTitle(item), 'سجادة تبريز كلاسيك فاخرة');
+  });
+
+  await t.test('2. Resolves Arwal runner roll title from DRF arwal_name_ar snapshot', () => {
+    const item = {
+      id: 102,
+      item_type: 'arwal',
+      arwal: 15,
+      arwal_name_ar: 'رول كيدز تركي مشجر بالمتر',
+      arwal_name_en: 'Kids Turkish Runner by Meter',
+      price_per_length: '850.00',
+      quantity: 2,
+      subtotal: '1700.00',
+    };
+    assert.equal(getOrderItemTitle(item), 'رول كيدز تركي مشجر بالمتر');
+  });
+
+  await t.test('3. Resolves color name and hex code from DRF color_name_ar and color_hex_code', () => {
+    const item = {
+      color_name_ar: 'بيج وكريمي هادئ',
+      color_name_en: 'Beige & Soft Cream',
+      color_hex_code: '#EBE3D5',
+    };
+    const color = getOrderItemColor(item);
+    assert.equal(color.name, 'بيج وكريمي هادئ');
+    assert.equal(color.hex, '#EBE3D5');
+  });
+
+  await t.test('4. Resolves carpet size dimensions from DRF size_width and size_length', () => {
+    const item = {
+      size_width: 200,
+      size_length: 300,
+      selected_finish: 'GLOSSY',
+    };
+    assert.equal(getOrderItemSpecs(item), '200 × 300 سم (لامع)');
+  });
+
+  await t.test('5. Resolves Arwal runner width and length dimensions', () => {
+    const item = {
+      item_type: 'arwal',
+      width: 100,
+      length: '4.50',
+    };
+    assert.equal(getOrderItemSpecs(item), 'عرض 100 سم × طول 4.50 م');
+  });
+
+  await t.test('6. Fallback handling when color or specifications are missing', () => {
+    const bareItem = {
+      id: 103,
+      product_name_ar: 'سجادة عادية بدون مواصفات إضافية',
+    };
+    const color = getOrderItemColor(bareItem);
+    const specs = getOrderItemSpecs(bareItem);
+    assert.equal(color.name, null);
+    assert.equal(color.hex, null);
+    assert.equal(specs, null);
+  });
+
+  await t.test('7. Fallback handling when product has been deleted or unlinked', () => {
+    const deletedProductItem = {
+      id: 104,
+      product: null,
+      product_name_ar: 'سجادة تم حذفها من الكتالوج لاحقاً',
+      color_name_ar: 'أحمر قاني',
+      color_hex_code: '#8B0000',
+      size_width: 160,
+      size_length: 220,
+    };
+    assert.equal(getOrderItemTitle(deletedProductItem), 'سجادة تم حذفها من الكتالوج لاحقاً');
+    assert.equal(getOrderItemColor(deletedProductItem).name, 'أحمر قاني');
+    assert.equal(getOrderItemSpecs(deletedProductItem), '160 × 220 سم');
+  });
 });

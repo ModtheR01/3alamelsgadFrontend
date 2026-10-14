@@ -199,6 +199,103 @@ export function formatOrderApiError(
   return fallback;
 }
 
+/**
+ * Resolves the display title for an order item, taking into account
+ * product items, arwal runner rolls, and various backend snapshot conventions.
+ */
+export function getOrderItemTitle(item: any): string {
+  if (!item) return 'منتج غير محدد';
+
+  if (item.item_type === 'arwal') {
+    return (
+      item.arwal_name_ar ||
+      item.arwal_name_en ||
+      item.name_ar ||
+      item.name_en ||
+      (typeof item.arwal === 'object' &&
+        (item.arwal?.name_ar || item.arwal?.name_en || item.arwal?.name)) ||
+      'رول سجاد بالمتر'
+    );
+  }
+
+  return (
+    item.product_name_ar ||
+    item.product_name_en ||
+    item.product_name ||
+    item.name_ar ||
+    item.name_en ||
+    item.name ||
+    (typeof item.product === 'object' &&
+      (item.product?.name_ar || item.product?.name_en || item.product?.name)) ||
+    item.arwal_name_ar ||
+    item.arwal_name_en ||
+    'سجادة فاخرة'
+  );
+}
+
+/**
+ * Resolves the color information (Arabic name & hex code) for an order item.
+ */
+export function getOrderItemColor(item: any): { name: string | null; hex: string | null } {
+  if (!item) return { name: null, hex: null };
+
+  const name =
+    item.color_name_ar ||
+    item.color_name_en ||
+    item.color_name ||
+    item.selected_color_name ||
+    (typeof item.selected_color === 'object' &&
+      (item.selected_color?.name_ar ||
+        item.selected_color?.name_en ||
+        item.selected_color?.name)) ||
+    (typeof item.color === 'object' &&
+      (item.color?.name_ar || item.color?.name_en || item.color?.name)) ||
+    null;
+
+  const hex =
+    item.color_hex_code ||
+    item.color_hex ||
+    (typeof item.selected_color === 'object' && item.selected_color?.hex) ||
+    (typeof item.color === 'object' && item.color?.hex) ||
+    null;
+
+  return { name, hex };
+}
+
+/**
+ * Resolves human-readable specifications (dimensions, sizes, lengths) for an order item.
+ */
+export function getOrderItemSpecs(item: any): string | null {
+  if (!item) return null;
+
+  // Arwal runner by meter (width cm x length m)
+  if (item.item_type === 'arwal' || item.length || item.price_per_length) {
+    const parts: string[] = [];
+    if (item.width) {
+      parts.push(`عرض ${item.width} سم`);
+    }
+    if (item.length) {
+      parts.push(`طول ${item.length} م`);
+    }
+    return parts.length > 0 ? parts.join(' × ') : 'رول بالمتر';
+  }
+
+  // Standard carpet (size_width x size_length)
+  if (item.size_width && item.size_length) {
+    let spec = `${item.size_width} × ${item.size_length} سم`;
+    if (item.selected_finish) {
+      spec += ` (${item.selected_finish === 'GLOSSY' ? 'لامع' : 'مطفي'})`;
+    }
+    return spec;
+  }
+
+  if (item.selected_size_name) {
+    return item.selected_size_name;
+  }
+
+  return null;
+}
+
 export default function OrdersSection({
   orders,
   isLoading,
@@ -799,32 +896,137 @@ export default function OrdersSection({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#F5EFE6]">
-                      {(selectedOrderForModal.items || []).map((item, idx) => (
-                        <tr key={idx} className="hover:bg-[#FAF8F5]/50">
-                          <td className="py-2.5 px-3 font-bold text-[#241710]">
-                            {item.product_name}
-                          </td>
-                          <td className="py-2.5 px-3 text-[#5C4A3E]">
-                            {item.color_name && (
-                              <span className="inline-flex items-center gap-1 bg-[#FAF5EB] px-2 py-0.5 rounded text-[11px] font-bold text-[#241710]">
-                                {item.color_hex_code && (
-                                  <span
-                                    className="w-2.5 h-2.5 rounded-full border border-black/10"
-                                    style={{ backgroundColor: item.color_hex_code }}
-                                  />
+                      {/* 1. Standard Products and Arwal Runners */}
+                      {(selectedOrderForModal.items || []).map((item, idx) => {
+                        const title = getOrderItemTitle(item);
+                        const color = getOrderItemColor(item);
+                        const specs = getOrderItemSpecs(item);
+                        const isArwal = item.item_type === 'arwal';
+                        const unitPrice = isArwal
+                          ? item.price_per_length
+                          : (item.unit_price ?? item.product_price);
+
+                        return (
+                          <tr
+                            key={item.id || idx}
+                            className="hover:bg-[#FAF8F5]/50 transition-colors"
+                          >
+                            <td className="py-2.5 px-3 font-bold text-[#241710]">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span>{title}</span>
+                                {isArwal && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#FAF0E6] text-[#643D26] border border-[#E8D5C4]">
+                                    رول بالمتر
+                                  </span>
                                 )}
-                                <span>{item.color_name}</span>
+                              </div>
+                              {unitPrice && (
+                                <span className="block text-[10px] text-[#8C7A6B] font-normal mt-0.5">
+                                  سعر القطعة: {Number(unitPrice).toLocaleString('ar-EG')} ج.م
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-[#5C4A3E]">
+                              <div className="space-y-1">
+                                {color.name ? (
+                                  <span className="inline-flex items-center gap-1.5 bg-[#FAF5EB] px-2 py-0.5 rounded text-[11px] font-bold text-[#241710]">
+                                    {color.hex && (
+                                      <span
+                                        className="w-2.5 h-2.5 rounded-full border border-black/10 shrink-0"
+                                        style={{ backgroundColor: color.hex }}
+                                        title={color.name}
+                                      />
+                                    )}
+                                    <span>{color.name}</span>
+                                  </span>
+                                ) : null}
+
+                                {specs ? (
+                                  <div className="text-[11px] text-[#736B63] font-medium">
+                                    {specs}
+                                  </div>
+                                ) : null}
+
+                                {!color.name && !specs && (
+                                  <span className="text-[11px] text-[#8C7A6B]">غير متوفر</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-[#241710]">
+                              {item.quantity} {isArwal ? 'رول' : 'قطع'}
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-[#241710] text-left font-mono">
+                              {Number(
+                                item.subtotal ||
+                                  Number(unitPrice || 0) * (item.quantity || 1)
+                              ).toLocaleString('ar-EG')}{' '}
+                              ج.م
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {/* 2. Bundle Offer Items */}
+                      {(selectedOrderForModal.bundles || []).map((bundle, bIdx) => {
+                        const bundleTitle =
+                          bundle.name_ar || bundle.name_en || 'عرض باقة ترويجية';
+                        const bundleSubtotal =
+                          Number(bundle.bundle_price || 0) * (bundle.quantity || 1);
+
+                        return (
+                          <tr
+                            key={`bundle-${bundle.id || bIdx}`}
+                            className="hover:bg-[#FAF8F5]/50 bg-purple-50/20 transition-colors"
+                          >
+                            <td className="py-2.5 px-3 font-bold text-[#241710]">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span>{bundleTitle}</span>
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-200">
+                                  باقة توفير
+                                </span>
+                              </div>
+                              <span className="block text-[10px] text-[#8C7A6B] font-normal mt-0.5">
+                                سعر الباقة: {Number(bundle.bundle_price || 0).toLocaleString('ar-EG')}{' '}
+                                ج.م
                               </span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 font-bold text-[#241710]">
-                            {item.quantity} قطع
-                          </td>
-                          <td className="py-2.5 px-3 font-bold text-[#241710] text-left">
-                            {Number(item.subtotal || item.product_price || 0).toLocaleString('ar-EG')} ج.م
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="py-2.5 px-3 text-[#5C4A3E]">
+                              <div className="text-[11px] text-[#736B63]">
+                                {bundle.products && bundle.products.length > 0 ? (
+                                  <span>
+                                    تشمل:{' '}
+                                    {bundle.products
+                                      .map((p: any) => p.name_ar || p.name_en)
+                                      .join(' + ')}
+                                  </span>
+                                ) : (
+                                  <span>باقة منتجات مدمجة</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-[#241710]">
+                              {bundle.quantity} باقة
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-[#241710] text-left font-mono">
+                              {bundleSubtotal.toLocaleString('ar-EG')} ج.م
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {(!selectedOrderForModal.items ||
+                        selectedOrderForModal.items.length === 0) &&
+                        (!selectedOrderForModal.bundles ||
+                          selectedOrderForModal.bundles.length === 0) && (
+                          <tr>
+                            <td
+                              colSpan={4}
+                              className="py-6 text-center text-xs text-[#8C7A6B]"
+                            >
+                              لا توجد منتجات مسجلة في هذا الطلب.
+                            </td>
+                          </tr>
+                        )}
                     </tbody>
                   </table>
                 </div>
