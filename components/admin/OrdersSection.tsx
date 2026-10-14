@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BackendOrder, BackendOrderStatus } from '@/types/order';
 import {
   ShoppingBag,
@@ -14,19 +14,15 @@ import {
   XCircle,
   AlertCircle,
   Eye,
-  Phone,
   MapPin,
   CreditCard,
   User as UserIcon,
   X,
   RefreshCw,
-  ExternalLink,
-  ShieldCheck,
-  Calendar,
   MessageCircle,
 } from 'lucide-react';
 import { toWhatsAppNumber } from '@/lib/utils';
-import { BRAND_CONFIG } from '@/lib/brandConfig';
+import { normalizeApiError } from '@/lib/api/errors';
 
 interface OrdersSectionProps {
   orders: BackendOrder[];
@@ -89,6 +85,120 @@ export const ORDER_WORKFLOW: {
   },
 ];
 
+/**
+ * Translates and normalizes API errors into clear, actionable Arabic messages for the admin order view.
+ * Handles validation errors, HTTP 400, 401, 403, 404, 409, 429, 500, network disconnects,
+ * and request timeouts without exposing raw technical stacks or traces.
+ */
+export function formatOrderApiError(
+  err: unknown,
+  fallback = 'تعذر تنفيذ الإجراء المطلوب على هذا الطلب. يرجى إعادة المحاولة.'
+): string {
+  if (!err) return fallback;
+
+  const normalized = normalizeApiError(err);
+  const status = normalized.status;
+  const msg = (normalized.message || '').trim();
+
+  // 1. If backend already returned an Arabic message, use it directly (excluding default English errors)
+  if (/[\u0600-\u06FF]/.test(msg) && !msg.includes('An unexpected error')) {
+    return msg;
+  }
+
+  // 2. HTTP Status Code specific Arabic mappings
+  if (status === 401) {
+    return 'انتهت جلستك أو أنك غير مسجل الدخول كمسؤول. يرجى تسجيل الدخول مجدداً.';
+  }
+  if (status === 403) {
+    return 'ليس لديك الصلاحيات الكافية لتعديل حالة هذا الطلب.';
+  }
+  if (status === 404) {
+    return 'لم يتم العثور على هذا الطلب في قاعدة البيانات، قد يكون قد حُذف.';
+  }
+  if (status === 409) {
+    return 'تعارض في حالة الطلب، ربما تم تحديثه من قِبل مسؤول آخر في نفس الوقت. يرجى تحديث القائمة.';
+  }
+  if (status === 429) {
+    return 'تم إرسال طلبات متعددة خلال وقت قصير جداً. يرجى الانتظار بضع ثوانٍ ثم المحاولة.';
+  }
+  if (status && status >= 500) {
+    return 'حدث خطأ غير متوقع في خادم المتجر (500). يرجى المحاولة مرة أخرى لاحقاً.';
+  }
+  if (
+    status === 0 ||
+    msg.toLowerCase().includes('network') ||
+    msg.toLowerCase().includes('failed to fetch')
+  ) {
+    return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت وإعادة المحاولة.';
+  }
+  if (
+    status === 408 ||
+    msg.toLowerCase().includes('timeout') ||
+    msg.toLowerCase().includes('timed out') ||
+    msg.toLowerCase().includes('aborted')
+  ) {
+    return 'استغرقت الاستجابة وقتاً أطول من المعتاد وتجاوزت المهلة. يرجى إعادة المحاولة.';
+  }
+
+  // 3. Check DRF fieldErrors if available
+  if (normalized.fieldErrors && Object.keys(normalized.fieldErrors).length > 0) {
+    for (const [field, errors] of Object.entries(normalized.fieldErrors)) {
+      if (['message', 'detail', 'error', 'non_field_errors'].includes(field)) {
+        continue;
+      }
+      const firstErr = errors[0] || '';
+      if (/[\u0600-\u06FF]/.test(firstErr)) {
+        return firstErr;
+      }
+      const lowerErr = firstErr.toLowerCase();
+      if (lowerErr.includes('not a valid choice') || lowerErr.includes('invalid choice')) {
+        return 'حالة الطلب المحددة غير صالحة للنظام.';
+      }
+      if (lowerErr.includes('payment') || lowerErr.includes('paid')) {
+        return 'لا يمكن تغيير حالة الطلب قبل تأكيد استلام الدفع أولاً.';
+      }
+      if (lowerErr.includes('transition') || lowerErr.includes('cannot transition')) {
+        return 'لا يمكن الانتقال إلى هذه الحالة من الحالة الحالية للطلب.';
+      }
+      if (lowerErr.includes('required')) {
+        return `الحقل المطلوب غير مكتمل (${field}).`;
+      }
+    }
+  }
+
+  // 4. Common DRF English business logic phrases
+  const lowerMsg = msg.toLowerCase();
+  if (
+    lowerMsg.includes('payment must be paid') ||
+    (lowerMsg.includes('payment') && lowerMsg.includes('paid'))
+  ) {
+    return 'لا يمكن تغيير حالة الطلب قبل تأكيد استلام الدفع أولاً.';
+  }
+  if (lowerMsg.includes('invalid transition') || lowerMsg.includes('cannot transition')) {
+    return 'لا يمكن الانتقال إلى هذه الحالة من الحالة الحالية للطلب.';
+  }
+  if (lowerMsg.includes('is not a valid choice')) {
+    return 'حالة الطلب المحددة غير معتمدة في النظام.';
+  }
+
+  if (status === 400) {
+    return 'تعذر تنفيذ العملية بسبب عدم مطابقة بيانات الطلب أو شروط الحالة الحالية.';
+  }
+
+  // 5. Clean string message if non-technical
+  if (
+    msg &&
+    !msg.includes('An unexpected error') &&
+    !msg.includes('at ') &&
+    !msg.includes('TypeError') &&
+    !msg.includes('{')
+  ) {
+    return msg;
+  }
+
+  return fallback;
+}
+
 export default function OrdersSection({
   orders,
   isLoading,
@@ -101,10 +211,57 @@ export default function OrdersSection({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
-  // Updating order status state
+  // Updating order status and actions state
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
+  const [pendingActionType, setPendingActionType] = useState<
+    BackendOrderStatus | 'PAYMENT_CONFIRM' | null
+  >(null);
+
+  // Notifications for main page
   const [statusActionError, setStatusActionError] = useState<string | null>(null);
   const [statusActionSuccess, setStatusActionSuccess] = useState<string | null>(null);
+
+  // Notifications dedicated for inside the modal
+  const [modalActionError, setModalActionError] = useState<string | null>(null);
+  const [modalActionSuccess, setModalActionSuccess] = useState<string | null>(null);
+
+  // Prevent background page scrolling while the order modal is open
+  useEffect(() => {
+    if (selectedOrderForModal) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [selectedOrderForModal]);
+
+  // Close modal on Escape key press
+  useEffect(() => {
+    if (!selectedOrderForModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !updatingOrderId) {
+        setModalActionError(null);
+        setModalActionSuccess(null);
+        setSelectedOrderForModal(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedOrderForModal, updatingOrderId, setSelectedOrderForModal]);
+
+  const handleOpenOrderModal = (ord: BackendOrder) => {
+    setModalActionError(null);
+    setModalActionSuccess(null);
+    setSelectedOrderForModal(ord);
+  };
+
+  const handleCloseOrderModal = () => {
+    if (updatingOrderId) return;
+    setModalActionError(null);
+    setModalActionSuccess(null);
+    setSelectedOrderForModal(null);
+  };
 
   // Filtered orders
   const filteredOrders = useMemo(() => {
@@ -151,34 +308,62 @@ export default function OrdersSection({
 
   const handleStatusChange = async (orderId: number, nextStatus: BackendOrderStatus) => {
     setUpdatingOrderId(orderId);
+    setPendingActionType(nextStatus);
     setStatusActionError(null);
     setStatusActionSuccess(null);
+    setModalActionError(null);
+    setModalActionSuccess(null);
+
     try {
       await onUpdateOrderStatus(orderId, nextStatus);
-      setStatusActionSuccess('تم تحديث حالة الطلب بنجاح.');
+      const statusLabel =
+        ORDER_WORKFLOW.find((w) => w.status === nextStatus)?.label || nextStatus;
+      const successMsg = `تم تحديث حالة الطلب بنجاح إلى: ${statusLabel}.`;
+      setStatusActionSuccess(successMsg);
+      setModalActionSuccess(successMsg);
+
       if (selectedOrderForModal && selectedOrderForModal.id === orderId) {
         setSelectedOrderForModal({ ...selectedOrderForModal, status: nextStatus });
       }
-      setTimeout(() => setStatusActionSuccess(null), 3000);
+
+      // Auto dismiss success after 6 seconds, allowing comfortable reading time
+      setTimeout(() => {
+        setStatusActionSuccess(null);
+        setModalActionSuccess(null);
+      }, 6000);
     } catch (err: any) {
-      setStatusActionError(err?.message || 'تعذر تحديث حالة الطلب');
+      const errorMsg = formatOrderApiError(
+        err,
+        'تعذر تحديث حالة الطلب. يرجى التحقق من صحة الإجراء والمحاولة مجدداً.'
+      );
+      setStatusActionError(errorMsg);
+      setModalActionError(errorMsg);
     } finally {
       setUpdatingOrderId(null);
+      setPendingActionType(null);
     }
   };
 
   const handleConfirmPaymentClick = async () => {
     if (!selectedOrderForModal) return;
-    setUpdatingOrderId(selectedOrderForModal.id);
+    const orderId = selectedOrderForModal.id;
+    setUpdatingOrderId(orderId);
+    setPendingActionType('PAYMENT_CONFIRM');
     setStatusActionError(null);
     setStatusActionSuccess(null);
+    setModalActionError(null);
+    setModalActionSuccess(null);
+
     try {
       if (onConfirmPayment) {
         await onConfirmPayment(selectedOrderForModal);
       } else {
-        await onUpdateOrderStatus(selectedOrderForModal.id, 'CONFIRMED');
+        await onUpdateOrderStatus(orderId, 'CONFIRMED');
       }
-      setStatusActionSuccess('تم تأكيد الدفع وتحديث حالة الطلب إلى (مؤكد).');
+      const successMsg = 'تم تأكيد استلام الدفع وتحديث حالة الطلب إلى (مؤكد) بنجاح.';
+      setStatusActionSuccess(successMsg);
+      setModalActionSuccess(successMsg);
+
       setSelectedOrderForModal({
         ...selectedOrderForModal,
         status: 'CONFIRMED',
@@ -186,11 +371,22 @@ export default function OrdersSection({
           ? { ...selectedOrderForModal.payment, status: 'PAID' }
           : undefined,
       });
-      setTimeout(() => setStatusActionSuccess(null), 3000);
+
+      // Auto dismiss success after 6 seconds
+      setTimeout(() => {
+        setStatusActionSuccess(null);
+        setModalActionSuccess(null);
+      }, 6000);
     } catch (err: any) {
-      setStatusActionError(err?.message || 'تعذر تأكيد الدفع');
+      const errorMsg = formatOrderApiError(
+        err,
+        'تعذر تأكيد الدفع لهذا الطلب. يرجى التحقق من إشعار التحويل والمحاولة لاحقاً.'
+      );
+      setStatusActionError(errorMsg);
+      setModalActionError(errorMsg);
     } finally {
       setUpdatingOrderId(null);
+      setPendingActionType(null);
     }
   };
 
@@ -427,7 +623,7 @@ export default function OrdersSection({
                       {/* Actions */}
                       <td className="py-3 px-4 text-left">
                         <button
-                          onClick={() => setSelectedOrderForModal(ord)}
+                          onClick={() => handleOpenOrderModal(ord)}
                           className="px-3 py-1.5 rounded-xl bg-[#FAF5EB] hover:bg-[#F2E8D7] text-[#241710] font-bold text-xs inline-flex items-center gap-1.5 transition-colors border border-[#E8DEC0]"
                         >
                           <Eye className="w-3.5 h-3.5 text-[#A27B5C]" />
@@ -443,27 +639,43 @@ export default function OrdersSection({
         )}
       </div>
 
-      {/* Detailed Order & Payment Confirmation Modal (Requirement 10) */}
+      {/* Detailed Order & Payment Confirmation Modal */}
       {selectedOrderForModal && (
         <div
           dir="rtl"
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="order-details-title"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 md:p-6 overflow-hidden animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleCloseOrderModal();
+            }
+          }}
         >
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-5 sm:p-7 space-y-6 border border-[#EAE3D8] shadow-2xl my-8 text-right">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-[#EAE3D8]">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-[#FAF5EB] text-[#A27B5C]">
+          <div
+            className="bg-white rounded-2xl max-w-3xl w-full flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2.5rem)] border border-[#EAE3D8] shadow-2xl text-right overflow-hidden relative animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header (Fixed / Non-scrolling) */}
+            <div className="shrink-0 p-4 sm:p-5 border-b border-[#EAE3D8] flex items-center justify-between bg-white z-10 gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 sm:p-2.5 rounded-xl bg-[#FAF5EB] text-[#A27B5C] shrink-0">
                   <ShoppingBag className="w-5 h-5" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-black text-[#241710]">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3
+                      id="order-details-title"
+                      className="text-base sm:text-lg font-black text-[#241710] truncate"
+                    >
                       تفاصيل الطلب #{selectedOrderForModal.order_number || selectedOrderForModal.id}
                     </h3>
-                    {getStatusBadge(selectedOrderForModal.status)}
+                    <div className="shrink-0">
+                      {getStatusBadge(selectedOrderForModal.status)}
+                    </div>
                   </div>
-                  <p className="text-[11px] text-[#8C7A6B]">
+                  <p className="text-[11px] text-[#8C7A6B] mt-0.5">
                     تاريخ الطلب:{' '}
                     {selectedOrderForModal.created_at
                       ? new Date(selectedOrderForModal.created_at).toLocaleString('ar-EG')
@@ -474,236 +686,325 @@ export default function OrdersSection({
 
               <button
                 type="button"
-                onClick={() => setSelectedOrderForModal(null)}
-                className="p-1.5 rounded-lg text-[#8C7A6B] hover:text-[#241710] hover:bg-[#F5EFE6]"
+                onClick={handleCloseOrderModal}
+                disabled={updatingOrderId === selectedOrderForModal.id}
+                aria-label="إغلاق تفاصيل الطلب"
+                className="p-1.5 sm:p-2 rounded-xl text-[#8C7A6B] hover:text-[#241710] hover:bg-[#FAF8F5] transition-colors shrink-0 disabled:opacity-50"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* SECTION 1: بيانات العميل */}
-            <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-2.5">
-              <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
-                <UserIcon className="w-3.5 h-3.5" />
-                <span>بيانات العميل</span>
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-[#8C7A6B] block">اسم العميل:</span>
-                  <span className="font-bold text-[#241710]">
-                    {selectedOrderForModal.user
-                      ? `${selectedOrderForModal.user.first_name || ''} ${selectedOrderForModal.user.last_name || ''}`.trim() || 'عميل المتجر'
-                      : 'عميل المتجر'}
+            {/* Modal Sticky Feedback Alert (Prominently visible inside modal) */}
+            {(modalActionSuccess || modalActionError) && (
+              <div className="shrink-0 px-4 sm:px-6 py-2.5 bg-[#FAF8F5] border-b border-[#EAE3D8]">
+                {modalActionSuccess && (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-2 shadow-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="font-bold leading-relaxed">{modalActionSuccess}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setModalActionSuccess(null)}
+                      className="p-1 text-emerald-700 hover:text-emerald-950 rounded-lg shrink-0"
+                      aria-label="إغلاق رسالة النجاح"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {modalActionError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between gap-2 shadow-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span className="font-bold leading-relaxed">{modalActionError}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setModalActionError(null)}
+                      className="p-1 text-rose-700 hover:text-rose-950 rounded-lg shrink-0"
+                      aria-label="إغلاق رسالة الخطأ"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Modal Scrollable Body */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6 overscroll-contain">
+              {/* SECTION 1: بيانات العميل */}
+              <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-2.5">
+                <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
+                  <UserIcon className="w-3.5 h-3.5" />
+                  <span>بيانات العميل</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-[#8C7A6B] block">اسم العميل:</span>
+                    <span className="font-bold text-[#241710]">
+                      {selectedOrderForModal.user
+                        ? `${selectedOrderForModal.user.first_name || ''} ${selectedOrderForModal.user.last_name || ''}`.trim() || 'عميل المتجر'
+                        : 'عميل المتجر'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[#8C7A6B] block">رقم الهاتف:</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="font-bold text-[#241710] font-mono">
+                        {selectedOrderForModal.user?.phone || 'غير مسجل'}
+                      </span>
+                      {selectedOrderForModal.user?.phone && (
+                        <a
+                          href={`https://wa.me/${toWhatsAppNumber(selectedOrderForModal.user.phone)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold inline-flex items-center gap-1 hover:bg-emerald-200"
+                        >
+                          <MessageCircle className="w-3 h-3 text-[#25D366]" />
+                          <span>محادثة واتساب</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  {selectedOrderForModal.customer_notes && (
+                    <div className="sm:col-span-2 pt-1 border-t border-[#EAE3D8]/60">
+                      <span className="text-[#8C7A6B] block mb-0.5 font-bold">ملاحظات العميل:</span>
+                      <p className="text-[#5C4A3E] bg-white p-2.5 rounded-lg border border-[#EAE3D8]">
+                        {selectedOrderForModal.customer_notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* SECTION 2: المنتجات المطلوبة */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>المنتجات المطلوبة في هذا الطلب</span>
+                </h4>
+
+                <div className="border border-[#EAE3D8] rounded-xl overflow-x-auto">
+                  <table className="w-full text-xs text-right min-w-[500px]">
+                    <thead className="bg-[#FAF8F5] text-[#8C7A6B] text-[10px] font-bold border-b border-[#EAE3D8]">
+                      <tr>
+                        <th className="py-2.5 px-3">المنتج</th>
+                        <th className="py-2.5 px-3">المواصفات / اللون</th>
+                        <th className="py-2.5 px-3">الكمية</th>
+                        <th className="py-2.5 px-3 text-left">الإجمالي</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#F5EFE6]">
+                      {(selectedOrderForModal.items || []).map((item, idx) => (
+                        <tr key={idx} className="hover:bg-[#FAF8F5]/50">
+                          <td className="py-2.5 px-3 font-bold text-[#241710]">
+                            {item.product_name}
+                          </td>
+                          <td className="py-2.5 px-3 text-[#5C4A3E]">
+                            {item.color_name && (
+                              <span className="inline-flex items-center gap-1 bg-[#FAF5EB] px-2 py-0.5 rounded text-[11px] font-bold text-[#241710]">
+                                {item.color_hex_code && (
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full border border-black/10"
+                                    style={{ backgroundColor: item.color_hex_code }}
+                                  />
+                                )}
+                                <span>{item.color_name}</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 font-bold text-[#241710]">
+                            {item.quantity} قطع
+                          </td>
+                          <td className="py-2.5 px-3 font-bold text-[#241710] text-left">
+                            {Number(item.subtotal || item.product_price || 0).toLocaleString('ar-EG')} ج.م
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* SECTION 3: الدفع وتأكيد الحجز (Payment Confirmation Rule) */}
+              <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-200 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h4 className="text-xs font-black uppercase text-amber-950 flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-amber-800" />
+                    <span>بيانات الدفع ومراجعة التحويل</span>
+                  </h4>
+                  <span className="text-[11px] font-bold text-amber-900 bg-amber-100/60 px-2 py-0.5 rounded border border-amber-200/50">
+                    طريقة التحويل: {parseOrderPayment(selectedOrderForModal).method}
                   </span>
                 </div>
-                <div>
-                  <span className="text-[#8C7A6B] block">رقم الهاتف:</span>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="font-bold text-[#241710] font-mono">
-                      {selectedOrderForModal.user?.phone || 'غير مسجل'}
-                    </span>
-                    {selectedOrderForModal.user?.phone && (
-                      <a
-                        href={`https://wa.me/${toWhatsAppNumber(selectedOrderForModal.user.phone)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold inline-flex items-center gap-1 hover:bg-emerald-200"
-                      >
-                        <MessageCircle className="w-3 h-3 text-[#25D366]" />
-                        <span>محادثة واتساب</span>
-                      </a>
-                    )}
-                  </div>
+
+                <div className="bg-white p-3.5 rounded-xl border border-amber-200/80 text-xs text-[#5C4A3E] space-y-2.5">
+                  <p className="leading-relaxed">
+                    <strong>قاعدة العمل:</strong> يبدأ أي طلب كـ <strong>«غير مؤكد»</strong>. يقوم المشرف
+                    بمراجعة إشعار التحويل البنكي أو إنستاباي أو فودافون كاش، وبمجرد التأكد من استلام المبلغ
+                    يتم الضغط على زر التأكيد أدناه لنقله إلى <strong>«مؤكد»</strong> تمهيداً للتجهيز والشحن.
+                  </p>
+
+                  {selectedOrderForModal.status === 'NOT_CONFIRMED' ||
+                  (selectedOrderForModal.status as string) === 'unconfirmed' ? (
+                    <button
+                      type="button"
+                      onClick={handleConfirmPaymentClick}
+                      disabled={updatingOrderId === selectedOrderForModal.id}
+                      className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {updatingOrderId === selectedOrderForModal.id &&
+                      pendingActionType === 'PAYMENT_CONFIRM' ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+                          <span>جاري تأكيد استلام الدفع...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>تأكيد استلام الدفع وتغيير حالة الطلب إلى (مؤكد)</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold text-xs">
+                      <CheckCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>تم التحقق من استلام الدفع لهذا الطلب بنجاح</span>
+                    </div>
+                  )}
                 </div>
-                {selectedOrderForModal.customer_notes && (
-                  <div className="sm:col-span-2 pt-1 border-t border-[#EAE3D8]/60">
-                    <span className="text-[#8C7A6B] block mb-0.5 font-bold">ملاحظات العميل:</span>
-                    <p className="text-[#5C4A3E] bg-white p-2.5 rounded-lg border border-[#EAE3D8]">
-                      {selectedOrderForModal.customer_notes}
+              </div>
+
+              {/* SECTION 4 & 5: الشحن وملخص الطلب */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Shipping Information */}
+                <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-2">
+                  <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>عنوان التوصيل والشحن</span>
+                  </h4>
+                  <div className="text-xs text-[#241710] space-y-1">
+                    <p>
+                      <strong className="text-[#8C7A6B]">المحافظة / المدينة:</strong>{' '}
+                      {selectedOrderForModal.shipping_address?.city || 'غير محدد'}
+                    </p>
+                    <p>
+                      <strong className="text-[#8C7A6B]">الشارع:</strong>{' '}
+                      {selectedOrderForModal.shipping_address?.street || '-'}
+                    </p>
+                    <p>
+                      <strong className="text-[#8C7A6B]">العمارة / الشقة:</strong>{' '}
+                      عمارة {selectedOrderForModal.shipping_address?.building_number || '-'}، شقة{' '}
+                      {selectedOrderForModal.shipping_address?.apartment_number || '-'}
                     </p>
                   </div>
-                )}
+                </div>
+
+                {/* Order Financial Summary */}
+                <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-2">
+                  <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5" />
+                    <span>ملخص الحساب الإجمالي</span>
+                  </h4>
+                  <div className="text-xs space-y-1.5 pt-1">
+                    <div className="flex justify-between text-[#5C4A3E]">
+                      <span>قيمة المنتجات:</span>
+                      <span className="font-bold font-mono">
+                        {Number(selectedOrderForModal.total_price || 0).toLocaleString('ar-EG')} ج.م
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-[#5C4A3E]">
+                      <span>مصاريف الشحن:</span>
+                      <span className="font-bold text-emerald-700">شحن سريع</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-[#EAE3D8] text-sm font-black text-[#241710]">
+                      <span>الإجمالي النهائي:</span>
+                      <span>
+                        {Number(selectedOrderForModal.total_price || 0).toLocaleString('ar-EG')} ج.م
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 6: تحديث حالة الطلب (Order Lifecycle Status) */}
+              <div className="p-4 rounded-xl bg-white border border-[#EAE3D8] space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h4 className="text-xs font-black uppercase text-[#241710] flex items-center gap-1.5">
+                    <Cog className="w-3.5 h-3.5 text-[#A27B5C]" />
+                    <span>تحديث حالة الطلب في دورة الشحن</span>
+                  </h4>
+                  <span className="text-[11px] text-[#8C7A6B]">
+                    الحالة الحالية:{' '}
+                    <strong className="text-[#241710]">
+                      {ORDER_WORKFLOW.find((w) => w.status === selectedOrderForModal.status)
+                        ?.label || selectedOrderForModal.status}
+                    </strong>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {ORDER_WORKFLOW.map((wf) => {
+                    const isCurrent =
+                      selectedOrderForModal.status === wf.status ||
+                      (selectedOrderForModal.status as string) === wf.status.toLowerCase();
+                    const isThisUpdating =
+                      updatingOrderId === selectedOrderForModal.id &&
+                      pendingActionType === wf.status;
+
+                    return (
+                      <button
+                        key={wf.status}
+                        type="button"
+                        disabled={isCurrent || updatingOrderId === selectedOrderForModal.id}
+                        onClick={() => handleStatusChange(selectedOrderForModal.id, wf.status)}
+                        className={`p-2.5 rounded-xl text-xs font-bold transition-all border text-center flex items-center justify-center gap-1.5 disabled:cursor-not-allowed ${
+                          isCurrent
+                            ? 'bg-[#241710] text-[#FAF5EB] border-[#241710] shadow-xs ring-2 ring-[#241710]/20'
+                            : 'bg-[#FAF8F5] text-[#5C4A3E] border-[#EAE3D8] hover:border-[#241710] hover:bg-[#F5EFE6]'
+                        } ${
+                          updatingOrderId === selectedOrderForModal.id && !isThisUpdating
+                            ? 'opacity-60'
+                            : ''
+                        }`}
+                      >
+                        {isThisUpdating ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+                            <span>جاري التحديث...</span>
+                          </>
+                        ) : (
+                          <span>{wf.label}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
-            {/* SECTION 2: المنتجات المطلوبة */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
-                <ShoppingBag className="w-3.5 h-3.5" />
-                <span>المنتجات المطلوبة في هذا الطلب</span>
-              </h4>
-
-              <div className="border border-[#EAE3D8] rounded-xl overflow-hidden">
-                <table className="w-full text-xs text-right">
-                  <thead className="bg-[#FAF8F5] text-[#8C7A6B] text-[10px] font-bold border-b border-[#EAE3D8]">
-                    <tr>
-                      <th className="py-2.5 px-3">المنتج</th>
-                      <th className="py-2.5 px-3">المواصفات / اللون</th>
-                      <th className="py-2.5 px-3">الكمية</th>
-                      <th className="py-2.5 px-3 text-left">الإجمالي</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F5EFE6]">
-                    {(selectedOrderForModal.items || []).map((item, idx) => (
-                      <tr key={idx} className="hover:bg-[#FAF8F5]/50">
-                        <td className="py-2.5 px-3 font-bold text-[#241710]">
-                          {item.product_name}
-                        </td>
-                        <td className="py-2.5 px-3 text-[#5C4A3E]">
-                          {item.color_name && (
-                            <span className="inline-flex items-center gap-1 bg-[#FAF5EB] px-2 py-0.5 rounded text-[11px] font-bold text-[#241710]">
-                              {item.color_hex_code && (
-                                <span
-                                  className="w-2.5 h-2.5 rounded-full border border-black/10"
-                                  style={{ backgroundColor: item.color_hex_code }}
-                                />
-                              )}
-                              <span>{item.color_name}</span>
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 font-bold text-[#241710]">
-                          {item.quantity} قطع
-                        </td>
-                        <td className="py-2.5 px-3 font-bold text-[#241710] text-left">
-                          {Number(item.subtotal || item.product_price || 0).toLocaleString('ar-EG')} ج.م
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* SECTION 3: الدفع وتأكيد الحجز (Payment Confirmation Rule) */}
-            <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-200 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-black uppercase text-amber-950 flex items-center gap-1.5">
-                  <CreditCard className="w-3.5 h-3.5 text-amber-800" />
-                  <span>بيانات الدفع ومراجعة التحويل</span>
-                </h4>
-                <span className="text-[11px] font-bold text-amber-900">
-                  طريقة التحويل: {parseOrderPayment(selectedOrderForModal).method}
+            {/* Modal Footer (Fixed / Non-scrolling) */}
+            <div className="shrink-0 p-3.5 sm:p-4 px-4 sm:px-6 border-t border-[#EAE3D8] bg-[#FAF8F5] flex items-center justify-between gap-3 z-10">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-[#8C7A6B] hidden sm:inline">إجمالي الطلب:</span>
+                <span className="font-black text-[#241710] font-mono text-sm">
+                  {Number(selectedOrderForModal.total_price || 0).toLocaleString('ar-EG')} ج.م
                 </span>
-              </div>
-
-              <div className="bg-white p-3 rounded-xl border border-amber-200/80 text-xs text-[#5C4A3E] space-y-2">
-                <p className="leading-relaxed">
-                  <strong>قاعدة العمل:</strong> يبدأ أي طلب كـ <strong>«غير مؤكد»</strong>. يقوم المشرف
-                  بمراجعة إشعار التحويل البنكي أو إنستاباي أو فودافون كاش، وبمجرد التأكد من استلام المبلغ
-                  يتم الضغط على زر التأكيد أدناه لنقله إلى <strong>«مؤكد»</strong> تمهيداً للتجهيز والشحن.
-                </p>
-
-                {selectedOrderForModal.status === 'NOT_CONFIRMED' ||
-                (selectedOrderForModal.status as string) === 'unconfirmed' ? (
-                  <button
-                    type="button"
-                    onClick={handleConfirmPaymentClick}
-                    disabled={updatingOrderId === selectedOrderForModal.id}
-                    className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>تأكيد استلام الدفع وتغيير حالة الطلب إلى (مؤكد)</span>
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold text-xs">
-                    <CheckCheck className="w-4 h-4 text-emerald-600" />
-                    <span>تم التحقق من استلام الدفع بالفعل لهذا الطلب</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* SECTION 4 & 5: الشحن وملخص الطلب */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Shipping Information */}
-              <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-2">
-                <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span>عنوان التوصيل والشحن</span>
-                </h4>
-                <div className="text-xs text-[#241710] space-y-1">
-                  <p>
-                    <strong className="text-[#8C7A6B]">المحافظة / المدينة:</strong>{' '}
-                    {selectedOrderForModal.shipping_address?.city || 'غير محدد'}
-                  </p>
-                  <p>
-                    <strong className="text-[#8C7A6B]">الشارع:</strong>{' '}
-                    {selectedOrderForModal.shipping_address?.street || '-'}
-                  </p>
-                  <p>
-                    <strong className="text-[#8C7A6B]">العمارة / الشقة:</strong>{' '}
-                    عمارة {selectedOrderForModal.shipping_address?.building_number || '-'}، شقة{' '}
-                    {selectedOrderForModal.shipping_address?.apartment_number || '-'}
-                  </p>
+                <span className="mx-1 text-[#EAE3D8] hidden sm:inline">|</span>
+                <div className="hidden sm:inline-block">
+                  {getStatusBadge(selectedOrderForModal.status)}
                 </div>
               </div>
 
-              {/* Order Financial Summary */}
-              <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-2">
-                <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
-                  <CreditCard className="w-3.5 h-3.5" />
-                  <span>ملخص الحساب الإجمالي</span>
-                </h4>
-                <div className="text-xs space-y-1.5 pt-1">
-                  <div className="flex justify-between text-[#5C4A3E]">
-                    <span>قيمة المنتجات:</span>
-                    <span className="font-bold font-mono">
-                      {Number(selectedOrderForModal.total_price || 0).toLocaleString('ar-EG')} ج.م
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-[#5C4A3E]">
-                    <span>مصاريف الشحن:</span>
-                    <span className="font-bold text-emerald-700">شحن سريع</span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-[#EAE3D8] text-sm font-black text-[#241710]">
-                    <span>الإجمالي النهائي:</span>
-                    <span>
-                      {Number(selectedOrderForModal.total_price || 0).toLocaleString('ar-EG')} ج.م
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* SECTION 6: تحديث حالة الطلب (Order Lifecycle Status) */}
-            <div className="p-4 rounded-xl bg-white border border-[#EAE3D8] space-y-3">
-              <h4 className="text-xs font-black uppercase text-[#241710] flex items-center gap-1.5">
-                <Cog className="w-3.5 h-3.5 text-[#A27B5C]" />
-                <span>تحديث حالة الطلب في دورة الشحن</span>
-              </h4>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {ORDER_WORKFLOW.map((wf) => {
-                  const isCurrent =
-                    selectedOrderForModal.status === wf.status ||
-                    (selectedOrderForModal.status as string) === wf.status.toLowerCase();
-
-                  return (
-                    <button
-                      key={wf.status}
-                      type="button"
-                      disabled={isCurrent || updatingOrderId === selectedOrderForModal.id}
-                      onClick={() => handleStatusChange(selectedOrderForModal.id, wf.status)}
-                      className={`p-2.5 rounded-xl text-xs font-bold transition-all border text-center ${
-                        isCurrent
-                          ? 'bg-[#241710] text-[#FAF5EB] border-[#241710] shadow-xs'
-                          : 'bg-[#FAF8F5] text-[#5C4A3E] border-[#EAE3D8] hover:border-[#241710]'
-                      }`}
-                    >
-                      {wf.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="pt-3 border-t border-[#EAE3D8] flex justify-end">
               <button
                 type="button"
-                onClick={() => setSelectedOrderForModal(null)}
-                className="px-5 py-2.5 rounded-xl bg-[#241710] text-[#FAF5EB] text-xs font-bold hover:bg-[#3D291D] transition-colors"
+                onClick={handleCloseOrderModal}
+                disabled={updatingOrderId === selectedOrderForModal.id}
+                className="px-5 py-2.5 rounded-xl bg-[#241710] hover:bg-[#3D291D] text-[#FAF5EB] text-xs font-bold transition-colors shadow-xs disabled:opacity-50"
               >
                 إغلاق النافذة
               </button>
