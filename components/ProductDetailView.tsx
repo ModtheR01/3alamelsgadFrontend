@@ -209,11 +209,6 @@ export default function ProductDetailView() {
 
   const totalCalculatedPrice = effectiveUnitPrice * quantity;
 
-  // Deposit calculation
-  const depositRatio = (settings.depositPercentage || 50) / 100;
-  const depositDue = Math.round(totalCalculatedPrice * depositRatio);
-  const remainingDue = totalCalculatedPrice - depositDue;
-
   // Construct Arawal selection object if applicable
   const currentArawalConfig: ArawalSelection | undefined = isArawalProduct
     ? {

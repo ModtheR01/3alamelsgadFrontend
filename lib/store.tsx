@@ -687,8 +687,6 @@ interface StoreContextType {
   clearCart: () => void;
   syncGuestCart: () => Promise<void>;
   cartSubtotal: number;
-  cartDepositAmount: number;
-  cartRemainingAmount: number;
   cartItemsCount: number;
   cartOriginalTotal: number;
   cartDiscountTotal: number;
@@ -1221,9 +1219,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     : isGuestCart
       ? cart.reduce((sum, item) => sum + (item.subtotal ?? item.unitPrice * item.quantity), 0)
       : cartPricing.total;
-  const depositRatio = settings.depositPercentage / 100;
-  const cartDepositAmount = Math.round(cartSubtotal * depositRatio);
-  const cartRemainingAmount = cartSubtotal - cartDepositAmount;
   const cartItemsCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   // Order creation
@@ -1929,8 +1924,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         clearCart,
         syncGuestCart,
         cartSubtotal,
-        cartDepositAmount,
-        cartRemainingAmount,
         cartItemsCount,
         cartOriginalTotal: cartPricing.originalTotal,
         cartDiscountTotal: cartPricing.discountTotal,

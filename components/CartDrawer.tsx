@@ -14,8 +14,6 @@ export default function CartDrawer() {
     removeFromCart,
     updateCartQuantity,
     cartSubtotal,
-    cartDepositAmount,
-    cartRemainingAmount,
     cartDiscountTotal,
     cartFreeShipping,
     navigateTo,
@@ -198,7 +196,7 @@ export default function CartDrawer() {
 
           {/* Footer Totals & Checkout CTA */}
           {cart.length > 0 && (
-            <div className="p-5 sm:p-6 border-t border-[#EAE3D8] bg-white space-y-3">
+            <div className="p-5 sm:p-6 border-t border-[#EAE3D8] bg-white space-y-4">
               {/* Discount Notice if applicable */}
               {cartDiscountTotal > 0 && (
                 <div className="flex justify-between text-xs text-emerald-700">
@@ -213,17 +211,6 @@ export default function CartDrawer() {
                 <span className="font-extrabold text-base text-[#251811]">
                   {cartSubtotal.toLocaleString()} {t('ج.م', 'EGP')}
                 </span>
-              </div>
-
-              {/* Deposit option explanation */}
-              <div className="p-2.5 rounded-xl bg-[#F6F1E8] border border-[#E5DACD] text-[11px] text-[#5C4A3E] space-y-1">
-                <div className="flex justify-between">
-                  <span>{t('مقدم تأكيد الحجز (اختياري ٥٠%):', 'Optional 50% Deposit:')}</span>
-                  <span className="font-bold text-[#251811]">{cartDepositAmount.toLocaleString()} {t('ج.م', 'EGP')}</span>
-                </div>
-                <p className="text-[10px] text-[#8A796B]">
-                  {t('أو الدفع عند الاستلام بعد تحويل قيمة الشحن.', 'Or pay shipping upfront & product on delivery.')}
-                </p>
               </div>
 
               {/* Checkout CTA */}
