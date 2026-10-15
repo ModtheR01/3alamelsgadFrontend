@@ -209,10 +209,37 @@ export const productService = {
   },
 
   /**
-   * Delete an Arwal product
+   * Delete an Arwal product (soft delete)
    * DELETE /api/arwals/<id>/
    */
   async deleteArwal(id: number): Promise<void> {
     return apiClient.delete<void>(`/arwals/${id}/`);
+  },
+
+  /**
+   * Permanently delete an Arwal product
+   * DELETE /api/arwals/<id>/hard-delete/
+   */
+  async hardDeleteArwal(id: number): Promise<void> {
+    return apiClient.delete<void>(`/arwals/${id}/hard-delete/`);
+  },
+
+  /**
+   * Restore a soft-deleted Arwal product
+   * POST /api/arwals/<id>/restore/
+   */
+  async restoreArwal(id: number): Promise<{ detail: string }> {
+    return apiClient.post<{ detail: string }>(`/arwals/${id}/restore/`, {});
+  },
+
+  /**
+   * Get all soft-deleted Arwal products
+   * GET /api/arwals/deleted/
+   */
+  async getDeletedArwals(): Promise<BackendArwal[]> {
+    const response = await apiClient.get<PaginatedResponse<BackendArwal> | BackendArwal[]>('/arwals/deleted/', {
+      params: { page_size: 100 },
+    });
+    return unwrapResults<BackendArwal>(response);
   },
 };

@@ -155,6 +155,7 @@ export interface BackendCart {
 
   // Convenience aliases for backward compatibility with frontend legacy store
   items?: BackendCartItem[];
+  arwals?: BackendArwalCartItem[];
   original_total?: string;
   discount_amount?: string;
   total_price?: string;

@@ -29,7 +29,7 @@ import {
   clearGuestCart,
   isGuestCartItemId,
 } from '@/lib/guestCart';
-import { BackendProduct, BackendProductImage, BackendSize, BackendArwal } from '@/types/product';
+import { BackendProduct, BackendProductImage, BackendSize, BackendArwal, BackendArwalWidth, ArwalCreateRequest } from '@/types/product';
 import { BackendCategory, BackendSubcategory } from '@/types/category';
 import {
   BackendCart,
@@ -353,6 +353,7 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
   const productDesc = product?.description || product?.description_ar || product?.description_en || '';
 
   const isArawal =
+    Boolean((product as any)?.isArawal) ||
     /أروال|arawal|رول|مشاية بالمتر|طاقة/i.test(productName) ||
     /أروال|arawal|رول/i.test(productDesc) ||
     Boolean(primarySubcategory && /أروال|arawal|رول/i.test(primarySubcategory.name || primarySubcategory.name_ar || ''));
@@ -363,7 +364,7 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     .map(Number)
     .filter((n) => n >= 30 && n <= 500);
   const uniqueWidths = Array.from(new Set(parsedWidths)).sort((a, b) => a - b);
-  const availableWidths = uniqueWidths.length > 0 ? uniqueWidths : isArawal ? [80] : undefined;
+  const availableWidths = uniqueWidths.length > 0 ? uniqueWidths : isArawal ? [60, 80, 100, 120] : undefined;
 
   const mappedColors = Array.isArray(product?.colors)
     ? product.colors.map((color) => ({
@@ -430,12 +431,14 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     discountPercentage: validDiscountPercentage,
     images: displayImages,
     imageRecords,
-    dimensions: rawDims || (mappedSizes.length > 0 ? mappedSizes.map((s) => s.name).join('، ') : availableWidths ? availableWidths.map((w) => `${w} سم`).join('، ') : ''),
+    dimensions: isArawal
+      ? (availableWidths ? availableWidths.map((w) => `${w} سم`).join('، ') : '60، 80، 100، 120 سم')
+      : (rawDims || (mappedSizes.length > 0 ? mappedSizes.map((s) => s.name).join('، ') : availableWidths ? availableWidths.map((w) => `${w} سم`).join('، ') : '')),
     deliveryDays: product?.delivery_days,
     material: product?.material || '',
     finishes: Array.isArray(product?.finish) ? product.finish : [],
     colors: mappedColors,
-    sizes: mappedSizes,
+    sizes: isArawal ? [] : mappedSizes,
     faq: Array.isArray(product?.faq) ? product.faq : [],
     leadTime: product?.delivery_days ? `${product.delivery_days} أيام` : EMPTY_SETTINGS.defaultLeadTime,
     shippingTime: 'توصيل خلال ٢-٤ أيام عمل',
@@ -447,6 +450,109 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     arawalUnitPricePerMeter: isArawal ? parsedPrice : undefined,
     availableWidths,
     createdAt: product?.created_at || new Date().toISOString(),
+    seoTitle: productName,
+    seoDescription: productDesc,
+  };
+}
+
+export function resolveArwalWidthId(widthVal: number, widths: BackendArwalWidth[] = []): number {
+  const match = widths.find((w) => w.width === widthVal);
+  if (match) return match.id;
+  const fallbackMap: Record<number, number> = { 60: 1, 80: 2, 100: 3, 120: 4 };
+  return fallbackMap[widthVal] || widths[0]?.id || 2;
+}
+
+export function mapBackendArwal(arwal: BackendArwal, subcategories: BackendSubcategory[] = []): Product {
+  const subcategoryList = Array.isArray(subcategories) ? subcategories : [];
+  const rawSubcategoryId = arwal.subcategory?.id;
+  const subcategoryIds = rawSubcategoryId ? [String(rawSubcategoryId)] : [];
+  const primarySubcategory = subcategoryList.find((subcategory) => subcategory.id === rawSubcategoryId);
+  const categoryId = primarySubcategory?.category_id
+    ? String(primarySubcategory.category_id)
+    : (arwal as any)?.category_id
+    ? String((arwal as any).category_id)
+    : '';
+
+  const rawImages = Array.isArray(arwal.images) ? arwal.images : [];
+  const imageRecords = rawImages.map((image: BackendProductImage, index) => ({
+    id: image?.id,
+    image: image?.image || '',
+    public_id: image?.public_id,
+    is_primary: image?.is_primary,
+    sort_order: image?.sort_order ?? index,
+  }));
+
+  const sortedRecords = [...imageRecords].sort((a, b) => {
+    if (a.is_primary && !b.is_primary) return -1;
+    if (!a.is_primary && b.is_primary) return 1;
+    return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+  });
+
+  let displayImages = sortedRecords.length > 0
+    ? sortedRecords.map((image) => image.image).filter(Boolean)
+    : arwal.primary_image?.image
+    ? [arwal.primary_image.image]
+    : [];
+
+  const primaryUrl = arwal.primary_image?.image;
+  if (primaryUrl && displayImages.includes(primaryUrl)) {
+    displayImages = [primaryUrl, ...displayImages.filter((img) => img !== primaryUrl)];
+  } else if (primaryUrl && !displayImages.includes(primaryUrl)) {
+    displayImages = [primaryUrl, ...displayImages];
+  }
+
+  const productName = arwal.name_ar || arwal.name_en || '';
+  const productDesc = arwal.description_ar || arwal.description_en || '';
+  const parsedPrice = Number(arwal.price_per_length) || 0;
+
+  const rawWidths = Array.isArray(arwal.widths)
+    ? arwal.widths.map((w) => w.width).filter(Number.isFinite)
+    : [];
+  const availableWidths = rawWidths.length > 0 ? Array.from(new Set(rawWidths)).sort((a, b) => a - b) : [60, 80, 100, 120];
+
+  const mappedColors = Array.isArray(arwal.colors)
+    ? arwal.colors.map((color) => ({
+        id: String(color.id),
+        name: color.name || color.name_ar || color.name_en || '',
+        name_ar: color.name_ar || color.name || '',
+        name_en: color.name_en || color.name || '',
+        hex: color.hex_code,
+      }))
+    : [];
+
+  return {
+    id: String(arwal.id || ''),
+    slug: String(arwal.id || ''),
+    name: productName,
+    name_ar: arwal.name_ar || productName,
+    name_en: arwal.name_en || productName,
+    categoryId,
+    subcategoryIds,
+    description: productDesc,
+    description_ar: arwal.description_ar || productDesc,
+    description_en: arwal.description_en || productDesc,
+    price: parsedPrice,
+    originalPrice: undefined,
+    discountPercentage: undefined,
+    images: displayImages,
+    imageRecords,
+    dimensions: availableWidths.map((w) => `${w} سم`).join('، '),
+    deliveryDays: null,
+    material: '',
+    finishes: ['MATTE'],
+    colors: mappedColors,
+    sizes: [], // Explicitly empty for rolls
+    faq: [],
+    leadTime: EMPTY_SETTINGS.defaultLeadTime,
+    shippingTime: 'توصيل خلال ٢-٤ أيام عمل',
+    isFeatured: false,
+    isPublished: !arwal.deleted_at,
+    inStock: true,
+    allowsCustomization: false,
+    isArawal: true,
+    arawalUnitPricePerMeter: parsedPrice,
+    availableWidths,
+    createdAt: arwal.created_at || new Date().toISOString(),
     seoTitle: productName,
     seoDescription: productDesc,
   };
@@ -768,6 +874,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Entities
   const [products, setProducts] = useState<Product[]>([]);
+  const [arwalWidths, setArwalWidths] = useState<BackendArwalWidth[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<BackendSubcategory[]>([]);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -816,18 +923,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setCatalogError(null);
     Promise.all([
       productService.getProducts(),
+      productService.getArwals().catch(() => [] as BackendArwal[]),
       categoryService.getCategories(),
       subcategoryService.getSubcategories(),
+      productService.getArwalWidths().catch(() => [] as BackendArwalWidth[]),
     ])
-      .then(([backendProducts, backendCategories, backendSubcategories]) => {
+      .then(([backendProducts, backendArwals, backendCategories, backendSubcategories, backendWidths]) => {
         if (!active) return;
         const subcatList = Array.isArray(backendSubcategories) ? backendSubcategories : [];
         const catList = Array.isArray(backendCategories) ? backendCategories : [];
         const prodList = Array.isArray(backendProducts) ? backendProducts : [];
+        const arwalList = Array.isArray(backendArwals) ? backendArwals : [];
+        const widthsList = Array.isArray(backendWidths) ? backendWidths : [];
 
         setSubcategories(subcatList);
+        setArwalWidths(widthsList);
         const mappedProducts = prodList.map((product) => mapBackendProduct(product, subcatList));
-        setProducts(mappedProducts);
+        const mappedArwals = arwalList.map((arwal) => mapBackendArwal(arwal, subcatList));
+        const combined = [...mappedProducts, ...mappedArwals];
+        setProducts(combined);
         setCategories(catList.map(mapBackendCategory));
         setCatalogError(null);
 
@@ -837,9 +951,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .getCart()
           .then((backendCart) => {
             if (!active || !backendCart) return;
-            const items = Array.isArray(backendCart.items) ? backendCart.items : [];
+            const items = Array.isArray(backendCart.product_items)
+              ? backendCart.product_items
+              : Array.isArray(backendCart.items)
+              ? (backendCart.items as any)
+              : [];
+            const arwals = Array.isArray(backendCart.arwal_items)
+              ? backendCart.arwal_items
+              : [];
+            const bundles = Array.isArray(backendCart.bundles) ? backendCart.bundles : [];
             setIsGuestCart(false);
-            setCart(items.map((item) => mapBackendCartItem(item, mappedProducts)));
+            setCart([
+              ...items.map((item: any) => mapBackendProductCartItem(item, combined)),
+              ...arwals.map((arwal: any) => mapBackendArwalCartItem(arwal, combined)),
+              ...bundles.map((bundle: any) => mapBackendBundleCartItem(bundle)),
+            ]);
             setCartPricing({
               originalTotal: Number(backendCart.subtotal || backendCart.original_total || 0),
               discountTotal: Number(backendCart.discount || backendCart.discount_amount || 0),
@@ -1052,12 +1178,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!Number.isInteger(productId)) {
           throw new Error('This Arwal is not connected to a backend record.');
         }
-        const colorId = itemData.selectedColor.id ? Number(itemData.selectedColor.id) : 1;
+        const matchedProduct = products.find((p) => p.id === String(productId));
+        const colorId = itemData.selectedColor.id
+          ? Number(itemData.selectedColor.id)
+          : matchedProduct?.colors?.[0]?.id
+          ? Number(matchedProduct.colors[0].id)
+          : 1;
         const widthVal = itemData.arwalConfig?.width || 80;
+        const widthId = resolveArwalWidthId(widthVal, arwalWidths);
         await cartService.addArwalItem({
           arwal_id: productId,
           selected_color_id: colorId,
-          selected_width_id: widthVal,
+          selected_width_id: widthId,
           selected_length: itemData.arwalConfig?.lengthMeters || 1,
           quantity: itemData.quantity,
         });
@@ -1176,12 +1308,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       try {
         if (item.arwalConfig?.isArawal) {
-          const colorId = item.selectedColor.id ? Number(item.selectedColor.id) : 1;
+          const matchedProduct = products.find((p) => p.id === String(productId));
+          const colorId = item.selectedColor.id
+            ? Number(item.selectedColor.id)
+            : matchedProduct?.colors?.[0]?.id
+            ? Number(matchedProduct.colors[0].id)
+            : 1;
           const widthVal = item.arwalConfig.width || 80;
+          const widthId = resolveArwalWidthId(widthVal, arwalWidths);
           await cartService.addArwalItem({
             arwal_id: productId,
             selected_color_id: colorId,
-            selected_width_id: widthVal,
+            selected_width_id: widthId,
             selected_length: item.arwalConfig.lengthMeters || 1,
             quantity: item.quantity,
           });
@@ -1323,6 +1461,109 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Admin CRUD for Products
   const saveProduct = useCallback(async (productToSave: Product) => {
+    if (productToSave.isArawal) {
+      const subcategoryId = Number(productToSave.subcategoryIds?.[0]) || (subcategories[0]?.id ?? 1);
+      const colorIds = productToSave.colors
+        .map((color) => Number(color.id))
+        .filter((id) => Number.isInteger(id));
+      const widthsToMap = (productToSave.availableWidths && productToSave.availableWidths.length > 0)
+        ? productToSave.availableWidths
+        : [60, 80, 100, 120];
+      const widthIds = widthsToMap
+        .map((w) => resolveArwalWidthId(w, arwalWidths))
+        .filter((id) => Number.isInteger(id));
+
+      const nameAr = (productToSave.name_ar || productToSave.name || '').trim();
+      const nameEn = (productToSave.name_en || productToSave.name || nameAr).trim();
+      const descAr = (productToSave.description_ar || productToSave.description || '').trim();
+      const descEn = (productToSave.description_en || productToSave.description || descAr).trim();
+      const pricePerLength = productToSave.arawalUnitPricePerMeter || productToSave.price || 0;
+
+      const payload: ArwalCreateRequest = {
+        subcategory_id: subcategoryId,
+        name_ar: nameAr,
+        name_en: nameEn,
+        description_ar: descAr,
+        description_en: descEn,
+        price_per_length: pricePerLength,
+        width_ids: widthIds.length > 0 ? widthIds : [1, 2, 3, 4],
+        color_ids: colorIds,
+      };
+
+      const arwalId = Number(productToSave.id);
+      let saved: BackendArwal = Number.isInteger(arwalId)
+        ? await productService.updateArwal(arwalId, payload)
+        : await productService.createArwal(payload);
+
+      if (Number.isInteger(arwalId)) {
+        const existingImages = Array.isArray(saved.images) ? saved.images : [];
+        const currentUrls = new Set(productToSave.images);
+
+        // 1. Delete removed images from backend
+        const imagesToDelete = existingImages.filter((img) => !currentUrls.has(img.image));
+        for (const img of imagesToDelete) {
+          try {
+            await productImageService.deleteArwalImage(img.id);
+          } catch {
+            // Continue if already removed
+          }
+        }
+
+        // 2. Create newly uploaded images
+        const existingUrls = new Set(existingImages.map((img) => img.image));
+        const newlyAddedDrafts = (productToSave.imageRecords || []).filter(
+          (rec) => rec.image && !existingUrls.has(rec.image)
+        );
+
+        for (let i = 0; i < newlyAddedDrafts.length; i++) {
+          const draft = newlyAddedDrafts[i];
+          try {
+            await productImageService.createArwalImage({
+              arwal: arwalId,
+              image: draft.image,
+              public_id: draft.public_id || '',
+              is_primary: productToSave.images.indexOf(draft.image) === 0,
+              sort_order: existingImages.length + i,
+            });
+          } catch {
+            // Continue
+          }
+        }
+
+        // 3. Refresh arwal to ensure images match backend state
+        try {
+          const refreshed = await productService.getArwal(arwalId);
+          saved = refreshed;
+        } catch {
+          // Keep saved
+        }
+      } else if (productToSave.images.length > 0) {
+        const createdImages = await Promise.all(
+          productToSave.images.map((imageUrl, index) => {
+            const imageRecord = productToSave.imageRecords?.find((record) => record.image === imageUrl);
+            return productImageService.createArwalImage({
+              arwal: saved.id,
+              image: imageUrl,
+              public_id: imageRecord?.public_id || '',
+              is_primary: index === 0,
+              sort_order: index,
+            });
+          })
+        );
+        saved = {
+          ...saved,
+          images: createdImages,
+        };
+      }
+
+      const mapped = mapBackendArwal(saved, subcategories);
+      setProducts((prev) => {
+        const exists = prev.some((product) => product.id === mapped.id);
+        return exists ? prev.map((product) => (product.id === mapped.id ? mapped : product)) : [mapped, ...prev];
+      });
+      return;
+    }
+
     const subcategoryIds = productToSave.subcategoryIds
       .map((id) => Number(id))
       .filter((id) => Number.isInteger(id));
@@ -1333,13 +1574,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .map((size: any) => Number(size.id))
       .filter((id) => Number.isInteger(id));
 
-    if (!productToSave.isArawal) {
-      if (sizeIds.length === 0) {
-        throw new Error('يرجى اختيار مقاس واحد على الأقل للمنتج (المقاسات مطلوبة).');
-      }
-      if (colorIds.length === 0) {
-        throw new Error('يرجى اختيار لون واحد على الأقل للمنتج (الألوان مطلوبة).');
-      }
+    if (sizeIds.length === 0) {
+      throw new Error('يرجى اختيار مقاس واحد على الأقل للمنتج (المقاسات مطلوبة).');
+    }
+    if (colorIds.length === 0) {
+      throw new Error('يرجى اختيار لون واحد على الأقل للمنتج (الألوان مطلوبة).');
     }
 
     const nameAr = (productToSave.name_ar || productToSave.name || '').trim();
@@ -1436,21 +1675,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const exists = prev.some((product) => product.id === mapped.id);
       return exists ? prev.map((product) => (product.id === mapped.id ? mapped : product)) : [mapped, ...prev];
     });
-  }, [subcategories]);
+  }, [subcategories, arwalWidths]);
 
   const refreshCatalog = useCallback(async () => {
     setIsCatalogLoading(true);
     setCatalogError(null);
     try {
-      const [backendProducts, backendCategories, backendSubcategories] = await Promise.all([
+      const [backendProducts, backendArwals, backendCategories, backendSubcategories, backendWidths] = await Promise.all([
         productService.getProducts(),
+        productService.getArwals().catch(() => [] as BackendArwal[]),
         categoryService.getCategories(),
         subcategoryService.getSubcategories(),
+        productService.getArwalWidths().catch(() => [] as BackendArwalWidth[]),
       ]);
       const subcatList = Array.isArray(backendSubcategories) ? backendSubcategories : [];
+      const catList = Array.isArray(backendCategories) ? backendCategories : [];
+      const prodList = Array.isArray(backendProducts) ? backendProducts : [];
+      const arwalList = Array.isArray(backendArwals) ? backendArwals : [];
+      const widthsList = Array.isArray(backendWidths) ? backendWidths : [];
+
       setSubcategories(subcatList);
-      setCategories((Array.isArray(backendCategories) ? backendCategories : []).map(mapBackendCategory));
-      setProducts((Array.isArray(backendProducts) ? backendProducts : []).map((p) => mapBackendProduct(p, subcatList)));
+      setArwalWidths(widthsList);
+      setCategories(catList.map(mapBackendCategory));
+      const mappedProducts = prodList.map((p) => mapBackendProduct(p, subcatList));
+      const mappedArwals = arwalList.map((a) => mapBackendArwal(a, subcatList));
+      setProducts([...mappedProducts, ...mappedArwals]);
       setCatalogError(null);
       await reloadOffers().catch(() => {});
     } catch (err) {
@@ -1463,8 +1712,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const deleteProduct = useCallback(async (productId: string) => {
     const numericId = Number(productId);
     if (!Number.isInteger(numericId)) throw new Error('Product is not connected to a backend record.');
+    const product = products.find((p) => p.id === productId);
     try {
-      await productService.deleteProduct(numericId);
+      if (product?.isArawal) {
+        await productService.deleteArwal(numericId);
+      } else {
+        await productService.deleteProduct(numericId);
+      }
     } catch (err: any) {
       if (err?.status === 404 || err?.response?.status === 404) {
         setProducts((prev) => prev.filter((p) => p.id !== productId));
@@ -1473,13 +1727,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       throw err;
     }
     setProducts((prev) => prev.filter((p) => p.id !== productId));
-  }, []);
+  }, [products]);
 
   const hardDeleteProduct = useCallback(async (productId: string) => {
     const numericId = Number(productId);
     if (!Number.isInteger(numericId)) throw new Error('Product is not connected to a backend record.');
+    const product = products.find((p) => p.id === productId);
     try {
-      await productService.hardDeleteProduct(numericId);
+      if (product?.isArawal) {
+        await productService.hardDeleteArwal(numericId);
+      } else {
+        await productService.hardDeleteProduct(numericId);
+      }
     } catch (err: any) {
       if (err?.status === 404 || err?.response?.status === 404) {
         setProducts((prev) => prev.filter((p) => p.id !== productId));
@@ -1488,14 +1747,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       throw err;
     }
     setProducts((prev) => prev.filter((p) => p.id !== productId));
-  }, []);
+  }, [products]);
 
   const restoreProduct = useCallback(async (productId: string) => {
     const numericId = Number(productId);
     if (!Number.isInteger(numericId)) throw new Error('Product is not connected to a backend record.');
-    await productService.restoreProduct(numericId);
+    const product = products.find((p) => p.id === productId);
+    if (product?.isArawal) {
+      await productService.restoreArwal(numericId);
+    } else {
+      await productService.restoreProduct(numericId);
+    }
     refreshCatalog().catch(() => {});
-  }, [refreshCatalog]);
+  }, [products, refreshCatalog]);
 
   const toggleProductFeatured = useCallback(async (productId: string) => {
     const product = products.find((item) => item.id === productId);

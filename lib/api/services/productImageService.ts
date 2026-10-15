@@ -62,4 +62,26 @@ export const productImageService = {
   async setPrimaryImage(id: number): Promise<SetPrimaryImageResponse> {
     return apiClient.post<SetPrimaryImageResponse>(`/products/images/${id}/set-primary/`, {});
   },
+
+  /**
+   * Create arwal image record in backend after direct Cloudinary upload
+   * POST /api/arwal-images/
+   */
+  async createArwalImage(data: {
+    arwal: number;
+    image: string;
+    public_id?: string;
+    is_primary?: boolean;
+    sort_order?: number;
+  }): Promise<BackendProductImage> {
+    return apiClient.post<BackendProductImage>('/arwal-images/', data);
+  },
+
+  /**
+   * Delete arwal image record from backend
+   * DELETE /api/arwal-images/<id>/
+   */
+  async deleteArwalImage(id: number): Promise<void> {
+    return apiClient.delete<void>(`/arwal-images/${id}/`);
+  },
 };

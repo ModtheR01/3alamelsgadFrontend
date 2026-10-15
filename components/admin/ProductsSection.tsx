@@ -30,7 +30,7 @@ import {
 import Image from '@/components/SafeImage';
 import { uploadDirectToCloudinary } from '@/lib/api/cloudinary';
 import { productService } from '@/lib/api/services/productService';
-import { BackendProduct, BackendSize, BackendColor } from '@/types/product';
+import { BackendProduct, BackendSize, BackendColor, BackendArwal } from '@/types/product';
 import { normalizeApiError } from '@/lib/api/errors';
 
 interface ProductsSectionProps {
@@ -114,8 +114,21 @@ export default function ProductsSection({
     setIsLoadingArchived(true);
     setArchivedError(null);
     try {
-      const data = await productService.getDeletedProducts();
-      setArchivedProducts(data || []);
+      const [deletedProducts, deletedArwals] = await Promise.all([
+        productService.getDeletedProducts().catch(() => [] as BackendProduct[]),
+        productService.getDeletedArwals().catch(() => [] as BackendArwal[]),
+      ]);
+      const mappedDeletedArwals: BackendProduct[] = deletedArwals.map((a) => ({
+        id: a.id,
+        name: a.name_ar || a.name_en,
+        name_ar: a.name_ar,
+        name_en: a.name_en,
+        price: a.price_per_length,
+        deleted_at: a.deleted_at,
+        images: a.images,
+        isArawal: true,
+      } as any));
+      setArchivedProducts([...(deletedProducts || []), ...mappedDeletedArwals]);
     } catch (err: any) {
       setArchivedError(normalizeApiError(err).message);
       setArchivedProducts([]);
@@ -309,14 +322,18 @@ export default function ProductsSection({
   };
 
   const handleOpenEdit = (product: Product) => {
+    const isArwal = Boolean(product.isArawal);
     setEditingProduct({
       ...product,
+      isArawal: isArwal,
       name_ar: product.name_ar || product.name || '',
       name_en: product.name_en || '',
       description_ar: product.description_ar || product.description || '',
       description_en: product.description_en || '',
-      sizes: Array.isArray(product.sizes) ? [...product.sizes] : [],
+      sizes: isArwal ? [] : (Array.isArray(product.sizes) ? [...product.sizes] : []),
       colors: Array.isArray(product.colors) ? [...product.colors] : [],
+      arawalUnitPricePerMeter: isArwal ? (product.arawalUnitPricePerMeter || product.price) : undefined,
+      availableWidths: isArwal ? (product.availableWidths || [60, 80, 100, 120]) : product.availableWidths,
     });
     setManualImageUrl('');
     setFormError(null);
@@ -377,6 +394,10 @@ export default function ProductsSection({
         description: descAr,
         description_ar: descAr,
         description_en: descEn,
+        sizes: editingProduct.isArawal ? [] : editingProduct.sizes,
+        dimensions: editingProduct.isArawal
+          ? (editingProduct.availableWidths ? editingProduct.availableWidths.map((w) => `${w} سم`).join('، ') : 'عرض: 60، 80، 100، 120 سم')
+          : editingProduct.dimensions,
       });
       setIsModalOpen(false);
       setEditingProduct(null);
@@ -1425,7 +1446,25 @@ export default function ProductsSection({
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
-                          onClick={() => setEditingProduct({ ...editingProduct, isArawal: false })}
+                          onClick={() => {
+                            const initialSizes = availableSizes.length > 0
+                              ? [{
+                                  id: String(availableSizes[0].id),
+                                  name: `${availableSizes[0].width} × ${availableSizes[0].length} سم`,
+                                  dimensions: `${availableSizes[0].width} × ${availableSizes[0].length} سم`,
+                                  priceDelta: 0,
+                                  width: availableSizes[0].width,
+                                  length: availableSizes[0].length,
+                                }]
+                              : [];
+                            const currentSizes = editingProduct.sizes && editingProduct.sizes.length > 0 ? editingProduct.sizes : initialSizes;
+                            setEditingProduct({
+                              ...editingProduct,
+                              isArawal: false,
+                              sizes: currentSizes,
+                              dimensions: currentSizes.length > 0 ? currentSizes[0].dimensions : '200 × 300 سم',
+                            });
+                          }}
                           className={`p-2.5 rounded-xl border text-right transition-all flex items-center gap-2 ${
                             !editingProduct.isArawal
                               ? 'bg-white border-[#241710] ring-1 ring-[#241710] shadow-xs'
@@ -1449,14 +1488,17 @@ export default function ProductsSection({
 
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            const widths = editingProduct.availableWidths || [60, 80, 100, 120];
                             setEditingProduct({
                               ...editingProduct,
                               isArawal: true,
-                              availableWidths: editingProduct.availableWidths || [60, 80, 100, 120],
+                              sizes: [],
+                              dimensions: widths.map((w) => `${w} سم`).join('، '),
+                              availableWidths: widths,
                               arawalUnitPricePerMeter: editingProduct.arawalUnitPricePerMeter || editingProduct.price || 450,
-                            })
-                          }
+                            });
+                          }}
                           className={`p-2.5 rounded-xl border text-right transition-all flex items-center gap-2 ${
                             editingProduct.isArawal
                               ? 'bg-amber-50 border-amber-600 ring-1 ring-amber-600 shadow-xs'

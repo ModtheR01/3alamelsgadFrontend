@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useToccoStore, mapBackendProduct } from '@/lib/store';
+import { useToccoStore, mapBackendProduct, mapBackendArwal } from '@/lib/store';
 import { useLanguage } from '@/lib/context/LanguageContext';
 import { productService } from '@/lib/api/services/productService';
 import { normalizeApiError } from '@/lib/api/errors';
@@ -73,9 +73,15 @@ export default function ProductDetailView() {
         if (!active) return;
         setRemoteProduct(mapBackendProduct(data, subcategories));
       })
-      .catch((err) => {
-        if (!active) return;
-        setRemoteError(normalizeApiError(err).message || 'تعذر تحميل بيانات المنتج من الخادم.');
+      .catch(async () => {
+        try {
+          const arwalData = await productService.getArwal(numId);
+          if (!active) return;
+          setRemoteProduct(mapBackendArwal(arwalData, subcategories));
+        } catch (err) {
+          if (!active) return;
+          setRemoteError(normalizeApiError(err).message || 'تعذر تحميل بيانات المنتج من الخادم.');
+        }
       })
       .finally(() => {
         if (active) setIsRemoteLoading(false);
@@ -91,11 +97,9 @@ export default function ProductDetailView() {
   // Is this an ARAWAL product?
   const isArawalProduct = useMemo(() => {
     if (!product) return false;
+    if (product.isArawal) return true;
     const allText = `${product.name_ar || ''} ${product.name_en || ''} ${product.name || ''} ${product.description_ar || ''} ${product.description_en || ''} ${product.description || ''}`;
-    return (
-      product.isArawal ||
-      /أروال|arawal|رول|مشاية بالمتر/i.test(allText)
-    );
+    return /أروال|arawal|رول|مشاية بالمتر/i.test(allText);
   }, [product]);
 
   // Active state for configurable attributes
@@ -117,7 +121,7 @@ export default function ProductDetailView() {
     if (parsed.length > 0) {
       return Array.from(new Set(parsed)).sort((a, b) => a - b);
     }
-    return [80];
+    return [60, 80, 100, 120];
   }, [product]);
 
   // ARAWAL State (Width defined by admin per product, customer selects length)
@@ -796,12 +800,17 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                 <p>{getDescription(product) || t('سجاد فاخر مصنوع بأعلى معايير الحرفة والدقة ليمنح منزلك لمسة دافئة وفخمة تدوم طويلاً.', 'Luxury carpet crafted with precision and craftsmanship.')}</p>
               </div>
 
-              {product.dimensions && !isArawalProduct && (
+              {isArawalProduct ? (
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[#251811]">{t('العروض المتوفرة:', 'Available Widths:')}</span>
+                  <span>{availableWidths.map((w) => `${w} سم`).join('، ')}</span>
+                </div>
+              ) : product.dimensions ? (
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-[#251811]">{t('الأبعاد:', 'Dimensions:')}</span>
                   <span>{product.dimensions}</span>
                 </div>
-              )}
+              ) : null}
 
               {product.material && (
                 <div className="flex items-center gap-2">
