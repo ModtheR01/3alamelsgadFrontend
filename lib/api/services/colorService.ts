@@ -12,7 +12,7 @@ export const colorService = {
    * GET /api/products/colors/
    */
   async getColors(): Promise<BackendColor[]> {
-    const response = await apiClient.get<PaginatedResponse<BackendColor>>('/products/colors/', {
+    const response = await apiClient.get<PaginatedResponse<BackendColor> | BackendColor[]>('/products/colors/', {
       params: { page_size: 100 },
     });
     return unwrapResults<BackendColor>(response);
@@ -31,7 +31,17 @@ export const colorService = {
    * POST /api/products/colors/
    */
   async createColor(data: ColorCreateRequest): Promise<BackendColor> {
-    return apiClient.post<BackendColor>('/products/colors/', data);
+    let hex = (data.hex_code || '').trim();
+    if (!hex.startsWith('#')) {
+      hex = `#${hex}`;
+    }
+    const nameAr = (data.name_ar || data.name || hex).trim();
+    const nameEn = (data.name_en || data.name || hex).trim();
+    return apiClient.post<BackendColor>('/products/colors/', {
+      name_ar: nameAr,
+      name_en: nameEn,
+      hex_code: hex.toUpperCase(),
+    });
   },
 
   /**
@@ -51,10 +61,19 @@ export const colorService = {
     data: ColorUpdateRequest,
     method: 'PUT' | 'PATCH' = 'PATCH'
   ): Promise<BackendColor> {
-    if (method === 'PUT') {
-      return apiClient.put<BackendColor>(`/products/colors/${id}/`, data);
+    const payload: Record<string, any> = {};
+    if (data.name_ar !== undefined) payload.name_ar = data.name_ar.trim();
+    if (data.name_en !== undefined) payload.name_en = data.name_en.trim();
+    if (data.name !== undefined && data.name_ar === undefined) payload.name_ar = data.name.trim();
+    if (data.hex_code !== undefined) {
+      let hex = data.hex_code.trim();
+      if (!hex.startsWith('#')) hex = `#${hex}`;
+      payload.hex_code = hex.toUpperCase();
     }
-    return apiClient.patch<BackendColor>(`/products/colors/${id}/`, data);
+    if (method === 'PUT') {
+      return apiClient.put<BackendColor>(`/products/colors/${id}/`, payload);
+    }
+    return apiClient.patch<BackendColor>(`/products/colors/${id}/`, payload);
   },
 
   /**

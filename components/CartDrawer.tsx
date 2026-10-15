@@ -181,8 +181,13 @@ export default function CartDrawer() {
                           </div>
 
                           <div className="text-end">
+                            {item.originalSubtotal && item.originalSubtotal > (item.subtotal ?? item.unitPrice * item.quantity) && (
+                              <span className="text-[10px] text-[#A89A8D] line-through block">
+                                {item.originalSubtotal.toLocaleString()} {t('ج.م', 'EGP')}
+                              </span>
+                            )}
                             <span className="text-xs sm:text-sm font-extrabold text-[#251811]">
-                              {(item.subtotal || item.unitPrice * item.quantity).toLocaleString()} {t('ج.م', 'EGP')}
+                              {(item.subtotal ?? item.unitPrice * item.quantity).toLocaleString()} {t('ج.م', 'EGP')}
                             </span>
                           </div>
                         </div>
@@ -199,17 +204,27 @@ export default function CartDrawer() {
             <div className="p-5 sm:p-6 border-t border-[#EAE3D8] bg-white space-y-4">
               {/* Discount Notice if applicable */}
               {cartDiscountTotal > 0 && (
-                <div className="flex justify-between text-xs text-emerald-700">
-                  <span>{t('إجمالي الخصم:', 'Discount:')}</span>
-                  <span className="font-bold">-{cartDiscountTotal.toLocaleString()} {t('ج.م', 'EGP')}</span>
-                </div>
+                <>
+                  <div className="flex justify-between text-xs text-[#665448]">
+                    <span>{t('المجموع قبل الخصم:', 'Subtotal before discount:')}</span>
+                    <span className="font-medium line-through">
+                      {cartSubtotal.toLocaleString()} {t('ج.م', 'EGP')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs text-emerald-700">
+                    <span>{t('إجمالي الخصم:', 'Discount:')}</span>
+                    <span className="font-bold">-{cartDiscountTotal.toLocaleString()} {t('ج.م', 'EGP')}</span>
+                  </div>
+                </>
               )}
 
               {/* Subtotal */}
               <div className="flex justify-between items-baseline text-sm">
-                <span className="text-[#665448] font-medium">{t('إجمالي المنتجات:', 'Products Subtotal:')}</span>
+                <span className="text-[#665448] font-medium">
+                  {cartDiscountTotal > 0 ? t('إجمالي المنتجات بعد الخصم:', 'Net Products Total:') : t('إجمالي المنتجات:', 'Products Subtotal:')}
+                </span>
                 <span className="font-extrabold text-base text-[#251811]">
-                  {cartSubtotal.toLocaleString()} {t('ج.م', 'EGP')}
+                  {Math.max(0, cartSubtotal - cartDiscountTotal).toLocaleString()} {t('ج.م', 'EGP')}
                 </span>
               </div>
 

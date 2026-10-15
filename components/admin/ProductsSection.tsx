@@ -198,6 +198,12 @@ export default function ProductsSection({
     fetchSizesAndColors();
   }, [fetchSizesAndColors]);
 
+  React.useEffect(() => {
+    if (isModalOpen) {
+      fetchSizesAndColors();
+    }
+  }, [isModalOpen, fetchSizesAndColors]);
+
   // Filtered & Sorted products
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {

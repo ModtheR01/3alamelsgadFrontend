@@ -40,6 +40,11 @@ export interface SizeCreateRequest {
   length: number;
 }
 
+export interface SizeUpdateRequest {
+  width?: number;
+  length?: number;
+}
+
 export interface BackendArwalWidth {
   id: number;
   width: number;

@@ -24,12 +24,16 @@ import {
   Sparkles,
   RefreshCw,
   Users,
+  Palette,
+  Ruler,
 } from 'lucide-react';
 import { normalizeApiError } from '@/lib/api/errors';
 
 export type DashboardSection =
   | 'overview'
   | 'products'
+  | 'colors'
+  | 'sizes'
   | 'categories'
   | 'subcategories'
   | 'offers'
@@ -94,6 +98,16 @@ export default function AdminLayout({
           id: 'products',
           label: 'المنتجات والأروال',
           icon: Package,
+        },
+        {
+          id: 'colors',
+          label: 'إدارة الألوان',
+          icon: Palette,
+        },
+        {
+          id: 'sizes',
+          label: 'إدارة المقاسات',
+          icon: Ruler,
         },
         {
           id: 'categories',
@@ -179,6 +193,10 @@ export default function AdminLayout({
         return 'نظرة عامة وإحصائيات';
       case 'products':
         return 'إدارة المنتجات وتحديد مقاسات الأروال';
+      case 'colors':
+        return 'إدارة الألوان المعتمدة للمنتجات';
+      case 'sizes':
+        return 'إدارة مقاسات وأبعاد السجاد';
       case 'categories':
         return 'إدارة التصنيفات الرئيسية';
       case 'subcategories':

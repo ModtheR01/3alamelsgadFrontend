@@ -38,6 +38,7 @@ export default function CheckoutView() {
     cart,
     cartSubtotal,
     cartDiscountTotal,
+    cartFreeShipping,
     clearCart,
     setLastCreatedOrder,
     navigateTo,
@@ -135,10 +136,30 @@ export default function CheckoutView() {
     return selectedNewGov;
   }, [selectedSavedAddress, activeGovernorates, selectedNewGov]);
 
-  const shippingCost = React.useMemo(() => {
+  const rawShippingCost = React.useMemo(() => {
     if (!currentGov) return 0;
     return Number(currentGov.shipping_price ?? currentGov.shippingCost ?? 0);
   }, [currentGov]);
+
+  const shippingCost = cartFreeShipping ? 0 : rawShippingCost;
+
+  const netItemsTotal = Math.max(0, cartSubtotal - cartDiscountTotal);
+  const finalTotal = netItemsTotal + shippingCost;
+
+  const isPricingValid = React.useMemo(() => {
+    if (!cart || cart.length === 0) return false;
+    if (!Number.isFinite(cartSubtotal) || cartSubtotal < 0) return false;
+    if (!Number.isFinite(cartDiscountTotal) || cartDiscountTotal < 0) return false;
+    if (!Number.isFinite(shippingCost) || shippingCost < 0) return false;
+    if (cartDiscountTotal > cartSubtotal) return false;
+    const expectedFinal = (cartSubtotal - cartDiscountTotal) + shippingCost;
+    if (!Number.isFinite(expectedFinal) || expectedFinal < 0) return false;
+    if (finalTotal !== expectedFinal) return false;
+    if (finalTotal === 0 && (cartSubtotal > cartDiscountTotal || shippingCost > 0)) {
+      return false;
+    }
+    return true;
+  }, [cart, cartSubtotal, cartDiscountTotal, shippingCost, finalTotal]);
 
   const currentGovNameAr = currentGov?.nameAr || currentGov?.name_ar || '';
   const currentGovNameEn = currentGov?.nameEn || currentGov?.name_en || '';
@@ -165,8 +186,6 @@ export default function CheckoutView() {
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
   };
-
-  const finalTotal = Math.max(0, cartSubtotal - cartDiscountTotal + shippingCost);
 
   if (!cart || cart.length === 0) {
     return (
@@ -198,6 +217,16 @@ export default function CheckoutView() {
         t(
           'لا توجد محافظات متاحة للشحن حالياً. يرجى التواصل مع الإدارة.',
           'No shipping governorates available. Please contact support.'
+        )
+      );
+      return;
+    }
+
+    if (!isPricingValid) {
+      setApiError(
+        t(
+          'تعذر التحقق من إجمالي الطلب. يرجى تحديث السلة والمحاولة مرة أخرى.',
+          'Unable to verify order total. Please refresh your cart and try again.'
         )
       );
       return;
@@ -1023,9 +1052,16 @@ export default function CheckoutView() {
                       )}
                       <div className="flex justify-between items-center mt-1">
                         <span className="text-[#8A796B]">{t('الكمية:', 'Qty:')} {item.quantity}</span>
-                        <span className="font-bold text-[#251811]">
-                          {(item.subtotal || item.unitPrice * item.quantity).toLocaleString()} {t('ج.م', 'EGP')}
-                        </span>
+                        <div className="text-end">
+                          {item.originalSubtotal && item.originalSubtotal > (item.subtotal ?? item.unitPrice * item.quantity) && (
+                            <span className="text-[10px] text-[#A89A8D] line-through me-1.5">
+                              {item.originalSubtotal.toLocaleString()} {t('ج.م', 'EGP')}
+                            </span>
+                          )}
+                          <span className="font-bold text-[#251811]">
+                            {(item.subtotal ?? item.unitPrice * item.quantity).toLocaleString()} {t('ج.م', 'EGP')}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1052,7 +1088,16 @@ export default function CheckoutView() {
                       ? t(`مصاريف الشحن والتوصيل (${currentGovNameAr}):`, `Shipping to ${currentGovNameEn}:`)
                       : t('مصاريف الشحن والتوصيل:', 'Shipping & Delivery:')}
                   </span>
-                  <span className="font-bold">{shippingCost} {t('ج.م', 'EGP')}</span>
+                  <div className="font-bold">
+                    {cartFreeShipping && rawShippingCost > 0 ? (
+                      <>
+                        <span className="line-through text-[#A89A8D] me-1.5">{rawShippingCost} {t('ج.م', 'EGP')}</span>
+                        <span className="text-emerald-700">{t('مجاني', 'Free')}</span>
+                      </>
+                    ) : (
+                      <span>{shippingCost} {t('ج.م', 'EGP')}</span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex justify-between text-base font-extrabold text-[#251811] pt-3 border-t border-[#F0E8DC]">
@@ -1075,6 +1120,18 @@ export default function CheckoutView() {
                 </p>
               </div>
 
+              {!isPricingValid && (
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                  <span>
+                    {t(
+                      'تعذر التحقق من إجمالي الطلب. يرجى تحديث السلة والمحاولة مرة أخرى.',
+                      'Unable to verify order total. Please refresh your cart and try again.'
+                    )}
+                  </span>
+                </div>
+              )}
+
               {apiError && (
                 <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -1091,7 +1148,8 @@ export default function CheckoutView() {
                   isGovsLoading ||
                   activeGovernorates.length === 0 ||
                   Boolean(govsError) ||
-                  !currentGov
+                  !currentGov ||
+                  !isPricingValid
                 }
                 className="w-full py-4 rounded-full bg-[#251811] hover:bg-[#3D291D] text-white font-extrabold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >

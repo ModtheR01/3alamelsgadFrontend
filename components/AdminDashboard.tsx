@@ -15,6 +15,8 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import AdminLayout, { DashboardSection } from './admin/AdminLayout';
 import OverviewSection from './admin/OverviewSection';
 import ProductsSection from './admin/ProductsSection';
+import ColorsSection from './admin/ColorsSection';
+import SizesSection from './admin/SizesSection';
 import CategoriesSection from './admin/CategoriesSection';
 import SubcategoriesSection from './admin/SubcategoriesSection';
 import OrdersSection from './admin/OrdersSection';
@@ -351,6 +353,22 @@ export default function AdminDashboard() {
             setEditingProduct={setEditingProduct}
             isModalOpen={isProductModalOpen}
             setIsModalOpen={setIsProductModalOpen}
+          />
+        )}
+
+        {/* SECTION: COLORS */}
+        {activeSection === 'colors' && (
+          <ColorsSection
+            onRequestDeleteConfirm={requestDeleteConfirm}
+            isAdmin={isAdmin}
+          />
+        )}
+
+        {/* SECTION: SIZES */}
+        {activeSection === 'sizes' && (
+          <SizesSection
+            onRequestDeleteConfirm={requestDeleteConfirm}
+            isAdmin={isAdmin}
           />
         )}
 

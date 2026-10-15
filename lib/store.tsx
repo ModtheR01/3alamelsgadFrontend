@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Product,
   Category,
@@ -841,9 +841,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             setIsGuestCart(false);
             setCart(items.map((item) => mapBackendCartItem(item, mappedProducts)));
             setCartPricing({
-              originalTotal: Number(backendCart.original_total) || 0,
-              discountTotal: Number(backendCart.discount_amount) || 0,
-              total: Number(backendCart.total_price) || 0,
+              originalTotal: Number(backendCart.subtotal || backendCart.original_total || 0),
+              discountTotal: Number(backendCart.discount || backendCart.discount_amount || 0),
+              total: Number(backendCart.total || backendCart.total_price || 0),
               freeShipping: Boolean(backendCart.free_shipping),
             });
           })
@@ -1221,13 +1221,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [products, refreshCart]);
 
   // Cart calculations
-  // Prefer the backend's offer-aware total (accounts for active discounts); the guest
-  // cart has no backend pricing yet, so sum items locally until it's synced.
-  const cartSubtotal = cart.length === 0
-    ? 0
-    : isGuestCart
-      ? cart.reduce((sum, item) => sum + (item.subtotal ?? item.unitPrice * item.quantity), 0)
-      : cartPricing.total;
+  // cartSubtotal represents the gross items subtotal before discounts.
+  // For backend-synchronized carts:
+  // - cartPricing.originalTotal represents gross subtotal before discounts.
+  // - If originalTotal is not available or 0, compute gross subtotal from total + discountTotal,
+  //   or fall back to summing item original subtotals.
+  // For guest carts:
+  // - Sum item.originalSubtotal (or item.subtotal / unitPrice * quantity).
+  const cartSubtotal = useMemo(() => {
+    if (!cart || cart.length === 0) return 0;
+    if (isGuestCart) {
+      return cart.reduce(
+        (sum, item) => sum + (item.originalSubtotal ?? item.subtotal ?? item.unitPrice * item.quantity),
+        0
+      );
+    }
+    if (cartPricing.originalTotal > 0) {
+      return cartPricing.originalTotal;
+    }
+    if (cartPricing.total > 0) {
+      return cartPricing.total + (cartPricing.discountTotal || 0);
+    }
+    return cart.reduce(
+      (sum, item) => sum + (item.originalSubtotal ?? item.subtotal ?? item.unitPrice * item.quantity),
+      0
+    );
+  }, [cart, isGuestCart, cartPricing]);
+
+  // Discount must never exceed the eligible gross subtotal
+  const rawDiscountTotal = isGuestCart
+    ? cart.reduce((sum, item) => sum + (item.discountAmount ?? 0), 0)
+    : (cartPricing.discountTotal || 0);
+  const cartDiscountTotal = Math.max(0, Math.min(cartSubtotal, rawDiscountTotal));
+
   const cartItemsCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   // Order creation
@@ -1934,8 +1960,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         syncGuestCart,
         cartSubtotal,
         cartItemsCount,
-        cartOriginalTotal: cartPricing.originalTotal,
-        cartDiscountTotal: cartPricing.discountTotal,
+        cartOriginalTotal: cartPricing.originalTotal > 0 ? cartPricing.originalTotal : cartSubtotal,
+        cartDiscountTotal,
         cartFreeShipping: cartPricing.freeShipping,
         createOrder,
         submitPaymentProof,
