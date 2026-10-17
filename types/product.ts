@@ -48,6 +48,13 @@ export interface SizeUpdateRequest {
 export interface BackendArwalWidth {
   id: number;
   width: number;
+  price_per_length?: string | number;
+}
+
+export interface ArwalWidthInput {
+  width_id?: number;
+  width?: number;
+  price_per_length: string | number;
 }
 
 export interface BackendProductImage {
@@ -149,8 +156,9 @@ export interface ArwalCreateRequest {
   name_en: string;
   description_ar?: string;
   description_en?: string;
-  price_per_length: string | number;
-  width_ids: number[];
+  price_per_length?: string | number;
+  widths?: ArwalWidthInput[];
+  width_ids?: number[];
   color_ids: number[];
 }
 

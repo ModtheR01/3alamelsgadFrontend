@@ -510,6 +510,24 @@ export function mapBackendArwal(arwal: BackendArwal, subcategories: BackendSubca
     : [];
   const availableWidths = rawWidths.length > 0 ? Array.from(new Set(rawWidths)).sort((a, b) => a - b) : [60, 80, 100, 120];
 
+  const widthsWithPrices = Array.isArray(arwal.widths)
+    ? arwal.widths
+        .filter((w) => Number.isFinite(w.width))
+        .map((w) => ({
+          id: w.id,
+          width: w.width,
+          price_per_length: Number(w.price_per_length) || parsedPrice || 0,
+        }))
+    : availableWidths.map((w) => ({
+        width: w,
+        price_per_length: parsedPrice || 0,
+      }));
+
+  const minWidthPrice = widthsWithPrices.length > 0
+    ? Math.min(...widthsWithPrices.map((wp) => wp.price_per_length).filter((p) => p > 0))
+    : parsedPrice;
+  const effectiveBasePrice = Number.isFinite(minWidthPrice) && minWidthPrice > 0 ? minWidthPrice : parsedPrice;
+
   const mappedColors = Array.isArray(arwal.colors)
     ? arwal.colors.map((color) => ({
         id: String(color.id),
@@ -531,7 +549,7 @@ export function mapBackendArwal(arwal: BackendArwal, subcategories: BackendSubca
     description: productDesc,
     description_ar: arwal.description_ar || productDesc,
     description_en: arwal.description_en || productDesc,
-    price: parsedPrice,
+    price: effectiveBasePrice,
     originalPrice: undefined,
     discountPercentage: undefined,
     images: displayImages,
@@ -550,8 +568,9 @@ export function mapBackendArwal(arwal: BackendArwal, subcategories: BackendSubca
     inStock: true,
     allowsCustomization: false,
     isArawal: true,
-    arawalUnitPricePerMeter: parsedPrice,
+    arawalUnitPricePerMeter: effectiveBasePrice,
     availableWidths,
+    widthsWithPrices,
     createdAt: arwal.created_at || new Date().toISOString(),
     seoTitle: productName,
     seoDescription: productDesc,
@@ -775,6 +794,7 @@ interface StoreContextType {
   products: Product[];
   categories: Category[];
   subcategories: BackendSubcategory[];
+  arwalWidths: BackendArwalWidth[];
   orders: Order[];
   events: EventItem[];
   projects: ProjectItem[];
@@ -1466,18 +1486,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const colorIds = productToSave.colors
         .map((color) => Number(color.id))
         .filter((id) => Number.isInteger(id));
-      const widthsToMap = (productToSave.availableWidths && productToSave.availableWidths.length > 0)
-        ? productToSave.availableWidths
-        : [60, 80, 100, 120];
-      const widthIds = widthsToMap
-        .map((w) => resolveArwalWidthId(w, arwalWidths))
-        .filter((id) => Number.isInteger(id));
+      const activeWidths: { id?: number; width: number; price_per_length: number }[] = (
+        productToSave.widthsWithPrices && productToSave.widthsWithPrices.length > 0
+          ? productToSave.widthsWithPrices
+          : (productToSave.availableWidths || [60, 80, 100, 120]).map((w) => ({
+              width: w,
+              price_per_length: productToSave.arawalUnitPricePerMeter || productToSave.price || 100,
+            }))
+      ).filter((wp) => !productToSave.availableWidths || productToSave.availableWidths.includes(wp.width));
+
+      const validWidths = activeWidths.filter((wp) => wp.price_per_length > 0);
+      if (validWidths.length === 0) {
+        throw new Error('يجب تفعيل عرض واحد على الأقل مع إدخال سعر صحيح للمتر.');
+      }
+
+      const formattedWidths = validWidths.map((wp) => {
+        const widthId = wp.id || resolveArwalWidthId(wp.width, arwalWidths);
+        return {
+          width_id: widthId,
+          width: wp.width,
+          price_per_length: wp.price_per_length,
+        };
+      });
+
+      const widthIds = formattedWidths.map((w) => w.width_id).filter((id) => Number.isInteger(id));
+      const minPrice = Math.min(...validWidths.map((w) => w.price_per_length));
 
       const nameAr = (productToSave.name_ar || productToSave.name || '').trim();
       const nameEn = (productToSave.name_en || productToSave.name || nameAr).trim();
       const descAr = (productToSave.description_ar || productToSave.description || '').trim();
       const descEn = (productToSave.description_en || productToSave.description || descAr).trim();
-      const pricePerLength = productToSave.arawalUnitPricePerMeter || productToSave.price || 0;
 
       const payload: ArwalCreateRequest = {
         subcategory_id: subcategoryId,
@@ -1485,7 +1523,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         name_en: nameEn,
         description_ar: descAr,
         description_en: descEn,
-        price_per_length: pricePerLength,
+        price_per_length: minPrice,
+        widths: formattedWidths,
         width_ids: widthIds.length > 0 ? widthIds : [1, 2, 3, 4],
         color_ids: colorIds,
       };
@@ -2198,6 +2237,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         products,
         categories,
         subcategories,
+        arwalWidths,
         orders,
         events,
         projects,

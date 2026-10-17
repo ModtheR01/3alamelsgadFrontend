@@ -113,6 +113,9 @@ export default function ProductDetailView() {
 
   // Dynamic Available Widths defined by Admin
   const availableWidths = useMemo(() => {
+    if (product?.widthsWithPrices && product.widthsWithPrices.length > 0) {
+      return product.widthsWithPrices.map((wp) => wp.width).sort((a, b) => a - b);
+    }
     if (product?.availableWidths && product.availableWidths.length > 0) {
       return product.availableWidths;
     }
@@ -202,9 +205,18 @@ export default function ProductDetailView() {
   );
 
   // Price calculations:
-  // For ARAWAL: Total price = Unit-length price × selected length
+  // For ARAWAL: Total price = Unit-length price for selected width × selected length
   // For Standard carpet: Base price + size delta
-  const unitPricePerMeter = product.arawalUnitPricePerMeter || product.price || 500;
+  const selectedWidthItem = useMemo(() => {
+    if (!product?.widthsWithPrices || product.widthsWithPrices.length === 0) return undefined;
+    return product.widthsWithPrices.find((wp) => wp.width === arawalWidth);
+  }, [product?.widthsWithPrices, arawalWidth]);
+
+  const unitPricePerMeter =
+    selectedWidthItem?.price_per_length ||
+    product.arawalUnitPricePerMeter ||
+    product.price ||
+    500;
   const arawalCalculatedTotal = Math.round(unitPricePerMeter * arawalLengthMeters);
 
   const effectiveUnitPrice = isArawalProduct
@@ -545,20 +557,32 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      {availableWidths.map((w) => (
-                        <button
-                          key={w}
-                          type="button"
-                          onClick={() => setSelectedArawalWidth(w)}
-                          className={`py-2 px-3.5 rounded-xl text-center font-bold text-xs transition-all ${
-                            arawalWidth === w
-                              ? 'bg-[#251811] text-white shadow-md ring-2 ring-[#A27B5C]/30'
-                              : 'bg-white text-[#251811] border border-[#DED4C7] hover:border-[#A27B5C]'
-                          }`}
-                        >
-                          <div>{w} {t('سم', 'cm')}</div>
-                        </button>
-                      ))}
+                      {availableWidths.map((w) => {
+                        const widthItemPrice = product?.widthsWithPrices?.find((wp) => wp.width === w)?.price_per_length;
+                        return (
+                          <button
+                            key={w}
+                            type="button"
+                            onClick={() => setSelectedArawalWidth(w)}
+                            className={`py-2 px-3.5 rounded-xl text-center font-bold text-xs transition-all ${
+                              arawalWidth === w
+                                ? 'bg-[#251811] text-white shadow-md ring-2 ring-[#A27B5C]/30'
+                                : 'bg-white text-[#251811] border border-[#DED4C7] hover:border-[#A27B5C]'
+                            }`}
+                          >
+                            <div>{w} {t('سم', 'cm')}</div>
+                            {widthItemPrice ? (
+                              <div
+                                className={`text-[10px] font-normal mt-0.5 ${
+                                  arawalWidth === w ? 'text-[#D2C1AF]' : 'text-[#8A796B]'
+                                }`}
+                              >
+                                {widthItemPrice.toLocaleString()} {t('ج.م/م', 'EGP/m')}
+                              </div>
+                            ) : null}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

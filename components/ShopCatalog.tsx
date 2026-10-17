@@ -983,20 +983,22 @@ export default function ShopCatalog() {
                         <div className="pt-2 border-t border-[#F2EDE5] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div className="min-w-0">
                             <div className="flex items-baseline gap-1.5 flex-wrap">
-                              <span className="text-xs sm:text-sm font-extrabold text-[#251811]">
-                                {pricing.finalPrice?.toLocaleString()} {t('ج.م', 'EGP')}
-                              </span>
+                              {isArawal ? (
+                                <span className="text-xs sm:text-sm font-extrabold text-[#251811]">
+                                  {t('يبدأ من', 'Starts from')}{' '}
+                                  {pricing.finalPrice?.toLocaleString()} {t('جنيه / متر', 'EGP / m')}
+                                </span>
+                              ) : (
+                                <span className="text-xs sm:text-sm font-extrabold text-[#251811]">
+                                  {pricing.finalPrice?.toLocaleString()} {t('ج.م', 'EGP')}
+                                </span>
+                              )}
                               {pricing.hasDiscount && pricing.originalPrice && (
                                 <span className="text-[10px] sm:text-xs text-[#A09386] line-through font-normal">
                                   {pricing.originalPrice.toLocaleString()}
                                 </span>
                               )}
                             </div>
-                            {isArawal && (
-                              <span className="text-[10px] text-[#8A796B] block">
-                                {t('/ للمتر', '/ meter')}
-                              </span>
-                            )}
                           </div>
 
                           <button

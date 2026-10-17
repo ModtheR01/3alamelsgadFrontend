@@ -311,6 +311,7 @@ export default function ProductsSection({
       isArawal: false,
       arawalUnitPricePerMeter: undefined,
       availableWidths: undefined,
+      widthsWithPrices: undefined,
       createdAt: new Date().toISOString(),
     };
     setEditingProduct(newProduct);
@@ -323,6 +324,16 @@ export default function ProductsSection({
 
   const handleOpenEdit = (product: Product) => {
     const isArwal = Boolean(product.isArawal);
+    const initialWidths = isArwal ? (product.availableWidths || [60, 80, 100, 120]) : product.availableWidths;
+    const initialWidthsWithPrices = isArwal
+      ? (product.widthsWithPrices && product.widthsWithPrices.length > 0
+          ? product.widthsWithPrices
+          : (initialWidths || [60, 80, 100, 120]).map((w) => ({
+              width: w,
+              price_per_length: product.arawalUnitPricePerMeter || product.price || 100,
+            })))
+      : undefined;
+
     setEditingProduct({
       ...product,
       isArawal: isArwal,
@@ -333,7 +344,8 @@ export default function ProductsSection({
       sizes: isArwal ? [] : (Array.isArray(product.sizes) ? [...product.sizes] : []),
       colors: Array.isArray(product.colors) ? [...product.colors] : [],
       arawalUnitPricePerMeter: isArwal ? (product.arawalUnitPricePerMeter || product.price) : undefined,
-      availableWidths: isArwal ? (product.availableWidths || [60, 80, 100, 120]) : product.availableWidths,
+      availableWidths: initialWidths,
+      widthsWithPrices: initialWidthsWithPrices,
     });
     setManualImageUrl('');
     setFormError(null);
@@ -364,14 +376,24 @@ export default function ProductsSection({
     }
 
     if (editingProduct.isArawal) {
-      if (!editingProduct.arawalUnitPricePerMeter || editingProduct.arawalUnitPricePerMeter <= 0) {
-        setFormError('يرجى تحديد سعر المتر الطولي لمنتج الأروال.');
-        return;
-      }
-      if (!editingProduct.availableWidths || editingProduct.availableWidths.length === 0) {
+      const currentAvailable = editingProduct.availableWidths || [];
+      if (currentAvailable.length === 0) {
         setFormError('يرجى تفعيل عرض واحد على الأقل للأروال (60 أو 80 أو 100 أو 120 سم).');
         return;
       }
+      const activeItems = (editingProduct.widthsWithPrices || []).filter((wp) =>
+        currentAvailable.includes(wp.width)
+      );
+      for (const width of currentAvailable) {
+        const item = activeItems.find((wp) => wp.width === width);
+        if (!item || !item.price_per_length || item.price_per_length <= 0) {
+          setFormError(`يرجى تحديد سعر متر صحيح أكبر من الصفر لعرض ${width} سم.`);
+          return;
+        }
+      }
+      const minPrice = Math.min(...activeItems.map((wp) => wp.price_per_length));
+      editingProduct.arawalUnitPricePerMeter = minPrice;
+      editingProduct.price = minPrice;
     } else {
       if (!editingProduct.sizes || editingProduct.sizes.length === 0) {
         setFormError('يرجى اختيار مقاس واحد على الأقل للمنتج (المقاسات مطلوبة لحفظ المنتج).');
@@ -386,6 +408,11 @@ export default function ProductsSection({
     setIsSaving(true);
     setFormError(null);
     try {
+      const currentAvailable = editingProduct.availableWidths || [];
+      const filteredWidthsWithPrices = editingProduct.isArawal
+        ? (editingProduct.widthsWithPrices || []).filter((wp) => currentAvailable.includes(wp.width))
+        : undefined;
+
       await onSaveProduct({
         ...editingProduct,
         name: nameAr,
@@ -398,6 +425,7 @@ export default function ProductsSection({
         dimensions: editingProduct.isArawal
           ? (editingProduct.availableWidths ? editingProduct.availableWidths.map((w) => `${w} سم`).join('، ') : 'عرض: 60، 80، 100، 120 سم')
           : editingProduct.dimensions,
+        widthsWithPrices: filteredWidthsWithPrices,
       });
       setIsModalOpen(false);
       setEditingProduct(null);
@@ -1489,14 +1517,21 @@ export default function ProductsSection({
                         <button
                           type="button"
                           onClick={() => {
-                            const widths = editingProduct.availableWidths || [60, 80, 100, 120];
+                            const widths = editingProduct.availableWidths && editingProduct.availableWidths.length > 0
+                              ? editingProduct.availableWidths
+                              : [60, 80, 100, 120];
+                            const basePrice = editingProduct.arawalUnitPricePerMeter || editingProduct.price || 450;
+                            const initialWidthsWithPrices = editingProduct.widthsWithPrices && editingProduct.widthsWithPrices.length > 0
+                              ? editingProduct.widthsWithPrices
+                              : widths.map((w) => ({ width: w, price_per_length: basePrice }));
                             setEditingProduct({
                               ...editingProduct,
                               isArawal: true,
                               sizes: [],
                               dimensions: widths.map((w) => `${w} سم`).join('، '),
                               availableWidths: widths,
-                              arawalUnitPricePerMeter: editingProduct.arawalUnitPricePerMeter || editingProduct.price || 450,
+                              arawalUnitPricePerMeter: basePrice,
+                              widthsWithPrices: initialWidthsWithPrices,
                             });
                           }}
                           className={`p-2.5 rounded-xl border text-right transition-all flex items-center gap-2 ${
@@ -1578,62 +1613,149 @@ export default function ProductsSection({
 
                     {/* Conditional Pricing: Arwal Rolls */}
                     {editingProduct.isArawal && (
-                      <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2.5">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <label className="block text-xs font-bold text-amber-950">
-                              سعر المتر الطولي (ج.م / متر) <span className="text-rose-600">*</span>
-                            </label>
-                            <input
-                              type="number"
-                              min={1}
-                              required
-                              value={editingProduct.arawalUnitPricePerMeter || ''}
-                              onChange={(e) =>
-                                setEditingProduct({
-                                  ...editingProduct,
-                                  arawalUnitPricePerMeter: Number(e.target.value),
-                                  price: Number(e.target.value),
-                                })
-                              }
-                              placeholder="مثال: 450"
-                              className="w-full px-3 py-1.5 text-xs rounded-xl border border-amber-300 bg-white text-[#241710] font-bold focus:outline-none focus:border-amber-600"
-                            />
+                      <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-amber-200/80">
+                          <div>
+                            <h5 className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                              <Ruler className="w-3.5 h-3.5 text-amber-700" />
+                              <span>تسعير عروض الأروال (سعر المتر لكل عرض)</span>
+                              <span className="text-rose-600">*</span>
+                            </h5>
+                            <p className="text-[11px] text-amber-800/90 mt-0.5">
+                              فعّل العروض المتاحة لهذا الرول وحدد سعر المتر الطولي لكل عرض بشكل مستقل.
+                            </p>
                           </div>
+                          {(() => {
+                            const activeItems = (editingProduct.widthsWithPrices || []).filter(
+                              (wp) =>
+                                (editingProduct.availableWidths || []).includes(wp.width) &&
+                                typeof wp.price_per_length === 'number' &&
+                                wp.price_per_length > 0
+                            );
+                            if (activeItems.length === 0) return null;
+                            const minPrice = Math.min(...activeItems.map((wp) => wp.price_per_length as number));
+                            return (
+                              <div className="px-2.5 py-1 rounded-lg bg-amber-100/90 border border-amber-300 text-[11px] text-amber-950 font-bold shrink-0">
+                                يبدأ من:{' '}
+                                <span className="font-extrabold text-amber-900">
+                                  {minPrice.toLocaleString('ar-EG')} ج.م / متر
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </div>
 
-                          <div className="space-y-1">
-                            <label className="block text-xs font-bold text-amber-950">
-                              العروض المتاحة حصرياً (سم):
-                            </label>
-                            <div className="grid grid-cols-4 gap-1.5 pt-0.5">
-                              {ALLOWED_ARWAL_WIDTHS.map((width) => {
-                                const isChecked = (editingProduct.availableWidths || []).includes(width);
-                                return (
-                                  <button
-                                    key={width}
-                                    type="button"
-                                    onClick={() => {
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {ALLOWED_ARWAL_WIDTHS.map((width) => {
+                            const isChecked = (editingProduct.availableWidths || []).includes(width);
+                            const currentItem = (editingProduct.widthsWithPrices || []).find((wp) => wp.width === width);
+                            const currentPrice = currentItem?.price_per_length !== undefined ? currentItem.price_per_length : '';
+
+                            return (
+                              <div
+                                key={width}
+                                className={`p-2.5 rounded-xl border transition-all ${
+                                  isChecked
+                                    ? 'bg-white border-amber-400 shadow-xs ring-1 ring-amber-400/30'
+                                    : 'bg-stone-50/80 border-stone-200 opacity-70'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                  <label
+                                    onClick={(e) => {
+                                      e.preventDefault();
                                       const currentWidths = editingProduct.availableWidths || [];
-                                      const updated = isChecked
-                                        ? currentWidths.filter((w) => w !== width)
-                                        : [...currentWidths, width];
+                                      const nextChecked = !isChecked;
+                                      const updatedWidths = nextChecked
+                                        ? [...currentWidths, width]
+                                        : currentWidths.filter((w) => w !== width);
+
+                                      let nextWidthsWithPrices = editingProduct.widthsWithPrices ? [...editingProduct.widthsWithPrices] : [];
+                                      if (nextChecked && !nextWidthsWithPrices.some((wp) => wp.width === width)) {
+                                        nextWidthsWithPrices.push({
+                                          width,
+                                          price_per_length: editingProduct.arawalUnitPricePerMeter || editingProduct.price || 100,
+                                        });
+                                      }
+
+                                      const activePrices = nextWidthsWithPrices
+                                        .filter((wp) => updatedWidths.includes(wp.width) && typeof wp.price_per_length === 'number' && wp.price_per_length > 0)
+                                        .map((wp) => wp.price_per_length as number);
+                                      const newMinPrice = activePrices.length > 0 ? Math.min(...activePrices) : editingProduct.price;
+
                                       setEditingProduct({
                                         ...editingProduct,
-                                        availableWidths: updated,
+                                        availableWidths: updatedWidths,
+                                        widthsWithPrices: nextWidthsWithPrices,
+                                        arawalUnitPricePerMeter: newMinPrice,
+                                        price: newMinPrice || editingProduct.price,
+                                        dimensions: updatedWidths.map((w) => `${w} سم`).join('، '),
                                       });
                                     }}
-                                    className={`py-1.5 text-[11px] font-bold rounded-lg border transition-all ${
+                                    className="flex items-center gap-2 cursor-pointer select-none"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {}}
+                                      className="rounded border-amber-300 text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+                                    />
+                                    <span className="text-xs font-bold text-[#241710]">
+                                      عرض {width} سم
+                                    </span>
+                                  </label>
+
+                                  <span
+                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                       isChecked
-                                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                                        : 'bg-white text-stone-700 border-stone-200 hover:border-amber-400'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-stone-100 text-stone-500 border border-stone-200'
                                     }`}
                                   >
-                                    {width} سم
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
+                                    {isChecked ? 'مفعّل' : 'غير متاح'}
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="block text-[11px] font-semibold text-[#5C4A3E]">
+                                    سعر المتر الطولي (ج.م) <span className={isChecked ? 'text-rose-600' : 'text-stone-400'}>*</span>
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    step="any"
+                                    disabled={!isChecked}
+                                    value={currentPrice}
+                                    placeholder={isChecked ? 'مثال: 120' : 'فعّل العرض أولاً'}
+                                    onChange={(e) => {
+                                      const val = e.target.value === '' ? ('' as any) : Number(e.target.value);
+                                      const existing = editingProduct.widthsWithPrices || [];
+                                      const next = existing.some((wp) => wp.width === width)
+                                        ? existing.map((wp) => (wp.width === width ? { ...wp, price_per_length: val } : wp))
+                                        : [...existing, { width, price_per_length: val }];
+
+                                      const activePrices = next
+                                        .filter((wp) => (editingProduct.availableWidths || []).includes(wp.width) && typeof wp.price_per_length === 'number' && wp.price_per_length > 0)
+                                        .map((wp) => wp.price_per_length as number);
+                                      const newMinPrice = activePrices.length > 0 ? Math.min(...activePrices) : editingProduct.price;
+
+                                      setEditingProduct({
+                                        ...editingProduct,
+                                        widthsWithPrices: next,
+                                        arawalUnitPricePerMeter: newMinPrice,
+                                        price: newMinPrice || editingProduct.price,
+                                      });
+                                    }}
+                                    className={`w-full px-2.5 py-1.5 text-xs rounded-lg border font-bold focus:outline-none ${
+                                      isChecked
+                                        ? 'bg-white border-amber-300 text-[#241710] focus:border-amber-600 focus:ring-1 focus:ring-amber-500'
+                                        : 'bg-stone-100 border-stone-200 text-stone-400 cursor-not-allowed'
+                                    }`}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

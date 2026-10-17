@@ -60,6 +60,7 @@ export interface Product {
   isArawal?: boolean;
   arawalUnitPricePerMeter?: number;
   availableWidths?: number[];
+  widthsWithPrices?: { id?: number; width: number; price_per_length: number }[];
   createdAt: string;
   seoTitle?: string;
   seoDescription?: string;

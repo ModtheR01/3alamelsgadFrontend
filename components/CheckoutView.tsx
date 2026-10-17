@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useToccoStore } from '@/lib/store';
+import { useToccoStore, resolveArwalWidthId } from '@/lib/store';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useLanguage } from '@/lib/context/LanguageContext';
 import { PaymentMethod } from '@/types';
@@ -44,6 +44,7 @@ export default function CheckoutView() {
     navigateTo,
     user: legacyUser,
     settings,
+    arwalWidths,
   } = useToccoStore();
 
   const { user: authUser, addresses: authAddresses, createAddress, isLoading: isAuthLoading } = useAuth();
@@ -333,10 +334,11 @@ export default function CheckoutView() {
                 ? parseInt(String(item.selectedColor.id).replace(/\D/g, '')) || 1
                 : 1;
               const widthVal = item.arwalConfig?.width || 80;
+              const widthId = resolveArwalWidthId(widthVal, arwalWidths);
               await cartService.addArwalItem({
                 arwal_id: numArwalId,
                 selected_color_id: numColorId,
-                selected_width_id: widthVal,
+                selected_width_id: widthId,
                 selected_length: item.arwalConfig?.lengthMeters || 1,
                 quantity: item.quantity,
               });
