@@ -296,6 +296,65 @@ export function getOrderItemSpecs(item: any): string | null {
   return null;
 }
 
+/**
+ * Resolves customer information from an order, prioritizing the registered user
+ * relationship and falling back cleanly to order/shipping snapshots if present.
+ */
+export function getOrderCustomerInfo(order: BackendOrder | null | undefined): {
+  name: string;
+  phone: string;
+  isRegistered: boolean;
+  hasPhone: boolean;
+} {
+  if (!order) {
+    return { name: 'عميل المتجر', phone: '', isRegistered: false, hasPhone: false };
+  }
+
+  // 1. Registered user
+  const userFullName = order.user
+    ? `${order.user.first_name || ''} ${order.user.last_name || ''}`.trim()
+    : '';
+
+  // 2. Snapshot fields (if order was created with snapshot customer or guest recipient)
+  const orderAny = order as Record<string, any>;
+  const shippingAny = (order.shipping_address || {}) as Record<string, any>;
+
+  const snapshotName = (
+    orderAny.customer_name ||
+    orderAny.recipient_name ||
+    shippingAny.customer_name ||
+    shippingAny.recipient_name ||
+    shippingAny.full_name ||
+    shippingAny.name ||
+    ''
+  ).toString().trim();
+
+  const finalName =
+    userFullName ||
+    snapshotName ||
+    (order.user?.phone ? `عميل (${order.user.phone})` : 'عميل المتجر');
+
+  // Phone resolution
+  const snapshotPhone = (
+    orderAny.customer_phone ||
+    orderAny.recipient_phone ||
+    shippingAny.phone ||
+    shippingAny.recipient_phone ||
+    shippingAny.phone_number ||
+    shippingAny.mobile ||
+    ''
+  ).toString().trim();
+
+  const finalPhone = order.user?.phone?.trim() || snapshotPhone || '';
+
+  return {
+    name: finalName,
+    phone: finalPhone,
+    isRegistered: Boolean(order.user && (order.user.id || order.user.phone)),
+    hasPhone: Boolean(finalPhone.length > 0),
+  };
+}
+
 export default function OrdersSection({
   orders,
   isLoading,
@@ -364,14 +423,15 @@ export default function OrdersSection({
   const filteredOrders = useMemo(() => {
     return orders.filter((ord) => {
       const q = searchQuery.toLowerCase().trim();
+      const custInfo = getOrderCustomerInfo(ord);
       const matchesSearch =
         !q ||
         ord.order_number?.toLowerCase().includes(q) ||
         String(ord.id).includes(q) ||
-        ord.user?.first_name?.toLowerCase().includes(q) ||
-        ord.user?.last_name?.toLowerCase().includes(q) ||
-        ord.user?.phone?.includes(q) ||
-        ord.shipping_address?.city?.toLowerCase().includes(q);
+        custInfo.name.toLowerCase().includes(q) ||
+        custInfo.phone.includes(q) ||
+        ord.shipping_address?.city?.toLowerCase().includes(q) ||
+        ord.shipping_address?.street?.toLowerCase().includes(q);
 
       const isUnconfirmed =
         ord.status === 'NOT_CONFIRMED' || (ord.status as string) === 'unconfirmed';
@@ -660,10 +720,7 @@ export default function OrdersSection({
               </thead>
               <tbody className="divide-y divide-[#F5EFE6]">
                 {filteredOrders.map((ord) => {
-                  const custName = ord.user
-                    ? `${ord.user.first_name || ''} ${ord.user.last_name || ''}`.trim() || ord.user.phone
-                    : 'عميل المتجر';
-                  const custPhone = ord.user?.phone || '';
+                  const cust = getOrderCustomerInfo(ord);
                   const city = ord.shipping_address?.city || 'غير محدد';
                   const totalVal = Number(ord.total_price || 0);
                   const isUnconfirmed = ord.status === 'NOT_CONFIRMED' || (ord.status as string) === 'unconfirmed';
@@ -685,17 +742,26 @@ export default function OrdersSection({
 
                       {/* Customer */}
                       <td className="py-3 px-4">
-                        <p className="font-bold text-[#241710]">{custName}</p>
-                        {custPhone && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-bold text-[#241710]">{cust.name}</p>
+                          {cust.isRegistered && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-200 font-semibold">
+                              مسجل
+                            </span>
+                          )}
+                        </div>
+                        {cust.hasPhone ? (
                           <a
-                            href={`https://wa.me/${toWhatsAppNumber(custPhone)}`}
+                            href={`https://wa.me/${toWhatsAppNumber(cust.phone)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[10px] text-emerald-700 hover:underline font-mono inline-flex items-center gap-1 mt-0.5"
                           >
                             <MessageCircle className="w-3 h-3 text-[#25D366]" />
-                            <span>{custPhone}</span>
+                            <span>{cust.phone}</span>
                           </a>
+                        ) : (
+                          <span className="text-[10px] text-[#8C7A6B] block mt-0.5">غير مسجل</span>
                         )}
                       </td>
 
@@ -834,49 +900,59 @@ export default function OrdersSection({
             {/* Modal Scrollable Body */}
             <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6 overscroll-contain">
               {/* SECTION 1: بيانات العميل */}
-              <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-2.5">
-                <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
-                  <UserIcon className="w-3.5 h-3.5" />
-                  <span>بيانات العميل</span>
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span className="text-[#8C7A6B] block">اسم العميل:</span>
-                    <span className="font-bold text-[#241710]">
-                      {selectedOrderForModal.user
-                        ? `${selectedOrderForModal.user.first_name || ''} ${selectedOrderForModal.user.last_name || ''}`.trim() || 'عميل المتجر'
-                        : 'عميل المتجر'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[#8C7A6B] block">رقم الهاتف:</span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="font-bold text-[#241710] font-mono">
-                        {selectedOrderForModal.user?.phone || 'غير مسجل'}
-                      </span>
-                      {selectedOrderForModal.user?.phone && (
-                        <a
-                          href={`https://wa.me/${toWhatsAppNumber(selectedOrderForModal.user.phone)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold inline-flex items-center gap-1 hover:bg-emerald-200"
-                        >
-                          <MessageCircle className="w-3 h-3 text-[#25D366]" />
-                          <span>محادثة واتساب</span>
-                        </a>
+              {(() => {
+                const modalCust = getOrderCustomerInfo(selectedOrderForModal);
+                return (
+                  <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EAE3D8] space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black uppercase text-[#A27B5C] flex items-center gap-1.5">
+                        <UserIcon className="w-3.5 h-3.5" />
+                        <span>بيانات العميل</span>
+                      </h4>
+                      {modalCust.isRegistered && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 font-bold">
+                          عميل مسجل في المتجر
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-[#8C7A6B] block">اسم العميل:</span>
+                        <span className="font-bold text-[#241710]">
+                          {modalCust.name}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#8C7A6B] block">رقم الهاتف:</span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="font-bold text-[#241710] font-mono">
+                            {modalCust.hasPhone ? modalCust.phone : 'غير مسجل'}
+                          </span>
+                          {modalCust.hasPhone && (
+                            <a
+                              href={`https://wa.me/${toWhatsAppNumber(modalCust.phone)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold inline-flex items-center gap-1 hover:bg-emerald-200"
+                            >
+                              <MessageCircle className="w-3 h-3 text-[#25D366]" />
+                              <span>محادثة واتساب</span>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                      {selectedOrderForModal.customer_notes && (
+                        <div className="sm:col-span-2 pt-1 border-t border-[#EAE3D8]/60">
+                          <span className="text-[#8C7A6B] block mb-0.5 font-bold">ملاحظات العميل:</span>
+                          <p className="text-[#5C4A3E] bg-white p-2.5 rounded-lg border border-[#EAE3D8]">
+                            {selectedOrderForModal.customer_notes}
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
-                  {selectedOrderForModal.customer_notes && (
-                    <div className="sm:col-span-2 pt-1 border-t border-[#EAE3D8]/60">
-                      <span className="text-[#8C7A6B] block mb-0.5 font-bold">ملاحظات العميل:</span>
-                      <p className="text-[#5C4A3E] bg-white p-2.5 rounded-lg border border-[#EAE3D8]">
-                        {selectedOrderForModal.customer_notes}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
+                );
+              })()}
 
               {/* SECTION 2: المنتجات المطلوبة */}
               <div className="space-y-2">

@@ -78,8 +78,9 @@ export interface BackendOrderUser {
   id: number;
   first_name: string;
   last_name: string;
-  email: string;
+  email?: string;
   phone: string;
+  role?: string;
 }
 
 export interface BackendOrder {

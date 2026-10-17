@@ -561,3 +561,150 @@ test('Admin Order Modal — Order Items & Specifications Contract Resolution', a
     assert.equal(getOrderItemSpecs(deletedProductItem), '160 × 220 سم');
   });
 });
+
+// Helper mirror for getOrderCustomerInfo
+function getOrderCustomerInfo(order) {
+  if (!order) {
+    return { name: 'عميل المتجر', phone: '', isRegistered: false, hasPhone: false };
+  }
+
+  const userFullName = order.user
+    ? `${order.user.first_name || ''} ${order.user.last_name || ''}`.trim()
+    : '';
+
+  const orderAny = order;
+  const shippingAny = order.shipping_address || {};
+
+  const snapshotName = (
+    orderAny.customer_name ||
+    orderAny.recipient_name ||
+    shippingAny.customer_name ||
+    shippingAny.recipient_name ||
+    shippingAny.full_name ||
+    shippingAny.name ||
+    ''
+  ).toString().trim();
+
+  const finalName =
+    userFullName ||
+    snapshotName ||
+    (order.user?.phone ? `عميل (${order.user.phone})` : 'عميل المتجر');
+
+  const snapshotPhone = (
+    orderAny.customer_phone ||
+    orderAny.recipient_phone ||
+    shippingAny.phone ||
+    shippingAny.recipient_phone ||
+    shippingAny.phone_number ||
+    shippingAny.mobile ||
+    ''
+  ).toString().trim();
+
+  const finalPhone = order.user?.phone?.trim() || snapshotPhone || '';
+
+  return {
+    name: finalName,
+    phone: finalPhone,
+    isRegistered: Boolean(order.user && (order.user.id || order.user.phone)),
+    hasPhone: Boolean(finalPhone.length > 0),
+  };
+}
+
+test('Admin Order Modal — Customer Information Resolution & Backend Serialization', async (t) => {
+  await t.test('1. Resolves customer full name and phone from registered user object', () => {
+    const order = {
+      id: 3,
+      order_number: 'b946800c-7b0f-4886-b4bc-b4b9b472ff3e',
+      user: {
+        id: 4,
+        first_name: 'Ahmed',
+        last_name: 'Mohamed',
+        phone: '01293765432',
+        role: 'CUSTOMER',
+      },
+      shipping_address: {
+        city: 'المنصورة',
+        street: 'شارع الجمهورية',
+      },
+    };
+
+    const cust = getOrderCustomerInfo(order);
+    assert.equal(cust.name, 'Ahmed Mohamed');
+    assert.equal(cust.phone, '01293765432');
+    assert.equal(cust.isRegistered, true);
+    assert.equal(cust.hasPhone, true);
+  });
+
+  await t.test('2. Resolves customer name from single user name or phone when last name is empty', () => {
+    const order = {
+      id: 5,
+      user: {
+        id: 7,
+        first_name: 'محمود',
+        last_name: '',
+        phone: '01012345678',
+      },
+    };
+
+    const cust = getOrderCustomerInfo(order);
+    assert.equal(cust.name, 'محمود');
+    assert.equal(cust.phone, '01012345678');
+    assert.equal(cust.isRegistered, true);
+  });
+
+  await t.test('3. Resolves snapshot customer details when order was created without a registered user object', () => {
+    const order = {
+      id: 6,
+      user: null,
+      shipping_address: {
+        customer_name: 'سارة خالد',
+        phone: '01198765432',
+        city: 'القاهرة',
+      },
+    };
+
+    const cust = getOrderCustomerInfo(order);
+    assert.equal(cust.name, 'سارة خالد');
+    assert.equal(cust.phone, '01198765432');
+    assert.equal(cust.isRegistered, false);
+    assert.equal(cust.hasPhone, true);
+  });
+
+  await t.test('4. Gracefully falls back to "عميل المتجر" and "غير مسجل" only when completely missing', () => {
+    const order = {
+      id: 7,
+      user: null,
+      shipping_address: {
+        city: 'الإسكندرية',
+      },
+    };
+
+    const cust = getOrderCustomerInfo(order);
+    assert.equal(cust.name, 'عميل المتجر');
+    assert.equal(cust.phone, '');
+    assert.equal(cust.isRegistered, false);
+    assert.equal(cust.hasPhone, false);
+  });
+
+  await t.test('5. Backend serializers.py contract: OrderSerializer includes user and OrderUserSerializer', () => {
+    const backendSerializersPath = path.resolve('E:/3alamelsgadBackend/order/serializers.py');
+    assert.ok(fs.existsSync(backendSerializersPath), 'Backend serializers.py must exist');
+    const content = fs.readFileSync(backendSerializersPath, 'utf8');
+
+    assert.ok(content.includes('class OrderUserSerializer'), 'OrderUserSerializer must be defined');
+    assert.ok(content.includes('user = OrderUserSerializer(read_only=True)'), 'OrderSerializer must instantiate user serializer');
+    assert.ok(content.includes('"user"'), 'Meta.fields of OrderSerializer must include "user"');
+  });
+
+  await t.test('6. Frontend OrdersSection.tsx uses getOrderCustomerInfo for table and modal rendering', () => {
+    const frontendSectionPath = path.resolve('components/admin/OrdersSection.tsx');
+    assert.ok(fs.existsSync(frontendSectionPath), 'OrdersSection.tsx must exist');
+    const content = fs.readFileSync(frontendSectionPath, 'utf8');
+
+    assert.ok(content.includes('getOrderCustomerInfo'), 'OrdersSection must define getOrderCustomerInfo');
+    assert.ok(content.includes('modalCust.name'), 'Modal must render resolved customer name');
+    assert.ok(content.includes('modalCust.phone'), 'Modal must render resolved customer phone');
+    assert.ok(content.includes('cust.isRegistered'), 'Table/modal must distinguish registered customer');
+  });
+});
+
