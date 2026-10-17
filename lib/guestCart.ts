@@ -41,15 +41,24 @@ export function getGuestCart(): CartItem[] {
 
 export function addGuestCartItem(item: Omit<CartItem, 'id'>): CartItem[] {
   const items = readCart();
-  const existing = items.find(
-    (i) =>
+  const itemRoll = item.arwalConfig || item.arawalConfig;
+  const existing = items.find((i) => {
+    const iRoll = i.arwalConfig || i.arawalConfig;
+    if (itemRoll || iRoll) {
+      return (
+        i.productId === item.productId &&
+        i.selectedColor?.id === item.selectedColor?.id &&
+        iRoll?.width === itemRoll?.width &&
+        iRoll?.lengthMeters === itemRoll?.lengthMeters
+      );
+    }
+    return (
       i.productId === item.productId &&
-      i.selectedColor.id === item.selectedColor.id &&
+      i.selectedColor?.id === item.selectedColor?.id &&
       i.selectedFinish === item.selectedFinish &&
-      i.selectedSize?.id === item.selectedSize?.id &&
-      i.arawalConfig?.width === item.arawalConfig?.width &&
-      i.arawalConfig?.lengthMeters === item.arawalConfig?.lengthMeters
-  );
+      i.selectedSize?.id === item.selectedSize?.id
+    );
+  });
 
   if (existing) {
     existing.quantity += item.quantity;

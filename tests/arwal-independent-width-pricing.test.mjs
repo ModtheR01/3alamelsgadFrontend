@@ -68,4 +68,23 @@ test('Arwal Independent Width Pricing Suite', async (t) => {
       'Catalog must show unit as "EGP / m" / "جنيه / متر"'
     );
   });
+
+  await t.test('6. ProductDetailView and store dispatch Arwal roll items to addArwalItem', () => {
+    assert.ok(
+      productDetailContent.includes("cartItemType: isArawalProduct ? 'arwal' : 'product'"),
+      'ProductDetailView must explicitly specify cartItemType'
+    );
+    assert.ok(
+      productDetailContent.includes('arwalConfig: currentArawalConfig'),
+      'ProductDetailView must pass arwalConfig'
+    );
+    assert.ok(
+      storeContent.includes('const rollConfig = itemData.arwalConfig || itemData.arawalConfig'),
+      'Store must check both arwalConfig and arawalConfig'
+    );
+    assert.ok(
+      storeContent.includes('await cartService.addArwalItem({'),
+      'Store must route Arwal products to addArwalItem'
+    );
+  });
 });

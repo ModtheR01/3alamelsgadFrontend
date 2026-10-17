@@ -328,18 +328,20 @@ export default function CheckoutView() {
           (bCart?.items && bCart.items.length > 0);
         if (!hasItems && cart && cart.length > 0) {
           for (const item of cart) {
-            if (item.arwalConfig?.isArawal || item.cartItemType === 'arwal') {
+            const rollConfig = item.arwalConfig || item.arawalConfig;
+            if (item.cartItemType === 'arwal' || rollConfig?.isArawal) {
               const numArwalId = parseInt(String(item.productId).replace(/\D/g, '')) || 1;
-              const numColorId = item.selectedColor?.id
-                ? parseInt(String(item.selectedColor.id).replace(/\D/g, '')) || 1
-                : 1;
-              const widthVal = item.arwalConfig?.width || 80;
+              const rawColorId = item.selectedColor?.id
+                ? parseInt(String(item.selectedColor.id).replace(/\D/g, ''))
+                : NaN;
+              const numColorId = Number.isInteger(rawColorId) && rawColorId > 0 ? rawColorId : 1;
+              const widthVal = rollConfig?.width || 80;
               const widthId = resolveArwalWidthId(widthVal, arwalWidths);
               await cartService.addArwalItem({
                 arwal_id: numArwalId,
                 selected_color_id: numColorId,
                 selected_width_id: widthId,
-                selected_length: item.arwalConfig?.lengthMeters || 1,
+                selected_length: rollConfig?.lengthMeters || 1,
                 quantity: item.quantity,
               });
             } else if (item.isBundle || item.cartItemType === 'bundle' || item.bundleOfferId) {
@@ -371,11 +373,11 @@ export default function CheckoutView() {
 
       // Build customer notes with ARAWAL specs and payment option
       const arawalSpecs = cart
-        .filter((item) => item.arwalConfig)
-        .map(
-          (item) =>
-            `[أروال بالمتر: ${item.productName} - عرض ${item.arawalConfig?.width} سم × طول ${item.arawalConfig?.lengthMeters} م @ ${item.arawalConfig?.unitPricePerMeter} ج.م/م]`
-        )
+        .filter((item) => item.arwalConfig || item.arawalConfig)
+        .map((item) => {
+          const cfg = item.arwalConfig || item.arawalConfig;
+          return `[أروال بالمتر: ${item.productName} - عرض ${cfg?.width} سم × طول ${cfg?.lengthMeters} م @ ${cfg?.unitPricePerMeter} ج.م/م]`;
+        })
         .join('; ');
 
       const paymentPlanNote =
@@ -1045,9 +1047,9 @@ export default function CheckoutView() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-bold text-[#251811] truncate">{item.productName}</h4>
-                      {item.arawalConfig ? (
+                      {(item.arwalConfig || item.arawalConfig) ? (
                         <p className="text-[11px] text-[#A27B5C] font-medium">
-                          {t('رول: عرض', 'Roll: width')} {item.arawalConfig.width} {t('سم', 'cm')} × {item.arawalConfig.lengthMeters} {t('م', 'm')}
+                          {t('رول: عرض', 'Roll: width')} {(item.arwalConfig || item.arawalConfig)?.width} {t('سم', 'cm')} × {(item.arwalConfig || item.arawalConfig)?.lengthMeters} {t('م', 'm')}
                         </p>
                       ) : (
                         <p className="text-[11px] text-[#7A6A5E]">{getName(item.selectedColor) || item.selectedColor?.name}</p>

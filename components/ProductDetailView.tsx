@@ -273,6 +273,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
 
       await addToCart({
         productId: product.id,
+        cartItemType: isArawalProduct ? 'arwal' : 'product',
         productName: displayName,
         productImage: productImages[0] || '',
         unitPrice: effectiveUnitPrice,
@@ -281,7 +282,8 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
           ...selectedColor,
           name: localizedColorName,
         },
-        selectedSize,
+        selectedSize: isArawalProduct ? undefined : selectedSize,
+        arwalConfig: currentArawalConfig,
         arawalConfig: currentArawalConfig,
         quantity,
       });

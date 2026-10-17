@@ -700,6 +700,13 @@ function mapBackendArwalCartItem(item: BackendArwalCartItem, products: Product[]
       unitPricePerMeter,
       totalPrice: Number(item.total_price),
     },
+    arawalConfig: {
+      isArawal: true,
+      width: widthVal,
+      lengthMeters,
+      unitPricePerMeter,
+      totalPrice: Number(item.total_price),
+    },
     quantity: item.quantity,
     subtotal: item.subtotal !== undefined ? Number(item.subtotal) : Number(item.total_price),
     originalSubtotal: item.original_subtotal !== undefined ? Number(item.original_subtotal) : Number(item.total_price),
@@ -1190,7 +1197,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const addToCart = useCallback(async (itemData: Omit<CartItem, 'id'>) => {
     const productId = Number(itemData.productId);
-    const isArwal = Boolean(itemData.arwalConfig?.isArawal || itemData.cartItemType === 'arwal');
+    const rollConfig = itemData.arwalConfig || itemData.arawalConfig;
+    const matchedProduct = products.find((p) => p.id === String(productId));
+    const isArwal = Boolean(
+      itemData.cartItemType === 'arwal' ||
+      rollConfig?.isArawal ||
+      matchedProduct?.isArawal
+    );
     const isBundle = Boolean(itemData.isBundle || itemData.cartItemType === 'bundle' || itemData.bundleOfferId);
 
     try {
@@ -1198,19 +1211,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!Number.isInteger(productId)) {
           throw new Error('This Arwal is not connected to a backend record.');
         }
-        const matchedProduct = products.find((p) => p.id === String(productId));
-        const colorId = itemData.selectedColor.id
-          ? Number(itemData.selectedColor.id)
-          : matchedProduct?.colors?.[0]?.id
-          ? Number(matchedProduct.colors[0].id)
-          : 1;
-        const widthVal = itemData.arwalConfig?.width || 80;
+        const rawColorId = itemData.selectedColor?.id ? Number(itemData.selectedColor.id) : NaN;
+        const colorId =
+          Number.isInteger(rawColorId) && rawColorId > 0
+            ? rawColorId
+            : matchedProduct?.colors?.[0]?.id
+            ? Number(matchedProduct.colors[0].id)
+            : 1;
+
+        const widthVal = rollConfig?.width || 80;
         const widthId = resolveArwalWidthId(widthVal, arwalWidths);
+        const lengthMeters = rollConfig?.lengthMeters || 1;
+
         await cartService.addArwalItem({
           arwal_id: productId,
           selected_color_id: colorId,
           selected_width_id: widthId,
-          selected_length: itemData.arwalConfig?.lengthMeters || 1,
+          selected_length: lengthMeters,
           quantity: itemData.quantity,
         });
       } else if (isBundle) {
@@ -1223,8 +1240,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!Number.isInteger(productId)) {
           throw new Error('This product is not connected to a backend product record.');
         }
-        const matchedProduct = products.find((p) => p.id === String(productId));
-        const colorId = itemData.selectedColor.id
+        const colorId = itemData.selectedColor?.id
           ? Number(itemData.selectedColor.id)
           : matchedProduct?.colors?.[0]?.id
           ? Number(matchedProduct.colors[0].id)
@@ -1248,7 +1264,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // It gets pushed to the real backend cart once the user signs in (syncGuestCart).
       if (err instanceof ApiError && err.status === 401) {
         setIsGuestCart(true);
-        setCart(addGuestCartItem(itemData));
+        const itemToStore = {
+          ...itemData,
+          cartItemType: isArwal ? ('arwal' as const) : isBundle ? ('bundle' as const) : ('product' as const),
+          arwalConfig: rollConfig,
+          arawalConfig: rollConfig,
+        };
+        setCart(addGuestCartItem(itemToStore));
       } else {
         throw err;
       }
@@ -1327,25 +1349,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!Number.isInteger(productId)) continue;
 
       try {
-        if (item.arwalConfig?.isArawal) {
-          const matchedProduct = products.find((p) => p.id === String(productId));
-          const colorId = item.selectedColor.id
-            ? Number(item.selectedColor.id)
-            : matchedProduct?.colors?.[0]?.id
-            ? Number(matchedProduct.colors[0].id)
-            : 1;
-          const widthVal = item.arwalConfig.width || 80;
+        const rollConfig = item.arwalConfig || item.arawalConfig;
+        const matchedProduct = products.find((p) => p.id === String(productId));
+        const isArwal = Boolean(
+          item.cartItemType === 'arwal' ||
+          rollConfig?.isArawal ||
+          matchedProduct?.isArawal
+        );
+
+        if (isArwal) {
+          const rawColorId = item.selectedColor?.id ? Number(item.selectedColor.id) : NaN;
+          const colorId =
+            Number.isInteger(rawColorId) && rawColorId > 0
+              ? rawColorId
+              : matchedProduct?.colors?.[0]?.id
+              ? Number(matchedProduct.colors[0].id)
+              : 1;
+
+          const widthVal = rollConfig?.width || 80;
           const widthId = resolveArwalWidthId(widthVal, arwalWidths);
+          const lengthMeters = rollConfig?.lengthMeters || 1;
+
           await cartService.addArwalItem({
             arwal_id: productId,
             selected_color_id: colorId,
             selected_width_id: widthId,
-            selected_length: item.arwalConfig.lengthMeters || 1,
+            selected_length: lengthMeters,
             quantity: item.quantity,
           });
-        } else if (item.bundleOfferId) {
+        } else if (item.bundleOfferId || item.isBundle || item.cartItemType === 'bundle') {
           await cartService.addBundle({
-            bundle_offer_id: item.bundleOfferId,
+            bundle_offer_id: item.bundleOfferId || productId,
             quantity: item.quantity,
           });
         } else {

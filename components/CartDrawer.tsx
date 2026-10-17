@@ -119,7 +119,7 @@ export default function CartDrawer() {
                           </div>
 
                           {/* ARAWAL Badge & Dimension Specs */}
-                          {item.arawalConfig ? (
+                          {(item.arwalConfig || item.arawalConfig) ? (
                             <div className="mt-1.5 p-2 rounded-lg bg-[#FAF5EB] border border-[#E8DEC0] text-[11px] text-[#5C4A3E] space-y-0.5">
                               <div className="flex items-center gap-1 font-bold text-[#A27B5C]">
                                 <Ruler className="w-3 h-3" />
@@ -127,14 +127,14 @@ export default function CartDrawer() {
                               </div>
                               <div className="flex items-center justify-between text-[#251811]">
                                 <span>
-                                  {t('العرض:', 'Width:')} <strong>{item.arawalConfig.width} {t('سم', 'cm')}</strong>
+                                  {t('العرض:', 'Width:')} <strong>{(item.arwalConfig || item.arawalConfig)?.width} {t('سم', 'cm')}</strong>
                                 </span>
                                 <span>
-                                  {t('الطول:', 'Length:')} <strong>{item.arawalConfig.lengthMeters} {t('متر', 'm')}</strong>
+                                  {t('الطول:', 'Length:')} <strong>{(item.arwalConfig || item.arawalConfig)?.lengthMeters} {t('متر', 'm')}</strong>
                                 </span>
                               </div>
                               <div className="text-[10px] text-[#8A796B]">
-                                {t('سعر المتر:', 'Rate:')} {item.arawalConfig.unitPricePerMeter.toLocaleString()} {t('ج.م/متر', 'EGP/m')}
+                                {t('سعر المتر:', 'Rate:')} {((item.arwalConfig || item.arawalConfig)?.unitPricePerMeter || item.unitPrice)?.toLocaleString()} {t('ج.م/متر', 'EGP/m')}
                               </div>
                             </div>
                           ) : (
