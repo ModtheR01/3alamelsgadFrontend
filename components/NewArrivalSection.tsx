@@ -195,11 +195,13 @@ export default function NewArrivalSection() {
 
     addToCart({
       productId: product.id,
+      cartItemType: 'product',
       productName: getName(product),
       productImage: product.images[0] || '',
-      unitPrice: finalPrice,
+      unitPrice: product.sizes?.[0]?.price ?? finalPrice,
       selectedFinish: product.finishes?.[0] || 'MATTE',
-      selectedColor: product.colors?.[0] || { id: 'c-default', name: 'البيج الطبيعي', hex: '#D2C1AF' },
+      selectedColor: product.colors?.[0],
+      selectedSize: product.sizes?.[0],
       quantity: 1,
     });
   };

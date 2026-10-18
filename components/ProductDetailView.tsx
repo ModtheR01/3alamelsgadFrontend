@@ -107,8 +107,8 @@ export default function ProductDetailView() {
   const [selectedFinish, setSelectedFinish] = useState<ProductFinish>(
     product?.finishes?.[0] || 'MATTE'
   );
-  const [selectedColor, setSelectedColor] = useState<ProductColor>(
-    product?.colors?.[0] || { id: 'c-default', name: 'البيج الطبيعي', hex: '#D2C1AF' }
+  const [selectedColor, setSelectedColor] = useState<ProductColor | undefined>(
+    product?.colors?.[0]
   );
 
   // Dynamic Available Widths defined by Admin
@@ -148,6 +148,16 @@ export default function ProductDetailView() {
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(
     product?.sizes?.[0]
   );
+
+  // Synchronize state when product loads or updates
+  useEffect(() => {
+    if (!product) return;
+    setSelectedImageIdx(0);
+    setSelectedFinish(product.finishes?.[0] || 'MATTE');
+    setSelectedColor(product.colors?.[0]);
+    setSelectedSize(product.sizes?.[0]);
+    setSelectedArawalWidth(null);
+  }, [product?.id]);
 
   const [quantity, setQuantity] = useState(1);
   const [addedAnimation, setAddedAnimation] = useState(false);
@@ -246,7 +256,7 @@ export default function ProductDetailView() {
 
   // Contextual WhatsApp enquiry text
   const localizedProdName = getName(product);
-  const localizedColorName = getName(selectedColor);
+  const localizedColorName = selectedColor ? getName(selectedColor) : '';
   const whatsappPrefill = isArawalProduct
     ? `مرحباً عالم السجاد، استفسار عن رول أروال بالمتر:
 القطعة: ${localizedProdName}
@@ -256,9 +266,7 @@ export default function ProductDetailView() {
 برجاء تأكيد التوفر والتوصيل.`
     : `مرحباً عالم السجاد، استفسار بخصوص سجادة:
 الاسم: ${localizedProdName}
-اللون: ${localizedColorName}
-${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
-السعر: ${effectiveUnitPrice} ج.م`;
+${localizedColorName ? `اللون: ${localizedColorName}\n` : ''}${selectedSize ? `المقاس: ${selectedSize.name}\n` : ''}السعر: ${effectiveUnitPrice} ج.م`;
 
   const targetWhatsapp = settings.contact?.whatsapp || BRAND_CONFIG.whatsappNumber;
   const whatsappUrl = `https://wa.me/${toWhatsAppNumber(targetWhatsapp)}?text=${encodeURIComponent(
@@ -279,14 +287,13 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
         productName: displayName,
         productImage: productImages[0] || '',
         unitPrice: effectiveUnitPrice,
-        selectedFinish,
-        selectedColor: {
+        selectedFinish: selectedFinish || 'MATTE',
+        selectedColor: selectedColor ? {
           ...selectedColor,
           name: localizedColorName,
-        },
+        } : undefined,
         selectedSize: isArawalProduct ? undefined : selectedSize,
         arwalConfig: currentArawalConfig,
-        arawalConfig: currentArawalConfig,
         quantity,
       });
 
@@ -743,7 +750,7 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                       type="button"
                       onClick={() => setSelectedColor(c)}
                       className={`h-9 px-3 rounded-full flex items-center gap-2 border text-xs font-medium transition-all ${
-                        selectedColor.id === c.id
+                        selectedColor?.id === c.id
                           ? 'border-[#251811] bg-white shadow-sm ring-2 ring-[#A27B5C]/20'
                           : 'border-[#E4DACD] bg-white text-[#5C4A3E] hover:border-[#A27B5C]'
                       }`}

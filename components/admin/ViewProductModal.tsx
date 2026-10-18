@@ -546,11 +546,15 @@ export default function ViewProductModal({
                             {s.dimensions && s.name !== s.dimensions ? s.name : 'مقاس قياسي'}
                           </span>
                         </div>
-                        {s.priceDelta !== 0 && (
+                        {s.price !== undefined ? (
+                          <span className="text-[11px] font-bold text-[#A27B5C]">
+                            {s.price.toLocaleString()} ج.م
+                          </span>
+                        ) : s.priceDelta !== 0 ? (
                           <span className="text-[11px] font-bold text-[#A27B5C]">
                             {s.priceDelta > 0 ? `+${s.priceDelta}` : s.priceDelta} ج.م
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     ))}
                   </div>

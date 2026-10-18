@@ -95,8 +95,8 @@ export interface CartItem {
   productName: string;
   productImage: string;
   unitPrice: number;
-  selectedFinish: ProductFinish;
-  selectedColor: ProductColor;
+  selectedFinish?: ProductFinish;
+  selectedColor?: ProductColor;
   selectedSize?: ProductSize;
   arwalConfig?: ArawalSelection;
   arawalConfig?: ArawalSelection;
