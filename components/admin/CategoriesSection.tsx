@@ -122,7 +122,7 @@ export default function CategoriesSection({
       description: '',
       description_ar: '',
       description_en: '',
-      image: 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=800&q=80',
+      image: '',
       isFeatured: false,
       isVisible: true,
       displayOrder: categories.length + 1,

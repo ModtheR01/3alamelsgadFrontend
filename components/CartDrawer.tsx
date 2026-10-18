@@ -181,6 +181,11 @@ export default function CartDrawer() {
                           </div>
 
                           <div className="text-end">
+                            {item.quantity > 1 && (
+                              <span className="text-[10px] text-[#8A796B] block">
+                                {item.unitPrice.toLocaleString()} {t('ج.م للقطعة', 'EGP each')}
+                              </span>
+                            )}
                             {item.originalSubtotal && item.originalSubtotal > (item.subtotal ?? item.unitPrice * item.quantity) && (
                               <span className="text-[10px] text-[#A89A8D] line-through block">
                                 {item.originalSubtotal.toLocaleString()} {t('ج.م', 'EGP')}

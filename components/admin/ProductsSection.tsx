@@ -963,7 +963,7 @@ export default function ProductsSection({
                 {paginatedProducts.map((p) => {
                   const catObj = categories.find((c) => String(c.id) === String(p.categoryId));
                   const categoryName = catObj?.name_ar || catObj?.name || catObj?.name_en || 'عام';
-                  const primaryImg = p.images?.[0] || 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=400&q=80';
+                  const primaryImg = p.images?.[0] || null;
 
                   return (
                     <tr key={p.id} className="hover:bg-[#FAF8F5]/80 transition-colors">
@@ -971,14 +971,18 @@ export default function ProductsSection({
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
                           <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] shrink-0 p-1 flex items-center justify-center">
-                            <Image
-                              src={primaryImg}
-                              alt={p.name_ar || p.name || p.name_en || ''}
-                              fill
-                              className="object-contain"
-                              referrerPolicy="no-referrer"
-                            />
-                            {p.images.length > 1 && (
+                            {primaryImg ? (
+                              <Image
+                                src={primaryImg}
+                                alt={p.name_ar || p.name || p.name_en || ''}
+                                fill
+                                className="object-contain"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <Package className="w-5 h-5 text-[#8C7A6B]" />
+                            )}
+                            {p.images && p.images.length > 1 && (
                               <span className="absolute bottom-1 end-1 bg-black/60 text-white text-[9px] px-1 rounded font-bold font-mono">
                                 +{p.images.length - 1}
                               </span>
@@ -1260,20 +1264,24 @@ export default function ProductsSection({
                       const primaryImg =
                         archived.images?.[0]?.image ||
                         (archived as any).image ||
-                        'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=400&q=80';
+                        null;
 
                       return (
                         <tr key={archived.id} className="hover:bg-[#FAF8F5]/80 transition-colors">
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
                               <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] shrink-0 p-1 flex items-center justify-center">
-                                <Image
-                                  src={primaryImg}
-                                  alt={prodName}
-                                  fill
-                                  className="object-contain grayscale"
-                                  referrerPolicy="no-referrer"
-                                />
+                                {primaryImg ? (
+                                  <Image
+                                    src={primaryImg}
+                                    alt={prodName}
+                                    fill
+                                    className="object-contain grayscale"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                ) : (
+                                  <Package className="w-5 h-5 text-[#8C7A6B]" />
+                                )}
                               </div>
                               <div>
                                 <p className="font-bold text-[#241710] text-xs leading-snug">{prodName}</p>

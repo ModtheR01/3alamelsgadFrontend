@@ -1052,10 +1052,45 @@ export default function CheckoutView() {
                           {t('رول: عرض', 'Roll: width')} {(item.arwalConfig || item.arawalConfig)?.width} {t('سم', 'cm')} × {(item.arwalConfig || item.arawalConfig)?.lengthMeters} {t('م', 'm')}
                         </p>
                       ) : (
-                        <p className="text-[11px] text-[#7A6A5E]">{getName(item.selectedColor) || item.selectedColor?.name}</p>
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#7A6A5E] mt-0.5">
+                          {item.selectedSize && (
+                            <span className="font-semibold text-[#251811]">
+                              {item.selectedSize.width && item.selectedSize.length
+                                ? `${item.selectedSize.width} × ${item.selectedSize.length} ${t('سم', 'cm')}`
+                                : item.selectedSize.name}
+                            </span>
+                          )}
+                          {item.selectedSize && item.selectedColor && <span>•</span>}
+                          {item.selectedColor && (
+                            <span className="inline-flex items-center gap-1">
+                              {item.selectedColor.hex && (
+                                <span
+                                  className="w-2 h-2 rounded-full border border-black/15 shrink-0 inline-block"
+                                  style={{ backgroundColor: item.selectedColor.hex }}
+                                />
+                              )}
+                              <span>{getName(item.selectedColor) || item.selectedColor?.name}</span>
+                            </span>
+                          )}
+                          {item.selectedFinish && (
+                            <>
+                              <span>•</span>
+                              <span className="text-[#8A796B]">
+                                {item.selectedFinish === 'GLOSSY' ? t('لامع', 'Glossy') : t('مطفي', 'Matte')}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       )}
                       <div className="flex justify-between items-center mt-1">
-                        <span className="text-[#8A796B]">{t('الكمية:', 'Qty:')} {item.quantity}</span>
+                        <div className="text-[#8A796B] flex items-center gap-1">
+                          <span>{t('الكمية:', 'Qty:')} <strong className="text-[#251811]">{item.quantity}</strong></span>
+                          {item.quantity > 1 && (
+                            <span className="text-[10px] text-[#A89A8D]">
+                              ({item.unitPrice.toLocaleString()} {t('ج.م/قطعة', 'EGP/ea')})
+                            </span>
+                          )}
+                        </div>
                         <div className="text-end">
                           {item.originalSubtotal && item.originalSubtotal > (item.subtotal ?? item.unitPrice * item.quantity) && (
                             <span className="text-[10px] text-[#A89A8D] line-through me-1.5">
