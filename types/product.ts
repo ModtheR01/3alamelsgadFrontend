@@ -31,8 +31,15 @@ export interface BackendSize {
   id: number;
   width: number;
   length: number;
+  price?: string | number;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface ProductSizeInput {
+  size_id?: number;
+  size?: number;
+  price: string | number;
 }
 
 export interface SizeCreateRequest {
@@ -169,8 +176,9 @@ export interface ProductCreateRequest {
   description?: string;
   description_ar?: string;
   description_en?: string;
-  price: string | number;
+  price?: string | number;
   subcategory_ids: number[];
+  sizes?: ProductSizeInput[];
   size_ids?: number[];
   color_ids?: number[];
 
@@ -192,6 +200,7 @@ export interface ProductUpdateRequest {
   description_en?: string;
   price?: string | number;
   subcategory_ids?: number[];
+  sizes?: ProductSizeInput[];
   size_ids?: number[];
   color_ids?: number[];
 

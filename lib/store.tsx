@@ -382,6 +382,7 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
         name: `${s.width}x${s.length} سم`,
         dimensions: `${s.width}x${s.length} سم`,
         priceDelta: 0,
+        price: s.price !== undefined && s.price !== null && s.price !== '' ? Number(s.price) : undefined,
         width: s.width,
         length: s.length,
       }))
@@ -1648,6 +1649,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const sizeIds = (productToSave.sizes || [])
       .map((size: any) => Number(size.id))
       .filter((id) => Number.isInteger(id));
+    const sizesPayload = (productToSave.sizes || [])
+      .map((size: any) => ({
+        size_id: Number(size.id),
+        price: size.price !== undefined && size.price !== null && size.price !== ''
+          ? Number(size.price)
+          : (productToSave.price || 0),
+      }))
+      .filter((s: any) => Number.isInteger(s.size_id));
 
     if (sizeIds.length === 0) {
       throw new Error('يرجى اختيار مقاس واحد على الأقل للمنتج (المقاسات مطلوبة).');
@@ -1661,6 +1670,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const descAr = (productToSave.description_ar || productToSave.description || '').trim();
     const descEn = (productToSave.description_en || productToSave.description || descAr).trim();
 
+    const minSizePrice = sizesPayload.length > 0 ? Math.min(...sizesPayload.map((s) => s.price)) : (productToSave.price || 0);
+
     const payload = {
       name: nameAr,
       name_ar: nameAr,
@@ -1669,12 +1680,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       description_ar: descAr,
       description_en: descEn,
       dimensions: productToSave.dimensions.trim(),
-      price: productToSave.price || 0,
+      price: minSizePrice,
       delivery_days: productToSave.deliveryDays ?? null,
       material: productToSave.material.trim(),
       finish: productToSave.finishes,
       faq: (productToSave.faq || []).filter((item) => item.question.trim() || item.answer.trim()),
       subcategory_ids: subcategoryIds,
+      sizes: sizesPayload,
       size_ids: sizeIds,
       color_ids: colorIds,
       featured: productToSave.isFeatured,

@@ -45,6 +45,7 @@ export const productService = {
       description_en: (data.description_en || data.description || '').trim(),
       price: data.price,
       subcategory_ids: data.subcategory_ids,
+      sizes: data.sizes,
       size_ids: data.size_ids || [],
       color_ids: data.color_ids || [],
     };
@@ -71,6 +72,7 @@ export const productService = {
     }
     if (data.price !== undefined) payload.price = data.price;
     if (data.subcategory_ids !== undefined) payload.subcategory_ids = data.subcategory_ids;
+    if (data.sizes !== undefined) payload.sizes = data.sizes;
     if (data.size_ids !== undefined) payload.size_ids = data.size_ids;
     if (data.color_ids !== undefined) payload.color_ids = data.color_ids;
 

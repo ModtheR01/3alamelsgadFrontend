@@ -400,6 +400,17 @@ export default function ProductsSection({
         setFormError('يرجى اختيار مقاس واحد على الأقل للمنتج (المقاسات مطلوبة لحفظ المنتج).');
         return;
       }
+      for (const s of editingProduct.sizes) {
+        const p = Number(s.price);
+        if (s.price === undefined || s.price === null || isNaN(p) || p <= 0) {
+          setFormError(`يرجى تحديد سعر صحيح أكبر من الصفر للمقاس: ${s.name || s.dimensions || `${s.width} × ${s.length} سم`}`);
+          return;
+        }
+      }
+      const validPrices = editingProduct.sizes.map((s) => Number(s.price)).filter((p) => !isNaN(p) && p > 0);
+      if (validPrices.length > 0) {
+        editingProduct.price = Math.min(...validPrices);
+      }
       if (!editingProduct.colors || editingProduct.colors.length === 0) {
         setFormError('يرجى اختيار لون واحد على الأقل للمنتج (الألوان مطلوبة لحفظ المنتج).');
         return;
@@ -542,6 +553,22 @@ export default function ProductsSection({
   };
 
   // Size selection and creation handlers
+  const handleUpdateSizePrice = (sizeId: string, newPrice: number) => {
+    if (!editingProduct) return;
+    const updated = (editingProduct.sizes || []).map((s) =>
+      String(s.id) === String(sizeId) ? { ...s, price: newPrice } : s
+    );
+    const validPrices = updated
+      .map((s) => s.price)
+      .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p >= 0);
+    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : editingProduct.price;
+    setEditingProduct({
+      ...editingProduct,
+      sizes: updated,
+      price: minPrice,
+    });
+  };
+
   const handleSelectExistingSize = (sizeIdStr: string) => {
     if (!editingProduct || !sizeIdStr) return;
     const numId = Number(sizeIdStr);
@@ -549,17 +576,25 @@ export default function ProductsSection({
     if (!found) return;
     const currentSizes = editingProduct.sizes || [];
     if (currentSizes.some((s) => String(s.id) === String(numId))) return;
+    const defaultPrice = editingProduct.price || 1500;
     const newEntry = {
       id: String(found.id),
       name: `${found.width} × ${found.length} سم`,
       dimensions: `${found.width} × ${found.length} سم`,
       priceDelta: 0,
+      price: defaultPrice,
       width: found.width,
       length: found.length,
     };
+    const updatedSizes = [...currentSizes, newEntry];
+    const validPrices = updatedSizes
+      .map((s) => s.price)
+      .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p >= 0);
+    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : defaultPrice;
     setEditingProduct({
       ...editingProduct,
-      sizes: [...currentSizes, newEntry],
+      sizes: updatedSizes,
+      price: minPrice,
       dimensions: editingProduct.dimensions || `${found.width} × ${found.length} سم`,
     });
   };
@@ -567,9 +602,14 @@ export default function ProductsSection({
   const handleRemoveSize = (idToRemove: string) => {
     if (!editingProduct) return;
     const remaining = (editingProduct.sizes || []).filter((s) => String(s.id) !== String(idToRemove));
+    const validPrices = remaining
+      .map((s) => s.price)
+      .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p >= 0);
+    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : editingProduct.price;
     setEditingProduct({
       ...editingProduct,
       sizes: remaining,
+      price: minPrice,
     });
   };
 
@@ -597,17 +637,25 @@ export default function ProductsSection({
     try {
       const created = await productService.createSize({ width, length });
       setAvailableSizes((prev) => [...prev, created]);
+      const defaultPrice = editingProduct.price || 1500;
       const newEntry = {
         id: String(created.id),
         name: `${created.width} × ${created.length} سم`,
         dimensions: `${created.width} × ${created.length} سم`,
         priceDelta: 0,
+        price: defaultPrice,
         width: created.width,
         length: created.length,
       };
+      const updatedSizes = [...(editingProduct.sizes || []), newEntry];
+      const validPrices = updatedSizes
+        .map((s) => s.price)
+        .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p >= 0);
+      const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : defaultPrice;
       setEditingProduct({
         ...editingProduct,
-        sizes: [...(editingProduct.sizes || []), newEntry],
+        sizes: updatedSizes,
+        price: minPrice,
         dimensions: editingProduct.dimensions || `${created.width} × ${created.length} سم`,
       });
       setNewSizeWidth('');
@@ -1563,17 +1611,14 @@ export default function ProductsSection({
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
                         <div className="space-y-1">
                           <label className="block text-xs font-bold text-[#241710]">
-                            السعر الحالي (ج.م) <span className="text-rose-600">*</span>
+                            يبدأ من (ج.م) <span className="text-[10px] text-[#8C7A6B] font-normal">(أقل سعر مقاس)</span>
                           </label>
                           <input
                             type="number"
-                            required
-                            min={1}
+                            readOnly
                             value={editingProduct.price || ''}
-                            onChange={(e) =>
-                              setEditingProduct({ ...editingProduct, price: Number(e.target.value) })
-                            }
-                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-[#EAE3D8] bg-white text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
+                            placeholder="يُحسب من المقاسات"
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-bold focus:outline-none cursor-default"
                           />
                         </div>
 
@@ -2094,10 +2139,10 @@ export default function ProductsSection({
                         </span>
                       </div>
 
-                      {/* Selected Sizes Chips */}
+                      {/* Selected Sizes List with Price Inputs */}
                       <div className="space-y-1.5">
                         <label className="block text-[11px] font-bold text-[#5C4A3E]">
-                          المقاسات المختارة حالياً:
+                          المقاسات المختارة وأسعارها:
                         </label>
                         {(!editingProduct.sizes || editingProduct.sizes.length === 0) ? (
                           <div className="p-2.5 rounded-lg border border-dashed border-amber-300 bg-amber-50/50 text-[11px] text-amber-800 flex items-center gap-1.5">
@@ -2105,24 +2150,41 @@ export default function ProductsSection({
                             <span>لم يتم اختيار أي مقاس بعد. اختر مقاساً من القائمة أدناه أو أضف مقاساً جديداً.</span>
                           </div>
                         ) : (
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="space-y-2">
                             {editingProduct.sizes.map((s) => (
                               <div
                                 key={s.id}
-                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-[#EAE3D8] text-[11px] font-bold text-[#241710] shadow-2xs"
+                                className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-white border border-[#EAE3D8] shadow-2xs"
                               >
-                                <Ruler className="w-3 h-3 text-[#A27B5C]" />
-                                <span dir="ltr">
-                                  {s.name || (s.width && s.length ? `${s.width} × ${s.length} سم` : s.dimensions || '')}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveSize(String(s.id))}
-                                  className="text-[#8C7A6B] hover:text-rose-600 ms-1 p-0.5 rounded transition-colors"
-                                  title="إزالة المقاس"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Ruler className="w-3.5 h-3.5 text-[#A27B5C] shrink-0" />
+                                  <span className="text-xs font-bold text-[#241710]" dir="ltr">
+                                    {s.name || (s.width && s.length ? `${s.width} × ${s.length} سم` : s.dimensions || '')}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1">
+                                    <label className="text-[11px] text-[#5C4A3E] font-semibold">السعر:</label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      step="any"
+                                      value={s.price !== undefined && s.price !== null ? s.price : ''}
+                                      onChange={(e) => handleUpdateSizePrice(String(s.id), parseFloat(e.target.value) || 0)}
+                                      placeholder="0"
+                                      className="w-24 px-2 py-1 text-xs rounded-lg bg-[#FAF8F5] border border-[#EAE3D8] text-[#241710] font-bold text-center focus:outline-none focus:border-[#241710]"
+                                    />
+                                    <span className="text-[11px] text-[#8C7A6B] font-bold">ج.م</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveSize(String(s.id))}
+                                    className="text-[#8C7A6B] hover:text-rose-600 p-1 rounded transition-colors"
+                                    title="إزالة المقاس"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                             ))}
                           </div>

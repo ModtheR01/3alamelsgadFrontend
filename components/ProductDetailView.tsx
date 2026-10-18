@@ -221,7 +221,9 @@ export default function ProductDetailView() {
 
   const effectiveUnitPrice = isArawalProduct
     ? arawalCalculatedTotal
-    : (product.price || 0) + (selectedSize?.priceDelta || 0);
+    : (selectedSize?.price !== undefined
+        ? selectedSize.price
+        : (product.price || 0) + (selectedSize?.priceDelta || 0));
 
   const discountPct = product.discountPercentage && product.discountPercentage > 0
     ? Math.round(product.discountPercentage)
@@ -712,7 +714,14 @@ ${selectedSize ? `المقاس: ${selectedSize.name}` : ''}
                           : 'border-[#E4DACD] bg-white text-[#5C4A3E] hover:border-[#A27B5C]'
                       }`}
                     >
-                      <div className="font-bold">{s.name}</div>
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="font-bold">{s.name}</div>
+                        {s.price !== undefined && (
+                          <div className="font-bold text-[#A27B5C]">
+                            {s.price.toLocaleString()} {t('ج.م', 'EGP')}
+                          </div>
+                        )}
+                      </div>
                       <div className="text-[11px] text-[#8A796B]">{s.dimensions}</div>
                     </button>
                   ))}
