@@ -450,6 +450,7 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     arawalUnitPricePerMeter: isArawal ? parsedPrice : undefined,
     availableWidths,
     createdAt: product?.created_at || new Date().toISOString(),
+    updatedAt: product?.updated_at,
     seoTitle: productName,
     seoDescription: productDesc,
   };
@@ -572,6 +573,7 @@ export function mapBackendArwal(arwal: BackendArwal, subcategories: BackendSubca
     availableWidths,
     widthsWithPrices,
     createdAt: arwal.created_at || new Date().toISOString(),
+    updatedAt: arwal.updated_at,
     seoTitle: productName,
     seoDescription: productDesc,
   };

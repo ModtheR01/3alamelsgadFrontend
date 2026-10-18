@@ -32,6 +32,7 @@ import { uploadDirectToCloudinary } from '@/lib/api/cloudinary';
 import { productService } from '@/lib/api/services/productService';
 import { BackendProduct, BackendSize, BackendColor, BackendArwal } from '@/types/product';
 import { normalizeApiError } from '@/lib/api/errors';
+import ViewProductModal from './ViewProductModal';
 
 interface ProductsSectionProps {
   products: Product[];
@@ -2240,71 +2241,12 @@ export default function ProductsSection({
       )}
 
       {/* View Details Modal */}
-      {viewingProduct && (
-        <div
-          dir="rtl"
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
-        >
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 border border-[#EAE3D8] shadow-2xl text-right">
-            <div className="flex items-center justify-between pb-3 border-b border-[#EAE3D8]">
-              <h3 className="text-base font-bold text-[#241710]">{viewingProduct.name}</h3>
-              <button
-                type="button"
-                onClick={() => setViewingProduct(null)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-[#FAF8F5] border border-[#EAE3D8] p-3 flex items-center justify-center">
-              <Image
-                src={viewingProduct.images[0]}
-                alt={viewingProduct.name}
-                fill
-                className="object-contain"
-              />
-            </div>
-
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between py-1 border-b border-[#F5EFE6]">
-                <span className="text-[#8C7A6B]">السعر:</span>
-                <span className="font-bold text-[#241710]">
-                  {viewingProduct.isArawal
-                    ? `${(viewingProduct.arawalUnitPricePerMeter || viewingProduct.price).toLocaleString('ar-EG')} ج.م / متر`
-                    : `${viewingProduct.price.toLocaleString('ar-EG')} ج.م`}
-                </span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-[#F5EFE6]">
-                <span className="text-[#8C7A6B]">النوع:</span>
-                <span className="font-bold text-[#241710]">
-                  {getProductTypeLabel(viewingProduct, subcategories)}
-                </span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-[#F5EFE6]">
-                <span className="text-[#8C7A6B]">الخامة:</span>
-                <span className="font-bold text-[#241710]">{viewingProduct.material || 'صوف تركي فاخر'}</span>
-              </div>
-              <div className="py-1">
-                <span className="text-[#8C7A6B] block mb-1">الوصف:</span>
-                <p className="text-[#5C4A3E] leading-relaxed bg-[#FAF8F5] p-3 rounded-xl border border-[#EAE3D8]">
-                  {viewingProduct.description || 'لا يوجد وصف.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-[#EAE3D8] flex justify-end">
-              <button
-                type="button"
-                onClick={() => setViewingProduct(null)}
-                className="px-4 py-2 rounded-xl bg-[#241710] text-[#FAF5EB] text-xs font-bold"
-              >
-                إغلاق
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ViewProductModal
+        product={viewingProduct}
+        categories={categories}
+        subcategories={subcategories}
+        onClose={() => setViewingProduct(null)}
+      />
     </div>
   );
 }

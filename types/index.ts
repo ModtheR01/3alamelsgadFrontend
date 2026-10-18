@@ -62,6 +62,7 @@ export interface Product {
   availableWidths?: number[];
   widthsWithPrices?: { id?: number; width: number; price_per_length: number }[];
   createdAt: string;
+  updatedAt?: string;
   seoTitle?: string;
   seoDescription?: string;
 }
