@@ -16,17 +16,21 @@ export function normalizeBackendOffer(raw: any): BackendOffer {
   }
 
   const resolvedName = raw.name || raw.name_ar || raw.name_en || '';
-  const products = Array.isArray(raw.products) && raw.products.length > 0
+  const rawTargetList = Array.isArray(raw.products) && raw.products.length > 0
     ? raw.products
     : Array.isArray(raw.offer_products)
-    ? raw.offer_products.map((p: any) => ({
-        id: p.id || p.product_id,
-        product_id: p.product_id,
-        product_name: p.product_name || '',
-        product_price: p.product_price || 0,
-        quantity: p.quantity || 1,
-      }))
+    ? raw.offer_products
     : [];
+
+  const products = rawTargetList.map((p: any) => ({
+    id: p.id || p.product_id,
+    product_id: p.product_id,
+    size_id: p.size_id ?? (p.size?.id ?? null),
+    size_name: p.size_name || (p.size ? `${p.size.width} × ${p.size.length} سم` : ''),
+    product_name: p.product_name || '',
+    product_price: p.product_price || 0,
+    quantity: p.quantity || 1,
+  }));
 
   return {
     ...raw,
@@ -41,7 +45,7 @@ export function normalizeBackendOffer(raw: any): BackendOffer {
 /**
  * Builds the exact API payload expected by Django REST Framework's OfferSerializer.
  * - Maps entered Arabic title to `name_ar` (and falls back to `name_en`).
- * - Formats target products under `offer_products`.
+ * - Formats target products under `offer_products` including `size_id`.
  * - Strips quantities for percentage offers and ensures quantities for bundle offers.
  * - Excludes `bundle_price` for percentage offers and excludes `percentage` for bundle offers.
  */
@@ -97,6 +101,9 @@ export function buildOfferPayload(
   if (rawTargets !== undefined && Array.isArray(rawTargets)) {
     payload.offer_products = rawTargets.map((target) => {
       const item: Record<string, any> = { product_id: target.product_id };
+      if (target.size_id !== undefined && target.size_id !== null) {
+        item.size_id = target.size_id;
+      }
       if (effectiveType === 'BUNDLE') {
         item.quantity = target.quantity || 1;
       }

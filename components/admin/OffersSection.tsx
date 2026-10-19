@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Product } from '@/types';
 import { BackendOffer, OfferCreateRequest, OfferType } from '@/types/offer';
 import {
@@ -16,6 +16,9 @@ import {
   AlertCircle,
   Clock,
   Sparkles,
+  Search,
+  Minus,
+  Layers,
 } from 'lucide-react';
 
 interface OffersSectionProps {
@@ -25,6 +28,12 @@ interface OffersSectionProps {
   onSaveOffer: (offerData: OfferCreateRequest, offerId?: number) => Promise<void>;
   onDeleteOffer: (offerId: number) => Promise<void>;
   onRequestDeleteConfirm: (title: string, message: string, onConfirm: () => void | Promise<void>) => void;
+}
+
+interface SelectedTarget {
+  productId: number;
+  sizeId: number | null;
+  quantity: number;
 }
 
 export default function OffersSection({
@@ -43,14 +52,31 @@ export default function OffersSection({
   const [offerType, setOfferType] = useState<OfferType>('PERCENTAGE');
   const [percentageValue, setPercentageValue] = useState<string>('20');
   const [bundlePriceValue, setBundlePriceValue] = useState<string>('1000');
-  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
-  const [bundleProductQuantities, setBundleProductQuantities] = useState<Record<number, number>>({});
+  const [selectedTargets, setSelectedTargets] = useState<Record<string, SelectedTarget>>({});
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
   const [isActive, setIsActive] = useState(true);
 
+  // Search filter for products in modal
+  const [searchQuery, setSearchQuery] = useState('');
+
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Only ordinary carpet products participate in size-specific offers
+  const ordinaryProducts = useMemo(() => {
+    return (products || []).filter((p) => !p.isArawal);
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return ordinaryProducts;
+    const query = searchQuery.trim().toLowerCase();
+    return ordinaryProducts.filter((p) => {
+      const nameAr = (p.name_ar || p.name || '').toLowerCase();
+      const nameEn = (p.name_en || '').toLowerCase();
+      return nameAr.includes(query) || nameEn.includes(query);
+    });
+  }, [ordinaryProducts, searchQuery]);
 
   const handleOpenAdd = () => {
     setEditingOfferId(null);
@@ -58,8 +84,8 @@ export default function OffersSection({
     setOfferType('PERCENTAGE');
     setPercentageValue('20');
     setBundlePriceValue('1000');
-    setSelectedProductIds([]);
-    setBundleProductQuantities({});
+    setSelectedTargets({});
+    setSearchQuery('');
     setStartsAt(new Date().toISOString().slice(0, 10));
     setEndsAt('');
     setIsActive(true);
@@ -73,14 +99,53 @@ export default function OffersSection({
     setOfferType(offer.offer_type);
     setPercentageValue(offer.percentage ? String(offer.percentage) : '20');
     setBundlePriceValue(offer.bundle_price ? String(offer.bundle_price) : '1000');
+
     const prods = offer.products || (offer as any).offer_products || [];
-    const pIds = prods.map((p: any) => p.product_id);
-    setSelectedProductIds(pIds);
-    const qtys: Record<number, number> = {};
+    const restoredTargets: Record<string, SelectedTarget> = {};
+
     prods.forEach((p: any) => {
-      qtys[p.product_id] = p.quantity || 1;
+      const pId = Number(p.product_id);
+      const sId =
+        p.size_id !== undefined && p.size_id !== null
+          ? Number(p.size_id)
+          : p.size?.id !== undefined && p.size?.id !== null
+          ? Number(p.size.id)
+          : null;
+      const qty = p.quantity || 1;
+
+      if (sId !== null) {
+        restoredTargets[`${pId}_${sId}`] = {
+          productId: pId,
+          sizeId: sId,
+          quantity: qty,
+        };
+      } else {
+        // Legacy offer targeting product without explicit size_id
+        const matchedProduct = products.find(
+          (prod) => parseInt(prod.id.replace(/\D/g, ''), 10) === pId
+        );
+        if (matchedProduct?.sizes && matchedProduct.sizes.length > 0) {
+          // Expand to all sizes so admin sees and can adjust individual sizes
+          matchedProduct.sizes.forEach((s) => {
+            const sizeNum = parseInt(s.id.replace(/\D/g, ''), 10);
+            restoredTargets[`${pId}_${sizeNum}`] = {
+              productId: pId,
+              sizeId: sizeNum,
+              quantity: qty,
+            };
+          });
+        } else {
+          restoredTargets[`${pId}_null`] = {
+            productId: pId,
+            sizeId: null,
+            quantity: qty,
+          };
+        }
+      }
     });
-    setBundleProductQuantities(qtys);
+
+    setSelectedTargets(restoredTargets);
+    setSearchQuery('');
     setStartsAt(offer.starts_at ? offer.starts_at.slice(0, 10) : '');
     setEndsAt(offer.ends_at ? offer.ends_at.slice(0, 10) : '');
     setIsActive(offer.is_active);
@@ -88,17 +153,90 @@ export default function OffersSection({
     setIsModalOpen(true);
   };
 
-  const handleToggleProduct = (numId: number) => {
-    if (selectedProductIds.includes(numId)) {
-      setSelectedProductIds(selectedProductIds.filter((id) => id !== numId));
-      const nextQtys = { ...bundleProductQuantities };
-      delete nextQtys[numId];
-      setBundleProductQuantities(nextQtys);
-    } else {
-      setSelectedProductIds([...selectedProductIds, numId]);
-      setBundleProductQuantities({ ...bundleProductQuantities, [numId]: 1 });
-    }
+  const handleToggleSize = (productId: number, sizeId: number) => {
+    const key = `${productId}_${sizeId}`;
+    setSelectedTargets((prev) => {
+      const next = { ...prev };
+      if (next[key]) {
+        delete next[key];
+      } else {
+        next[key] = {
+          productId,
+          sizeId,
+          quantity: 1,
+        };
+      }
+      return next;
+    });
   };
+
+  const handleToggleAllSizesForProduct = (product: Product) => {
+    const pId = parseInt(product.id.replace(/\D/g, ''), 10);
+    if (!product.sizes || product.sizes.length === 0) return;
+
+    const areAllSelected = product.sizes.every((s) => {
+      const sId = parseInt(s.id.replace(/\D/g, ''), 10);
+      return Boolean(selectedTargets[`${pId}_${sId}`]);
+    });
+
+    setSelectedTargets((prev) => {
+      const next = { ...prev };
+      product.sizes!.forEach((s) => {
+        const sId = parseInt(s.id.replace(/\D/g, ''), 10);
+        const key = `${pId}_${sId}`;
+        if (areAllSelected) {
+          delete next[key];
+        } else {
+          next[key] = {
+            productId: pId,
+            sizeId: sId,
+            quantity: prev[key]?.quantity || 1,
+          };
+        }
+      });
+      return next;
+    });
+  };
+
+  const handleUpdateQuantity = (productId: number, sizeId: number, delta: number) => {
+    const key = `${productId}_${sizeId}`;
+    setSelectedTargets((prev) => {
+      if (!prev[key]) return prev;
+      const currentQty = prev[key].quantity || 1;
+      const nextQty = Math.max(1, currentQty + delta);
+      return {
+        ...prev,
+        [key]: {
+          ...prev[key],
+          quantity: nextQty,
+        },
+      };
+    });
+  };
+
+  // Calculate total original value for bundle preview
+  const bundleOriginalTotal = useMemo(() => {
+    if (offerType !== 'BUNDLE') return 0;
+    let sum = 0;
+    Object.values(selectedTargets).forEach((target) => {
+      const product = products.find(
+        (p) => parseInt(p.id.replace(/\D/g, ''), 10) === target.productId
+      );
+      if (product) {
+        if (target.sizeId !== null && product.sizes) {
+          const sizeObj = product.sizes.find(
+            (s) => parseInt(s.id.replace(/\D/g, ''), 10) === target.sizeId
+          );
+          const price = sizeObj?.originalPrice ?? sizeObj?.price ?? product.price ?? 0;
+          sum += price * (target.quantity || 1);
+        } else {
+          const price = product.originalPrice ?? product.price ?? 0;
+          sum += price * (target.quantity || 1);
+        }
+      }
+    });
+    return sum;
+  }, [selectedTargets, products, offerType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,8 +255,9 @@ export default function OffersSection({
       return;
     }
 
-    if (selectedProductIds.length === 0) {
-      setFormError('يرجى اختيار منتج واحد على الأقل ينطبق عليه هذا العرض.');
+    const targetList = Object.values(selectedTargets);
+    if (targetList.length === 0) {
+      setFormError('يرجى اختيار مقاس أو منتج واحد على الأقل ينطبق عليه هذا العرض.');
       return;
     }
 
@@ -130,13 +269,15 @@ export default function OffersSection({
       offer_type: offerType,
       percentage: offerType === 'PERCENTAGE' ? Number(percentageValue) : null,
       bundle_price: offerType === 'BUNDLE' ? Number(bundlePriceValue) : null,
-      products: selectedProductIds.map((id) => ({
-        product_id: id,
-        quantity: bundleProductQuantities[id] || 1,
+      products: targetList.map((t) => ({
+        product_id: t.productId,
+        size_id: t.sizeId,
+        quantity: offerType === 'BUNDLE' ? t.quantity || 1 : 1,
       })),
-      offer_products: selectedProductIds.map((id) => ({
-        product_id: id,
-        ...(offerType === 'BUNDLE' ? { quantity: bundleProductQuantities[id] || 1 } : {}),
+      offer_products: targetList.map((t) => ({
+        product_id: t.productId,
+        size_id: t.sizeId,
+        ...(offerType === 'BUNDLE' ? { quantity: t.quantity || 1 } : {}),
       })),
       starts_at: startsAt ? new Date(startsAt).toISOString() : null,
       ends_at: endsAt ? new Date(endsAt).toISOString() : null,
@@ -155,6 +296,8 @@ export default function OffersSection({
     }
   };
 
+  const selectedTargetsCount = Object.keys(selectedTargets).length;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -164,7 +307,7 @@ export default function OffersSection({
             العروض والخصومات الترويجية
           </h1>
           <p className="text-xs text-[#8C7A6B] mt-0.5">
-            إنشاء حملات الخصم بالنسب المئوية (مثل خصم ٢٠٪) أو باقات المنتجات بسعر موحد (مثل ٣ مشايات بـ ١٠٠٠ ج.م).
+            إنشاء حملات الخصم بالنسب المئوية بمستوى المقاسات أو باقات المنتجات بسعر موحد مع تحديد المقاسات الفعلية والأسعار.
           </p>
         </div>
 
@@ -186,7 +329,7 @@ export default function OffersSection({
             </div>
             <p className="text-sm font-bold text-[#241710]">لا توجد عروض ترويجية نشطة حالياً</p>
             <p className="text-xs text-[#8C7A6B] max-w-sm mx-auto">
-              يمكنك إنشاء عروض الخصم المئوي أو باقات المنتجات لتشجيع عملاء المتجر على الشراء.
+              يمكنك إنشاء عروض الخصم المئوي بالمقاس أو باقات المنتجات لتشجيع عملاء المتجر على الشراء.
             </p>
             <button
               onClick={handleOpenAdd}
@@ -199,6 +342,7 @@ export default function OffersSection({
           offers.map((offer) => {
             const isPercentage = offer.offer_type === 'PERCENTAGE';
             const isBundle = offer.offer_type === 'BUNDLE';
+            const offerTargets = offer.products || (offer as any).offer_products || [];
 
             return (
               <div
@@ -229,25 +373,69 @@ export default function OffersSection({
                   </div>
 
                   <div>
-                    <h3 className="font-bold text-sm text-[#241710]">{offer.name_ar || offer.name || offer.name_en}</h3>
+                    <h3 className="font-bold text-sm text-[#241710]">
+                      {offer.name_ar || offer.name || offer.name_en}
+                    </h3>
                     <div className="mt-2 text-2xl font-black text-[#A27B5C]">
                       {isPercentage && `خصم ${offer.percentage}٪`}
                       {isBundle && `${Number(offer.bundle_price || 0).toLocaleString('ar-EG')} ج.م`}
                     </div>
                   </div>
 
-                  <div className="text-xs text-[#5C4A3E] space-y-1.5 pt-3 border-t border-[#F5EFE6]">
-                    <p className="flex items-center justify-between">
-                      <span className="text-[#8C7A6B]">المنتجات المشمولة:</span>
+                  <div className="text-xs text-[#5C4A3E] space-y-2 pt-3 border-t border-[#F5EFE6]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#8C7A6B]">المشمول بالعرض:</span>
                       <strong className="text-[#241710]">
-                        {(offer.products || (offer as any).offer_products)?.length || 0} منتج
+                        {offerTargets.length} {offerTargets.length === 1 ? 'عنصر/مقاس' : 'عناصر/مقاسات'}
                       </strong>
-                    </p>
+                    </div>
+
+                    {/* Preview list of targets with sizes */}
+                    {offerTargets.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {offerTargets.slice(0, 3).map((target: any, tIdx: number) => {
+                          const sizeLabel =
+                            target.size_name ||
+                            (target.size ? `${target.size.width} × ${target.size.length} سم` : '');
+                          const prodName =
+                            target.product_name ||
+                            products.find(
+                              (p) => parseInt(p.id.replace(/\D/g, ''), 10) === target.product_id
+                            )?.name_ar ||
+                            'منتج';
+                          return (
+                            <span
+                              key={tIdx}
+                              className="inline-flex items-center gap-1 text-[10px] bg-[#FAF8F5] border border-[#EAE3D8] text-[#5C4A3E] px-2 py-0.5 rounded-lg truncate max-w-[200px]"
+                            >
+                              <span className="truncate">{prodName}</span>
+                              {sizeLabel && (
+                                <span className="text-[#A27B5C] font-semibold shrink-0">
+                                  ({sizeLabel})
+                                </span>
+                              )}
+                              {isBundle && target.quantity && target.quantity > 1 && (
+                                <span className="text-purple-700 font-bold shrink-0">
+                                  ×{target.quantity}
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })}
+                        {offerTargets.length > 3 && (
+                          <span className="text-[10px] text-[#8C7A6B] font-bold px-1 py-0.5">
+                            +{offerTargets.length - 3} أخرى
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     {offer.starts_at && (
-                      <p className="text-[11px] text-[#8C7A6B] flex items-center gap-1.5">
+                      <p className="text-[11px] text-[#8C7A6B] flex items-center gap-1.5 pt-1">
                         <Clock className="w-3.5 h-3.5 text-[#A27B5C]" />
                         <span>
-                          ساري من {offer.starts_at.slice(0, 10)} {offer.ends_at ? `إلى ${offer.ends_at.slice(0, 10)}` : ''}
+                          ساري من {offer.starts_at.slice(0, 10)}{' '}
+                          {offer.ends_at ? `إلى ${offer.ends_at.slice(0, 10)}` : ''}
                         </span>
                       </p>
                     )}
@@ -288,7 +476,7 @@ export default function OffersSection({
           dir="rtl"
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in"
         >
-          <div className="bg-white rounded-2xl max-w-xl w-full my-8 p-6 space-y-5 shadow-2xl border border-[#EAE3D8] max-h-[92vh] overflow-y-auto text-right">
+          <div className="bg-white rounded-2xl max-w-2xl w-full my-8 p-6 space-y-5 shadow-2xl border border-[#EAE3D8] max-h-[92vh] overflow-y-auto text-right">
             <div className="flex items-center justify-between pb-3 border-b border-[#EAE3D8]">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-[#FAF5EB] text-[#A27B5C]">
@@ -323,7 +511,7 @@ export default function OffersSection({
                   required
                   value={offerName}
                   onChange={(e) => setOfferName(e.target.value)}
-                  placeholder="مثال: خصم ٢٠٪ على السجاد التركي، أو باقة ٣ مشايات بـ ١٠٠٠ جنيه"
+                  placeholder="مثال: خصم ٢٠٪ على مقاسات السجاد الكلاسيك، أو باقة ٣ قطع بـ ١٠٠٠ جنيه"
                   className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] font-bold focus:outline-none focus:border-[#241710]"
                 />
               </div>
@@ -404,47 +592,251 @@ export default function OffersSection({
                 </div>
               )}
 
-              {/* Applicable Products Selector */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
+              {/* ================= APPLICABLE PRODUCTS & SIZES SELECTOR ================= */}
+              <div className="space-y-2 pt-2 border-t border-[#F5EFE6]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <label className="block text-xs font-bold text-[#241710]">
-                    المنتجات المشمولة في العرض ({selectedProductIds.length} محددة) <span className="text-rose-600">*</span>
+                    المنتجات والمقاسات المشمولة في العرض ({selectedTargetsCount} مقاس محدد){' '}
+                    <span className="text-rose-600">*</span>
                   </label>
+
+                  {/* Search products filter */}
+                  <div className="relative w-full sm:w-48">
+                    <Search className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="بحث في المنتجات..."
+                      className="w-full text-[11px] pr-8 pl-2.5 py-1.5 rounded-lg border border-[#EAE3D8] bg-[#FAF8F5] text-[#241710] focus:outline-none focus:border-[#241710]"
+                    />
+                  </div>
                 </div>
 
-                <div className="max-h-48 overflow-y-auto rounded-xl border border-[#EAE3D8] divide-y divide-[#F5EFE6] p-2 bg-[#FAF8F5]">
-                  {products.map((p, idx) => {
-                    const numId = parseInt(p.id.replace(/\D/g, ''), 10) || idx + 1;
-                    const isSelected = selectedProductIds.includes(numId);
+                <div className="max-h-72 overflow-y-auto rounded-xl border border-[#EAE3D8] p-2 bg-[#FAF8F5] space-y-3">
+                  {filteredProducts.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-[#8C7A6B]">
+                      {ordinaryProducts.length === 0
+                        ? 'لا توجد منتجات سجاد عادية متاحة.'
+                        : 'لا توجد منتجات مطابقة لكلمة البحث.'}
+                    </div>
+                  ) : (
+                    filteredProducts.map((p, idx) => {
+                      const numId = parseInt(p.id.replace(/\D/g, ''), 10) || idx + 1;
+                      const hasSizes = Array.isArray(p.sizes) && p.sizes.length > 0;
 
-                    return (
-                      <div
-                        key={p.id}
-                        onClick={() => handleToggleProduct(numId)}
-                        className={`p-2.5 rounded-lg cursor-pointer flex items-center justify-between text-xs transition-colors ${
-                          isSelected ? 'bg-amber-100/70 font-bold' : 'hover:bg-white'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {}}
-                            className="rounded text-amber-600"
-                          />
-                          <span className="truncate text-[#241710]">{p.name_ar || p.name || p.name_en}</span>
+                      // Count selected sizes for this product
+                      const selectedSizesForProduct = hasSizes
+                        ? p.sizes!.filter((s) => {
+                            const sId = parseInt(s.id.replace(/\D/g, ''), 10);
+                            return Boolean(selectedTargets[`${numId}_${sId}`]);
+                          })
+                        : [];
+                      const areAllSizesSelected =
+                        hasSizes && selectedSizesForProduct.length === p.sizes!.length;
+
+                      return (
+                        <div
+                          key={p.id}
+                          className="rounded-xl border border-[#EAE3D8] bg-white overflow-hidden shadow-2xs"
+                        >
+                          {/* Product Header */}
+                          <div className="p-3 bg-[#FAF8F5] border-b border-[#F0EAE1] flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-[#EFE9DF] shrink-0 overflow-hidden flex items-center justify-center text-[#8C7A6B]">
+                                {p.images && p.images[0] ? (
+                                  <img
+                                    src={p.images[0]}
+                                    alt={p.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <Layers className="w-4 h-4 text-[#A27B5C]" />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <h4 className="font-bold text-xs text-[#241710] truncate">
+                                  {p.name_ar || p.name || p.name_en}
+                                </h4>
+                                <span className="text-[10px] text-[#8C7A6B]">
+                                  {hasSizes
+                                    ? selectedSizesForProduct.length > 0
+                                      ? `تم تحديد ${selectedSizesForProduct.length} من ${p.sizes!.length} مقاسات`
+                                      : `${p.sizes!.length} مقاسات متوفرة`
+                                    : 'بدون مقاسات مسجلة'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Select All Sizes Toggle Button */}
+                            {hasSizes && (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleAllSizesForProduct(p)}
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all shrink-0 ${
+                                  areAllSizesSelected
+                                    ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                                    : 'bg-[#FAF5EB] text-[#A27B5C] border border-[#EAE3D8] hover:bg-[#F2ECE3]'
+                                }`}
+                              >
+                                {areAllSizesSelected ? 'إلغاء تحديد الكل' : 'تحديد كل المقاسات'}
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Sizes List or No-Size Message */}
+                          {!hasSizes ? (
+                            <div className="p-3 bg-amber-50/60 border-t border-amber-100/80 text-[11px] text-amber-900 flex items-center gap-2">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span>
+                                لا توجد مقاسات مسجلة لهذا المنتج. يرجى إضافة مقاسات وأسعار للمنتج أولاً من قسم المنتجات.
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="divide-y divide-[#F5EFE6]">
+                              {p.sizes!.map((s) => {
+                                const sId = parseInt(s.id.replace(/\D/g, ''), 10);
+                                const isSelected = Boolean(selectedTargets[`${numId}_${sId}`]);
+                                const actualPrice = s.originalPrice ?? s.price;
+                                const sizeDimensions =
+                                  s.width && s.length
+                                    ? `${s.width} × ${s.length} سم`
+                                    : s.dimensions || s.name;
+
+                                // Computed discount values for percentage offers
+                                const pctVal = Number(percentageValue) || 0;
+                                const hasPrice = actualPrice !== undefined && actualPrice !== null;
+                                const discountAmount =
+                                  hasPrice && pctVal > 0 ? Math.round((actualPrice * pctVal) / 100) : 0;
+                                const discountedPrice =
+                                  hasPrice && pctVal > 0 ? Math.max(0, actualPrice - discountAmount) : 0;
+
+                                const currentQty = selectedTargets[`${numId}_${sId}`]?.quantity || 1;
+
+                                return (
+                                  <div
+                                    key={s.id}
+                                    className={`p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-colors ${
+                                      isSelected
+                                        ? offerType === 'PERCENTAGE'
+                                          ? 'bg-amber-50/70'
+                                          : 'bg-purple-50/70'
+                                        : 'hover:bg-[#FAF8F5]'
+                                    }`}
+                                  >
+                                    {/* Checkbox and size info */}
+                                    <label
+                                      onClick={() => handleToggleSize(numId, sId)}
+                                      className="flex items-center gap-2.5 cursor-pointer select-none grow min-w-0"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => {}}
+                                        className={`rounded transition-all ${
+                                          offerType === 'PERCENTAGE'
+                                            ? 'text-amber-600 focus:ring-amber-500'
+                                            : 'text-purple-600 focus:ring-purple-500'
+                                        }`}
+                                      />
+                                      <div className="min-w-0">
+                                        <div className="text-xs font-bold text-[#241710] flex items-center gap-2">
+                                          <span>{sizeDimensions}</span>
+                                          {hasPrice ? (
+                                            <span className="text-[#8C7A6B] font-semibold">
+                                              — {actualPrice.toLocaleString('ar-EG')} ج.م
+                                            </span>
+                                          ) : (
+                                            <span className="text-rose-600 font-semibold text-[10px]">
+                                              (السعر غير مسجل)
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {/* Dynamic Discount Preview for Percentage Offer */}
+                                        {offerType === 'PERCENTAGE' && isSelected && hasPrice && pctVal > 0 && (
+                                          <div className="text-[11px] text-amber-900 font-bold mt-0.5 flex items-center gap-1.5">
+                                            <span>
+                                              السعر بعد الخصم:{' '}
+                                              <strong className="text-amber-800 font-black">
+                                                {discountedPrice.toLocaleString('ar-EG')} ج.م
+                                              </strong>
+                                            </span>
+                                            <span className="text-amber-700 text-[10px] font-normal">
+                                              (توفير {discountAmount.toLocaleString('ar-EG')} ج.م)
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </label>
+
+                                    {/* Bundle Quantity Selector */}
+                                    {offerType === 'BUNDLE' && isSelected && (
+                                      <div
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="flex items-center gap-2 shrink-0 bg-white px-2.5 py-1 rounded-xl border border-purple-200 self-end sm:self-center"
+                                      >
+                                        <span className="text-[10px] font-bold text-purple-900">
+                                          الكمية بالباقة:
+                                        </span>
+                                        <div className="flex items-center gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleUpdateQuantity(numId, sId, -1)}
+                                            disabled={currentQty <= 1}
+                                            className="w-5 h-5 rounded-md bg-[#FAF8F5] hover:bg-purple-100 disabled:opacity-40 text-purple-900 flex items-center justify-center font-bold"
+                                          >
+                                            <Minus className="w-3 h-3" />
+                                          </button>
+                                          <span className="w-6 text-center text-xs font-black text-[#241710]">
+                                            {currentQty}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleUpdateQuantity(numId, sId, 1)}
+                                            className="w-5 h-5 rounded-md bg-[#FAF8F5] hover:bg-purple-100 text-purple-900 flex items-center justify-center font-bold"
+                                          >
+                                            <Plus className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
-                        <span className="text-[11px] text-[#8C7A6B] shrink-0 font-bold">
-                          {p.price?.toLocaleString('ar-EG')} ج.م
-                        </span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
+
+                {/* Bundle Value Preview Bar */}
+                {offerType === 'BUNDLE' && selectedTargetsCount > 0 && (
+                  <div className="p-3 rounded-xl bg-purple-50 border border-purple-200 text-xs text-purple-900 space-y-1">
+                    <div className="flex items-center justify-between font-bold">
+                      <span>إجمالي القيمة الأصلية للقطع المحددة:</span>
+                      <span>{bundleOriginalTotal.toLocaleString('ar-EG')} ج.م</span>
+                    </div>
+                    <div className="flex items-center justify-between font-black text-purple-950 pt-1 border-t border-purple-200/60">
+                      <span>سعر الباقة الموحد المعروض:</span>
+                      <span className="text-base text-purple-800">
+                        {Number(bundlePriceValue || 0).toLocaleString('ar-EG')} ج.م
+                      </span>
+                    </div>
+                    {bundleOriginalTotal > Number(bundlePriceValue || 0) && (
+                      <div className="text-[11px] text-emerald-800 font-bold text-left pt-0.5">
+                        توفير للعميل:{' '}
+                        {(bundleOriginalTotal - Number(bundlePriceValue || 0)).toLocaleString('ar-EG')} ج.م
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Dates & Active Toggle */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-[#241710]">تاريخ بدء العرض</label>
                   <input
@@ -464,8 +856,6 @@ export default function OffersSection({
                   />
                 </div>
               </div>
-
-
 
               <div className="pt-4 border-t border-[#EAE3D8] flex items-center justify-end gap-3">
                 <button

@@ -90,14 +90,32 @@ export function SpecialOffersSection() {
         calculatedOriginalPrice = product.originalPrice;
         calculatedDiscountedPrice = product.price;
         matchedOfferName = matchingOffer?.name_ar || matchingOffer?.name || undefined;
-      } else if (matchingOffer && matchingOffer.percentage) {
-        // 2. Fall back to active percentage offer calculation if product does not have direct originalPrice
-        const pct = Math.round(Number(matchingOffer.percentage));
-        if (pct > 0 && pct < 100 && product.price > 0) {
-          bestDiscountPct = pct;
-          calculatedOriginalPrice = product.price;
-          calculatedDiscountedPrice = Math.round(product.price * (1 - pct / 100));
-          matchedOfferName = matchingOffer.name_ar || matchingOffer.name || undefined;
+      } else {
+        const discountedSize = (product.sizes || []).find(
+          (s) => s.originalPrice && s.price && s.originalPrice > s.price
+        );
+        if (discountedSize && discountedSize.originalPrice && discountedSize.price) {
+          bestDiscountPct = discountedSize.discountPercentage && discountedSize.discountPercentage > 0
+            ? Math.round(discountedSize.discountPercentage)
+            : Math.round(((discountedSize.originalPrice - discountedSize.price) / discountedSize.originalPrice) * 100);
+          calculatedOriginalPrice = discountedSize.originalPrice;
+          calculatedDiscountedPrice = discountedSize.price;
+          matchedOfferName = matchingOffer?.name_ar || matchingOffer?.name || undefined;
+        } else if (matchingOffer && matchingOffer.percentage) {
+          // 2. Fall back to active percentage offer calculation if product does not have direct originalPrice
+          const offerTargets = (matchingOffer.products || (matchingOffer as any).offer_products || [])
+            .filter((t: any) => String(t.product_id) === String(product.id) || String(t.id) === String(product.id));
+          const hasSpecificSizes = offerTargets.some((t: any) => t.size_id !== null && t.size_id !== undefined);
+          const eligible = !hasSpecificSizes || (product.sizes && product.sizes.some((s) => offerTargets.some((t: any) => String(t.size_id) === String(s.id))));
+          if (eligible) {
+            const pct = Math.round(Number(matchingOffer.percentage));
+            if (pct > 0 && pct < 100 && product.price > 0) {
+              bestDiscountPct = pct;
+              calculatedOriginalPrice = product.price;
+              calculatedDiscountedPrice = Math.round(product.price * (1 - pct / 100));
+              matchedOfferName = matchingOffer.name_ar || matchingOffer.name || undefined;
+            }
+          }
         }
       }
 

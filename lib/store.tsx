@@ -169,12 +169,14 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     : [];
 
   const mappedSizes = Array.isArray(product?.sizes)
-    ? product.sizes.map((s) => ({
+    ? product.sizes.map((s: any) => ({
         id: String(s.id),
         name: `${s.width}x${s.length} سم`,
         dimensions: `${s.width}x${s.length} سم`,
         priceDelta: 0,
         price: s.price !== undefined && s.price !== null && s.price !== '' ? Number(s.price) : undefined,
+        originalPrice: s.original_price !== undefined && s.original_price !== null && s.original_price !== '' ? Number(s.original_price) : undefined,
+        discountPercentage: s.discount_percentage ? Number(s.discount_percentage) : undefined,
         width: s.width,
         length: s.length,
       }))

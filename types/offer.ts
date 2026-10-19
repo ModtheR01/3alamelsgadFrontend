@@ -3,6 +3,8 @@ export type OfferType = 'PERCENTAGE' | 'BUNDLE' | 'FREE_SHIPPING';
 export interface OfferProduct {
   id?: number;
   product_id: number;
+  size_id?: number | null;
+  size_name?: string;
   product_name?: string;
   product_price?: string | number;
   quantity?: number;
@@ -10,7 +12,10 @@ export interface OfferProduct {
 
 export interface BackendOfferProductTarget {
   product_id: number;
+  size_id?: number | null;
+  size_name?: string;
   quantity?: number;
+  size?: { id: number; width: string; length: string };
 }
 
 export interface BackendOfferArwalTarget {
@@ -41,6 +46,7 @@ export interface BackendOffer {
 
 export interface OfferProductRequest {
   product_id: number;
+  size_id?: number | null;
   quantity?: number;
 }
 

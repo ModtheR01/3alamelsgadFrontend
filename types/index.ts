@@ -16,6 +16,8 @@ export interface ProductSize {
   dimensions: string;
   priceDelta: number; // in EGP
   price?: number; // in EGP
+  originalPrice?: number; // in EGP
+  discountPercentage?: number;
   width?: number;
   length?: number;
 }

@@ -235,11 +235,25 @@ export default function ProductDetailView() {
         ? selectedSize.price
         : (product.price || 0) + (selectedSize?.priceDelta || 0));
 
-  const discountPct = product.discountPercentage && product.discountPercentage > 0
-    ? Math.round(product.discountPercentage)
-    : product.originalPrice && product.originalPrice > product.price
-    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
-    : 0;
+  const effectiveOriginalPrice = isArawalProduct
+    ? undefined
+    : (selectedSize?.originalPrice !== undefined
+        ? selectedSize.originalPrice
+        : (!product.sizes || product.sizes.length === 0 ? product.originalPrice : undefined));
+
+  const discountPct = isArawalProduct
+    ? 0
+    : (selectedSize?.originalPrice && selectedSize.price && selectedSize.originalPrice > selectedSize.price
+        ? (selectedSize.discountPercentage && selectedSize.discountPercentage > 0
+            ? Math.round(selectedSize.discountPercentage)
+            : Math.round(((selectedSize.originalPrice - selectedSize.price) / selectedSize.originalPrice) * 100))
+        : (!product.sizes || product.sizes.length === 0
+            ? (product.discountPercentage && product.discountPercentage > 0
+                ? Math.round(product.discountPercentage)
+                : product.originalPrice && product.originalPrice > product.price
+                ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+                : 0)
+            : 0));
 
   const totalCalculatedPrice = effectiveUnitPrice * quantity;
 
@@ -523,9 +537,9 @@ ${localizedColorName ? `اللون: ${localizedColorName}\n` : ''}${selectedSize
                     <span className="text-base font-semibold text-[#665448]">
                       {t('جنيه مصري', 'EGP')}
                     </span>
-                    {product.originalPrice && product.originalPrice > product.price && (
+                    {effectiveOriginalPrice && effectiveOriginalPrice > effectiveUnitPrice && (
                       <span className="text-base text-[#A09386] line-through font-normal">
-                        {product.originalPrice.toLocaleString()} {t('ج.م', 'EGP')}
+                        {effectiveOriginalPrice.toLocaleString()} {t('ج.م', 'EGP')}
                       </span>
                     )}
                     {discountPct > 0 ? (
@@ -724,8 +738,15 @@ ${localizedColorName ? `اللون: ${localizedColorName}\n` : ''}${selectedSize
                       <div className="flex items-center justify-between gap-1">
                         <div className="font-bold">{s.name}</div>
                         {s.price !== undefined && (
-                          <div className="font-bold text-[#A27B5C]">
-                            {s.price.toLocaleString()} {t('ج.م', 'EGP')}
+                          <div className="flex items-center gap-1.5 font-bold text-[#A27B5C]">
+                            {s.originalPrice && s.originalPrice > s.price && (
+                              <span className="line-through text-[10px] text-[#A09386] font-normal">
+                                {s.originalPrice.toLocaleString()} {t('ج.م', 'EGP')}
+                              </span>
+                            )}
+                            <span>
+                              {s.price.toLocaleString()} {t('ج.م', 'EGP')}
+                            </span>
                           </div>
                         )}
                       </div>
