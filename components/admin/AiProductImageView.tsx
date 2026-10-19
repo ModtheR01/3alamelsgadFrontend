@@ -51,7 +51,6 @@ export default function AiProductImageView({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imageFileName, setImageFileName] = useState<string>('');
-  const [isPreparingFile, setIsPreparingFile] = useState(false);
 
   // AI Processing states (Phase 2)
   const [isProcessing, setIsProcessing] = useState(false);
@@ -196,21 +195,6 @@ export default function AiProductImageView({
     }
   }, [filteredSubcategories, newProductSubcategory]);
 
-  // Sample catalog images for quick testing
-  const SAMPLE_IMAGES = [
-    {
-      title: 'سجادة تبريز كلاسيك',
-      url: 'https://images.unsplash.com/photo-1600121848594-d8644e57abab?q=80&w=800&auto=format&fit=crop',
-    },
-    {
-      title: 'سجادة مودرن ناعمة',
-      url: 'https://images.unsplash.com/photo-1579656381226-5fc0f0100c3b?q=80&w=800&auto=format&fit=crop',
-    },
-    {
-      title: 'سجاد رول ممر',
-      url: 'https://images.unsplash.com/photo-1534349762230-e0cadf78f5da?q=80&w=800&auto=format&fit=crop',
-    },
-  ];
 
   // Derived filtered products for search
   const filteredProducts = useMemo(() => {
@@ -268,27 +252,6 @@ export default function AiProductImageView({
     setImageFileName(file.name);
     const previewUrl = URL.createObjectURL(file);
     updateOriginalPreview(previewUrl, file);
-  };
-
-  // Handle selecting a sample catalog image
-  const handleSelectSample = async (sample: { title: string; url: string }) => {
-    try {
-      setIsPreparingFile(true);
-      setImageFileName(sample.title);
-
-      const res = await fetch(sample.url);
-      const blob = await res.blob();
-      const sampleFile = new File([blob], `${sample.title}.jpg`, {
-        type: blob.type || 'image/jpeg',
-      });
-
-      const previewUrl = URL.createObjectURL(sampleFile);
-      updateOriginalPreview(previewUrl, sampleFile);
-    } catch {
-      updateOriginalPreview(sample.url, null);
-    } finally {
-      setIsPreparingFile(false);
-    }
   };
 
   // Handle resetting image
@@ -584,58 +547,26 @@ export default function AiProductImageView({
 
         <div className="p-5">
           {!selectedImage ? (
-            <div className="space-y-4">
-              {/* Clean Upload Dropzone */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-[#D8CEBF] hover:border-[#241710] rounded-2xl p-6 sm:p-8 text-center bg-[#FAF8F5]/50 hover:bg-[#FAF8F5] cursor-pointer transition-all flex flex-col items-center justify-center"
+            /* Clean Upload Dropzone */
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-[#D8CEBF] hover:border-[#241710] rounded-2xl p-6 sm:p-8 text-center bg-[#FAF8F5]/50 hover:bg-[#FAF8F5] cursor-pointer transition-all flex flex-col items-center justify-center"
+            >
+              <div className="w-12 h-12 rounded-xl bg-[#FAF5EB] text-[#A27B5C] border border-[#E8DEC0] flex items-center justify-center mb-2.5">
+                <UploadCloud className="w-6 h-6" />
+              </div>
+              <h3 className="text-sm font-black text-[#241710] mb-1">
+                ارفع صورة المنتج
+              </h3>
+              <p className="text-xs text-[#8C7A6B] max-w-sm mb-3.5">
+                اسحب الصورة هنا أو اختر صورة من جهازك (JPEG, PNG, WebP)
+              </p>
+              <button
+                type="button"
+                className="px-4 py-2 rounded-xl bg-[#241710] text-[#FAF5EB] text-xs font-bold shadow-xs hover:bg-[#3D291D] transition-colors"
               >
-                <div className="w-12 h-12 rounded-xl bg-[#FAF5EB] text-[#A27B5C] border border-[#E8DEC0] flex items-center justify-center mb-2.5">
-                  <UploadCloud className="w-6 h-6" />
-                </div>
-                <h3 className="text-sm font-black text-[#241710] mb-1">
-                  ارفع صورة المنتج
-                </h3>
-                <p className="text-xs text-[#8C7A6B] max-w-sm mb-3.5">
-                  اسحب الصورة هنا أو اختر صورة من جهازك (JPEG, PNG, WebP)
-                </p>
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-xl bg-[#241710] text-[#FAF5EB] text-xs font-bold shadow-xs hover:bg-[#3D291D] transition-colors"
-                >
-                  اختيار صورة
-                </button>
-              </div>
-
-              {/* Quick Sample Presets */}
-              <div className="pt-2">
-                <p className="text-xs font-bold text-[#8C7A6B] mb-2">
-                  أو جرّب صورة تجريبية من الكتالوج:
-                </p>
-                <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
-                  {SAMPLE_IMAGES.map((sample, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      disabled={isPreparingFile}
-                      onClick={() => handleSelectSample(sample)}
-                      className="group rounded-xl border border-[#EAE3D8] hover:border-[#241710] overflow-hidden text-right transition-all bg-[#FAF8F5]/60 hover:bg-white p-1.5 flex flex-col gap-1.5 disabled:opacity-50"
-                    >
-                      <div className="relative aspect-4/3 w-full rounded-lg overflow-hidden bg-stone-100">
-                        <Image
-                          src={sample.url}
-                          alt={sample.title}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
-                      <span className="text-[11px] font-bold text-[#241710] truncate px-1">
-                        {sample.title}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+                اختيار صورة
+              </button>
             </div>
           ) : (
             /* Uploaded Preview & Controls */
@@ -685,7 +616,7 @@ export default function AiProductImageView({
             accept="image/jpeg,image/png,image/webp,image/gif"
             className="hidden"
             onChange={(e) => handleFileSelect(e.target.files)}
-            disabled={isPreparingFile || isProcessing}
+            disabled={isProcessing}
           />
         </div>
       </div>
