@@ -334,7 +334,7 @@ export default function CheckoutView() {
               const rawColorId = item.selectedColor?.id
                 ? parseInt(String(item.selectedColor.id).replace(/\D/g, ''))
                 : NaN;
-              const numColorId = Number.isInteger(rawColorId) && rawColorId > 0 ? rawColorId : 1;
+              const numColorId = Number.isInteger(rawColorId) && rawColorId > 0 ? rawColorId : null;
               const widthVal = rollConfig?.width || 80;
               const widthId = resolveArwalWidthId(widthVal, arwalWidths);
               await cartService.addArwalItem({
@@ -352,9 +352,10 @@ export default function CheckoutView() {
               });
             } else {
               const numProdId = parseInt(String(item.productId).replace(/\D/g, '')) || 1;
-              const numColorId = item.selectedColor?.id
-                ? parseInt(String(item.selectedColor.id).replace(/\D/g, '')) || 1
-                : 1;
+              const rawColorId = item.selectedColor?.id
+                ? parseInt(String(item.selectedColor.id).replace(/\D/g, ''))
+                : NaN;
+              const numColorId = Number.isInteger(rawColorId) && rawColorId > 0 ? rawColorId : null;
               const numSizeId = item.selectedSize?.id
                 ? parseInt(String(item.selectedSize.id).replace(/\D/g, '')) || 1
                 : 1;

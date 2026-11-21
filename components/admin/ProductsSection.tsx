@@ -40,8 +40,8 @@ interface ProductsSectionProps {
   subcategories?: BackendSubcategory[];
   onSaveProduct: (product: Product) => Promise<void> | void;
   onDeleteProduct: (productId: string) => Promise<void> | void;
-  onHardDeleteProduct?: (productId: string) => Promise<void> | void;
-  onRestoreProduct?: (productId: string) => Promise<void> | void;
+  onHardDeleteProduct?: (productId: string, isArawal?: boolean) => Promise<void> | void;
+  onRestoreProduct?: (productId: string, isArawal?: boolean) => Promise<void> | void;
   isAdmin?: boolean;
   onToggleFeatured: (productId: string) => void;
   onRequestDeleteConfirm: (
@@ -62,6 +62,16 @@ interface ProductsSectionProps {
 }
 
 const ALLOWED_ARWAL_WIDTHS = [60, 80, 100, 120] as const;
+
+export function sortSizesByDimensions<T extends { width?: number; length?: number }>(sizes: T[]): T[] {
+  return [...sizes].sort((a, b) => {
+    const areaA = (Number(a.width) || 0) * (Number(a.length) || 0);
+    const areaB = (Number(b.width) || 0) * (Number(b.length) || 0);
+    if (areaA !== areaB) return areaA - areaB;
+    if ((Number(a.width) || 0) !== (Number(b.width) || 0)) return (Number(a.width) || 0) - (Number(b.width) || 0);
+    return (Number(a.length) || 0) - (Number(b.length) || 0);
+  });
+}
 
 export function getProductTypeLabel(
   product: {
@@ -261,23 +271,18 @@ export default function ProductsSection({
 
   const handleOpenAdd = () => {
     const firstCat = categories[0]?.id || 'cat-turkish';
-    const initialColors = availableColors.length > 0
-      ? [{
-          id: String(availableColors[0].id),
-          name: availableColors[0].name || availableColors[0].name_ar || availableColors[0].name_en || availableColors[0].hex_code,
-          hex: availableColors[0].hex_code,
-        }]
-      : [];
+    const initialColors: ProductColor[] = [];
 
-    const initialSizes = availableSizes.length > 0
+    const sortedAvailableSizes = sortSizesByDimensions(availableSizes);
+    const initialSizes = sortedAvailableSizes.length > 0
       ? [{
-          id: String(availableSizes[0].id),
-          name: `${availableSizes[0].width} × ${availableSizes[0].length} سم`,
-          dimensions: `${availableSizes[0].width} × ${availableSizes[0].length} سم`,
+          id: String(sortedAvailableSizes[0].id),
+          name: `${sortedAvailableSizes[0].width} × ${sortedAvailableSizes[0].length} سم`,
+          dimensions: `${sortedAvailableSizes[0].width} × ${sortedAvailableSizes[0].length} سم`,
           priceDelta: 0,
           price: 1500,
-          width: availableSizes[0].width,
-          length: availableSizes[0].length,
+          width: sortedAvailableSizes[0].width,
+          length: sortedAvailableSizes[0].length,
         }]
       : [];
 
@@ -341,7 +346,7 @@ export default function ProductsSection({
       name_en: product.name_en || '',
       description_ar: product.description_ar || product.description || '',
       description_en: product.description_en || '',
-      sizes: isArwal ? [] : (Array.isArray(product.sizes) ? [...product.sizes] : []),
+      sizes: isArwal ? [] : (Array.isArray(product.sizes) ? sortSizesByDimensions(product.sizes) : []),
       colors: Array.isArray(product.colors) ? [...product.colors] : [],
       arawalUnitPricePerMeter: isArwal ? (product.arawalUnitPricePerMeter || product.price) : undefined,
       availableWidths: initialWidths,
@@ -406,13 +411,10 @@ export default function ProductsSection({
           return;
         }
       }
+      editingProduct.sizes = sortSizesByDimensions(editingProduct.sizes);
       const validPrices = editingProduct.sizes.map((s) => Number(s.price)).filter((p) => !isNaN(p) && p > 0);
       if (validPrices.length > 0) {
         editingProduct.price = Math.min(...validPrices);
-      }
-      if (!editingProduct.colors || editingProduct.colors.length === 0) {
-        setFormError('يرجى اختيار لون واحد على الأقل للمنتج (الألوان مطلوبة لحفظ المنتج).');
-        return;
       }
     }
 
@@ -558,9 +560,9 @@ export default function ProductsSection({
       String(s.id) === String(sizeId) ? { ...s, price: newPrice } : s
     );
     const validPrices = updated
-      .map((s) => s.price)
-      .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p >= 0);
-    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : editingProduct.price;
+      .map((s) => Number(s.price))
+      .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p > 0);
+    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0;
     setEditingProduct({
       ...editingProduct,
       sizes: updated,
@@ -585,30 +587,33 @@ export default function ProductsSection({
       width: found.width,
       length: found.length,
     };
-    const updatedSizes = [...currentSizes, newEntry];
+    const updatedSizes = sortSizesByDimensions([...currentSizes, newEntry]);
     const validPrices = updatedSizes
-      .map((s) => s.price)
-      .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p >= 0);
-    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : defaultPrice;
+      .map((s) => Number(s.price))
+      .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p > 0);
+    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0;
     setEditingProduct({
       ...editingProduct,
       sizes: updatedSizes,
       price: minPrice,
-      dimensions: editingProduct.dimensions || `${found.width} × ${found.length} سم`,
+      dimensions: updatedSizes[0]?.dimensions || `${found.width} × ${found.length} سم`,
     });
   };
 
   const handleRemoveSize = (idToRemove: string) => {
     if (!editingProduct) return;
-    const remaining = (editingProduct.sizes || []).filter((s) => String(s.id) !== String(idToRemove));
+    const remaining = sortSizesByDimensions(
+      (editingProduct.sizes || []).filter((s) => String(s.id) !== String(idToRemove))
+    );
     const validPrices = remaining
-      .map((s) => s.price)
-      .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p >= 0);
-    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : editingProduct.price;
+      .map((s) => Number(s.price))
+      .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p > 0);
+    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0;
     setEditingProduct({
       ...editingProduct,
       sizes: remaining,
       price: minPrice,
+      dimensions: remaining.length > 0 ? (remaining[0].dimensions || remaining[0].name) : '',
     });
   };
 
@@ -646,16 +651,16 @@ export default function ProductsSection({
         width: created.width,
         length: created.length,
       };
-      const updatedSizes = [...(editingProduct.sizes || []), newEntry];
+      const updatedSizes = sortSizesByDimensions([...(editingProduct.sizes || []), newEntry]);
       const validPrices = updatedSizes
-        .map((s) => s.price)
-        .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p >= 0);
-      const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : defaultPrice;
+        .map((s) => Number(s.price))
+        .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p > 0);
+      const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0;
       setEditingProduct({
         ...editingProduct,
         sizes: updatedSizes,
         price: minPrice,
-        dimensions: editingProduct.dimensions || `${created.width} × ${created.length} سم`,
+        dimensions: updatedSizes[0]?.dimensions || `${created.width} × ${created.length} سم`,
       });
       setNewSizeWidth('');
       setNewSizeLength('');
@@ -1145,8 +1150,11 @@ export default function ProductsSection({
                                   `حذف نهائي للمنتج: «${p.name}»`,
                                   'تحذير: سيتم حذف هذا المنتج نهائياً من قاعدة البيانات وإزالة جميع صوره المرتبطة على السحابة (Cloudinary) بشكل دائم. لا يمكن التراجع عن هذا الإجراء.',
                                   async () => {
+                                    const isArwalItem = Boolean(p.isArawal);
                                     if (onHardDeleteProduct) {
-                                      await onHardDeleteProduct(p.id);
+                                      await onHardDeleteProduct(p.id, isArwalItem);
+                                    } else if (isArwalItem) {
+                                      await productService.hardDeleteArwal(Number(p.id));
                                     } else {
                                       await productService.hardDeleteProduct(Number(p.id));
                                     }
@@ -1307,8 +1315,11 @@ export default function ProductsSection({
                                     `استعادة المنتج: «${prodName}»`,
                                     'هل ترغب في استعادة هذا المنتج وإعادته إلى قائمة المنتجات النشطة في المتجر؟',
                                     async () => {
+                                      const isArwalItem = Boolean((archived as any).isArawal);
                                       if (onRestoreProduct) {
-                                        await onRestoreProduct(String(archived.id));
+                                        await onRestoreProduct(String(archived.id), isArwalItem);
+                                      } else if (isArwalItem) {
+                                        await productService.restoreArwal(archived.id);
                                       } else {
                                         await productService.restoreProduct(archived.id);
                                       }
@@ -1336,8 +1347,11 @@ export default function ProductsSection({
                                       `حذف نهائي للمنتج المؤرشف: «${prodName}»`,
                                       'تحذير: سيتم حذف هذا المنتج المؤرشف وجميع صوره على Cloudinary بشكل نهائي ولا يمكن استعادته أبداً.',
                                       async () => {
+                                        const isArwalItem = Boolean((archived as any).isArawal);
                                         if (onHardDeleteProduct) {
-                                          await onHardDeleteProduct(String(archived.id));
+                                          await onHardDeleteProduct(String(archived.id), isArwalItem);
+                                        } else if (isArwalItem) {
+                                          await productService.hardDeleteArwal(archived.id);
                                         } else {
                                           await productService.hardDeleteProduct(archived.id);
                                         }
@@ -2007,10 +2021,10 @@ export default function ProductsSection({
                       <h4 className="text-xs font-black text-[#241710] flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-[#A27B5C]" />
                         <span>خيارات الألوان المتاحة ({editingProduct.colors?.length || 0})</span>
-                        {!editingProduct.isArawal && <span className="text-rose-600 text-xs">*</span>}
+                        <span className="text-[10px] text-[#8C7A6B] font-normal">(اختياري)</span>
                       </h4>
                       <span className="text-[10px] text-[#8C7A6B]">
-                        {!editingProduct.isArawal ? 'مطلوب لون واحد على الأقل' : 'اختياري للأروال'}
+                        اختياري للمنتجات والأروال
                       </span>
                     </div>
 
@@ -2020,9 +2034,9 @@ export default function ProductsSection({
                         الألوان المختارة للمنتج:
                       </label>
                       {(!editingProduct.colors || editingProduct.colors.length === 0) ? (
-                        <div className="p-2.5 rounded-lg border border-dashed border-amber-300 bg-amber-50/50 text-[11px] text-amber-800 flex items-center gap-1.5">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                          <span>لم يتم اختيار أي لون بعد. اختر لوناً من القائمة أو أضف لوناً جديداً.</span>
+                        <div className="p-2.5 rounded-lg border border-dashed border-[#EAE3D8] bg-[#FAF8F5] text-[11px] text-[#8C7A6B] flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 shrink-0 text-[#A27B5C]" />
+                          <span>بدون ألوان (اختياري). يمكنك اختيار ألوان من القائمة أدناه أو حفظ المنتج بدون ألوان.</span>
                         </div>
                       ) : (
                         <div className="flex flex-wrap gap-1.5 items-center">

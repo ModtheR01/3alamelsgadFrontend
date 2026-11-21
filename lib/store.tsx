@@ -169,18 +169,32 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     : [];
 
   const mappedSizes = Array.isArray(product?.sizes)
-    ? product.sizes.map((s: any) => ({
-        id: String(s.id),
-        name: `${s.width}x${s.length} سم`,
-        dimensions: `${s.width}x${s.length} سم`,
-        priceDelta: 0,
-        price: s.price !== undefined && s.price !== null && s.price !== '' ? Number(s.price) : undefined,
-        originalPrice: s.original_price !== undefined && s.original_price !== null && s.original_price !== '' ? Number(s.original_price) : undefined,
-        discountPercentage: s.discount_percentage ? Number(s.discount_percentage) : undefined,
-        width: s.width,
-        length: s.length,
-      }))
+    ? [...product.sizes]
+        .map((s: any) => ({
+          id: String(s.id),
+          name: `${s.width}x${s.length} سم`,
+          dimensions: `${s.width}x${s.length} سم`,
+          priceDelta: 0,
+          price: s.price !== undefined && s.price !== null && s.price !== '' ? Number(s.price) : undefined,
+          originalPrice: s.original_price !== undefined && s.original_price !== null && s.original_price !== '' ? Number(s.original_price) : undefined,
+          discountPercentage: s.discount_percentage ? Number(s.discount_percentage) : undefined,
+          width: s.width,
+          length: s.length,
+        }))
+        .sort((a, b) => {
+          const areaA = (Number(a.width) || 0) * (Number(a.length) || 0);
+          const areaB = (Number(b.width) || 0) * (Number(b.length) || 0);
+          if (areaA !== areaB) return areaA - areaB;
+          if ((Number(a.width) || 0) !== (Number(b.width) || 0)) return (Number(a.width) || 0) - (Number(b.width) || 0);
+          return (Number(a.length) || 0) - (Number(b.length) || 0);
+        })
     : [];
+
+  const validSizePrices = mappedSizes
+    .map((s) => s.price)
+    .filter((p): p is number => typeof p === 'number' && Number.isFinite(p) && p > 0);
+  const minSizePrice = validSizePrices.length > 0 ? Math.min(...validSizePrices) : parsedPrice;
+  const effectivePrice = !isArawal && validSizePrices.length > 0 ? minSizePrice : parsedPrice;
 
   const sortedRecords = [...imageRecords].sort((a, b) => {
     if (a.is_primary && !b.is_primary) return -1;
@@ -202,12 +216,12 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
   }
 
   const rawOriginalPrice = Number(product?.original_price);
-  const validOriginalPrice = Number.isFinite(rawOriginalPrice) && rawOriginalPrice > parsedPrice ? rawOriginalPrice : undefined;
+  const validOriginalPrice = Number.isFinite(rawOriginalPrice) && rawOriginalPrice > effectivePrice ? rawOriginalPrice : undefined;
   const rawDiscountPercentage = Number(product?.discount_percentage);
   const validDiscountPercentage = Number.isFinite(rawDiscountPercentage) && rawDiscountPercentage > 0
     ? Math.round(rawDiscountPercentage)
-    : validOriginalPrice && parsedPrice > 0
-    ? Math.round(((validOriginalPrice - parsedPrice) / validOriginalPrice) * 100)
+    : validOriginalPrice && effectivePrice > 0
+    ? Math.round(((validOriginalPrice - effectivePrice) / validOriginalPrice) * 100)
     : undefined;
 
   return {
@@ -221,7 +235,7 @@ export function mapBackendProduct(product: BackendProduct, subcategories: Backen
     description: productDesc,
     description_ar: product?.description_ar || productDesc,
     description_en: product?.description_en || productDesc,
-    price: parsedPrice,
+    price: effectivePrice,
     originalPrice: validOriginalPrice,
     discountPercentage: validDiscountPercentage,
     images: displayImages,
@@ -640,8 +654,8 @@ interface StoreContextType {
   // Admin CRUD operations
   saveProduct: (product: Product) => void;
   deleteProduct: (productId: string) => void;
-  hardDeleteProduct: (productId: string) => Promise<void>;
-  restoreProduct: (productId: string) => Promise<void>;
+  hardDeleteProduct: (productId: string, isArawal?: boolean) => Promise<void>;
+  restoreProduct: (productId: string, isArawal?: boolean) => Promise<void>;
   toggleProductFeatured: (productId: string) => Promise<void>;
   saveCategory: (category: Category) => void;
   deleteCategory: (categoryId: string) => void;
@@ -1014,7 +1028,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             ? rawColorId
             : matchedProduct?.colors?.[0]?.id
             ? Number(matchedProduct.colors[0].id)
-            : 1;
+            : null;
 
         const widthVal = rollConfig?.width || 80;
         const widthId = resolveArwalWidthId(widthVal, arwalWidths);
@@ -1041,7 +1055,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           ? Number(itemData.selectedColor.id)
           : matchedProduct?.colors?.[0]?.id
           ? Number(matchedProduct.colors[0].id)
-          : 1;
+          : null;
         const sizeId = itemData.selectedSize?.id
           ? Number(itemData.selectedSize.id)
           : matchedProduct?.sizes?.[0]?.id
@@ -1161,7 +1175,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               ? rawColorId
               : matchedProduct?.colors?.[0]?.id
               ? Number(matchedProduct.colors[0].id)
-              : 1;
+              : null;
 
           const widthVal = rollConfig?.width || 80;
           const widthId = resolveArwalWidthId(widthVal, arwalWidths);
@@ -1185,7 +1199,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             ? Number(item.selectedColor.id)
             : matchedProduct?.colors?.[0]?.id
             ? Number(matchedProduct.colors[0].id)
-            : 1;
+            : null;
           const sizeId = item.selectedSize?.id
             ? Number(item.selectedSize.id)
             : matchedProduct?.sizes?.[0]?.id
@@ -1455,9 +1469,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (sizeIds.length === 0) {
       throw new Error('يرجى اختيار مقاس واحد على الأقل للمنتج (المقاسات مطلوبة).');
     }
-    if (colorIds.length === 0) {
-      throw new Error('يرجى اختيار لون واحد على الأقل للمنتج (الألوان مطلوبة).');
-    }
 
     const nameAr = (productToSave.name_ar || productToSave.name || '').trim();
     const nameEn = (productToSave.name_en || productToSave.name || nameAr).trim();
@@ -1610,12 +1621,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setProducts((prev) => prev.filter((p) => p.id !== productId));
   }, [products]);
 
-  const hardDeleteProduct = useCallback(async (productId: string) => {
+  const hardDeleteProduct = useCallback(async (productId: string, isArawal?: boolean) => {
     const numericId = Number(productId);
     if (!Number.isInteger(numericId)) throw new Error('Product is not connected to a backend record.');
     const product = products.find((p) => p.id === productId);
+    const targetIsArwal = isArawal ?? product?.isArawal;
     try {
-      if (product?.isArawal) {
+      if (targetIsArwal) {
         await productService.hardDeleteArwal(numericId);
       } else {
         await productService.hardDeleteProduct(numericId);
@@ -1630,11 +1642,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setProducts((prev) => prev.filter((p) => p.id !== productId));
   }, [products]);
 
-  const restoreProduct = useCallback(async (productId: string) => {
+  const restoreProduct = useCallback(async (productId: string, isArawal?: boolean) => {
     const numericId = Number(productId);
     if (!Number.isInteger(numericId)) throw new Error('Product is not connected to a backend record.');
     const product = products.find((p) => p.id === productId);
-    if (product?.isArawal) {
+    const targetIsArwal = isArawal ?? product?.isArawal;
+    if (targetIsArwal) {
       await productService.restoreArwal(numericId);
     } else {
       await productService.restoreProduct(numericId);

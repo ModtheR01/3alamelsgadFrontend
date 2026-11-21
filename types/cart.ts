@@ -119,7 +119,7 @@ export interface BackendCartItem {
 
 export interface CartItemCreateRequest {
   product_id: number;
-  selected_color_id: number;
+  selected_color_id?: number | null;
   selected_size_id: number;
   quantity: number;
   selected_finish?: 'MATTE' | 'GLOSSY' | null;
@@ -127,7 +127,7 @@ export interface CartItemCreateRequest {
 
 export interface ArwalCartItemCreateRequest {
   arwal_id: number;
-  selected_color_id: number;
+  selected_color_id?: number | null;
   selected_width_id: number;
   selected_length: number | string;
   quantity: number;

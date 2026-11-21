@@ -144,9 +144,20 @@ export default function ProductDetailView() {
     return [];
   }, [product]);
 
-  // Standard Product Size State
+  const sortedSizes = useMemo(() => {
+    if (!product?.sizes || product.sizes.length === 0) return [];
+    return [...product.sizes].sort((a, b) => {
+      const areaA = (Number(a.width) || 0) * (Number(a.length) || 0);
+      const areaB = (Number(b.width) || 0) * (Number(b.length) || 0);
+      if (areaA !== areaB) return areaA - areaB;
+      if ((Number(a.width) || 0) !== (Number(b.width) || 0)) return (Number(a.width) || 0) - (Number(b.width) || 0);
+      return (Number(a.length) || 0) - (Number(b.length) || 0);
+    });
+  }, [product?.sizes]);
+
+  // Standard Product Size State (Smallest size by dimensions selected by default)
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(
-    product?.sizes?.[0]
+    sortedSizes[0]
   );
 
   // Synchronize state when product loads or updates
@@ -155,9 +166,9 @@ export default function ProductDetailView() {
     setSelectedImageIdx(0);
     setSelectedFinish(product.finishes?.[0] || 'MATTE');
     setSelectedColor(product.colors?.[0]);
-    setSelectedSize(product.sizes?.[0]);
+    setSelectedSize(sortedSizes[0]);
     setSelectedArawalWidth(null);
-  }, [product?.id]);
+  }, [product?.id, sortedSizes]);
 
   const [quantity, setQuantity] = useState(1);
   const [addedAnimation, setAddedAnimation] = useState(false);
@@ -718,13 +729,13 @@ ${localizedColorName ? `اللون: ${localizedColorName}\n` : ''}${selectedSize
             )}
 
             {/* Standard Sizes (if NOT ARAWAL and product has sizes) */}
-            {!isArawalProduct && product.sizes && product.sizes.length > 0 && (
+            {!isArawalProduct && sortedSizes && sortedSizes.length > 0 && (
               <div className="space-y-2">
                 <span className="text-xs font-bold text-[#251811]">
                   {t('المقاس:', 'Select Size:')}
                 </span>
                 <div className="grid grid-cols-2 gap-2">
-                  {product.sizes.map((s) => (
+                  {sortedSizes.map((s) => (
                     <button
                       key={s.id}
                       type="button"

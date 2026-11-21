@@ -990,6 +990,11 @@ export default function ShopCatalog() {
                                 </span>
                               ) : (
                                 <span className="text-xs sm:text-sm font-extrabold text-[#251811]">
+                                  {product.sizes && product.sizes.length > 1 && (
+                                    <span className="text-[10px] sm:text-xs font-normal text-[#8C7A6B] ml-1">
+                                      {t('يبدأ من', 'Starts from')}{' '}
+                                    </span>
+                                  )}
                                   {pricing.finalPrice?.toLocaleString()} {t('ج.م', 'EGP')}
                                 </span>
                               )}
