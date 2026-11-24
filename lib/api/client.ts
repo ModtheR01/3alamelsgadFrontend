@@ -291,6 +291,52 @@ class ApiClient {
   }
 
   /**
+   * Send application/json POST and return raw Response (useful for endpoints
+   * that stream binary image or file data instead of JSON responses).
+   * Injects CSRF token, includes auth cookies, and handles 401 refresh.
+   */
+  async postJsonRaw(endpoint: string, body?: any, options: RequestOptions = {}): Promise<Response> {
+    const { headers = {}, skipAuthRefresh = false, ...customConfig } = options;
+    const urlPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const fullUrl = `${apiConfig.getBaseUrl()}${urlPath}`;
+
+    const csrfToken = await this.getCsrfToken();
+    const requestHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
+      ...(headers as Record<string, string>),
+    };
+
+    const fetchConfig: RequestInit = {
+      method: 'POST',
+      headers: requestHeaders,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      credentials: 'include',
+      ...customConfig,
+    };
+
+    let response = await fetch(fullUrl, fetchConfig);
+
+    if (response.status === 401 && !skipAuthRefresh && !this.isAuthEndpoint(urlPath)) {
+      const refreshed = await this.handleTokenRefresh();
+      if (refreshed) {
+        const newCsrf = await this.getCsrfToken();
+        (fetchConfig.headers as Record<string, string>)['X-CSRFToken'] = newCsrf;
+        response = await fetch(fullUrl, fetchConfig);
+      } else {
+        this.notifyAuthFailure();
+        throw new ApiError({
+          message: 'Session expired. Please sign in again.',
+          fieldErrors: {},
+          status: 401,
+        });
+      }
+    }
+
+    return response;
+  }
+
+  /**
    * Send multipart/form-data POST without setting Content-Type,
    * allowing the browser to set the boundary. Injects CSRF token,
    * includes auth cookies, handles 401 refresh, and returns raw Response.

@@ -112,6 +112,7 @@ export default function OrderConfirmationView() {
     id: string | number;
     isArwal: boolean;
     title: string;
+    imageUrl: string | null;
     specs: string | null;
     finish: string | null;
     colorName: string | null;
@@ -134,19 +135,36 @@ export default function OrderConfirmationView() {
   // Items normalization
   const items: NormalizedOrderItem[] = isBackend
     ? ((rawOrder.items || []) as BackendOrderItem[]).map((it: BackendOrderItem) => {
-        const isArwal = it.item_type === 'arwal' || Boolean(it.arwal || it.width || it.length);
+        const isArwal =
+          it.item_type === 'arwal' ||
+          it.product_type === 'ARWAL' ||
+          it.snapshot?.product_type === 'ARWAL' ||
+          Boolean(it.arwal || it.width || it.length);
         const title = isArwal
-          ? (isRtl ? it.arwal_name_ar || it.arwal_name_en : it.arwal_name_en || it.arwal_name_ar) || t('رول أروال بالمتر', 'Arwal Runner Roll')
-          : (isRtl ? it.product_name_ar || it.product_name_en || it.product_name : it.product_name_en || it.product_name_ar || it.product_name) || t('سجادة فاخرة', 'Luxury Carpet');
+          ? (isRtl ? it.arwal_name_ar || it.arwal_name_en || it.snapshot?.name_ar : it.arwal_name_en || it.arwal_name_ar || it.snapshot?.name_en) || t('رول أروال بالمتر', 'Arwal Runner Roll')
+          : (isRtl ? it.product_name_ar || it.product_name_en || it.product_name || it.snapshot?.name_ar : it.product_name_en || it.product_name_ar || it.product_name || it.snapshot?.name_en) || t('سجادة فاخرة', 'Luxury Carpet');
+
+        const imageUrl =
+          it.image_url ||
+          it.snapshot?.image_url ||
+          (Array.isArray(it.image_urls) ? it.image_urls[0] : null) ||
+          (Array.isArray(it.snapshot?.image_urls) ? it.snapshot.image_urls[0] : null) ||
+          null;
 
         let specs: string | null = null;
         if (isArwal) {
           const parts: string[] = [];
-          if (it.width) parts.push(isRtl ? `عرض ${it.width} سم` : `W ${it.width} cm`);
-          if (it.length) parts.push(isRtl ? `طول ${it.length} م` : `L ${it.length} m`);
+          const width = it.width || it.snapshot?.width;
+          const length = it.length || it.snapshot?.length;
+          if (width) parts.push(isRtl ? `عرض ${width} سم` : `W ${width} cm`);
+          if (length) parts.push(isRtl ? `طول ${length} م` : `L ${length} m`);
           specs = parts.length > 0 ? parts.join(' × ') : t('رول بالمتر', 'Roll runner');
-        } else if (it.size_width && it.size_length) {
-          specs = `${it.size_width} × ${it.size_length} ${t('سم', 'cm')}`;
+        } else {
+          const sizeWidth = it.size_width || it.snapshot?.size?.width;
+          const sizeLength = it.size_length || it.snapshot?.size?.length;
+          if (sizeWidth && sizeLength) {
+            specs = `${sizeWidth} × ${sizeLength} ${t('سم', 'cm')}`;
+          }
         }
 
         const finish = it.selected_finish === 'GLOSSY'
@@ -156,11 +174,11 @@ export default function OrderConfirmationView() {
           : null;
 
         const colorName = isRtl
-          ? (it.color_name_ar || it.color_name || it.color_name_en)
-          : (it.color_name_en || it.color_name || it.color_name_ar);
+          ? (it.color_name_ar || it.color_name || it.color_name_en || it.snapshot?.color?.name_ar)
+          : (it.color_name_en || it.color_name || it.color_name_ar || it.snapshot?.color?.name_en);
 
-        const colorHex = it.color_hex_code || null;
-        const unitPrice = Number(it.unit_price || it.price_per_length || it.product_price || 0);
+        const colorHex = it.color_hex_code || it.snapshot?.color?.hex_code || null;
+        const unitPrice = Number(it.unit_price || it.price_per_length || it.snapshot?.unit_price || it.product_price || 0);
         const quantity = it.quantity || 1;
         const itemSubtotal = it.subtotal != null ? Number(it.subtotal) : (unitPrice * quantity);
 
@@ -168,6 +186,7 @@ export default function OrderConfirmationView() {
           id: it.id,
           isArwal,
           title,
+          imageUrl,
           specs,
           finish,
           colorName,
@@ -182,6 +201,8 @@ export default function OrderConfirmationView() {
         const title = isRtl
           ? (it.product?.name_ar || it.productName || it.product?.name_en)
           : (it.product?.name_en || it.productName || it.product?.name_ar) || t('سجادة فاخرة', 'Luxury Carpet');
+
+        const imageUrl = it.product?.images?.[0]?.image || it.image || it.imageUrl || null;
 
         let specs: string | null = null;
         if (isArwal) {
@@ -209,6 +230,7 @@ export default function OrderConfirmationView() {
           id: it.id,
           isArwal,
           title,
+          imageUrl,
           specs,
           finish,
           colorName,
@@ -473,45 +495,74 @@ export default function OrderConfirmationView() {
           <div className="divide-y divide-[#F5EFEB]">
             {items.map((it, idx) => (
               <div key={idx} className="py-3.5 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-1.5 flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-sm text-[#251811]">{it.title}</span>
-                    {it.isArwal ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FAF5EB] text-[#A27B5C] font-bold border border-[#E8DEC0]">
-                        {t('رول بالمتر', 'Roll runner')}
-                      </span>
+                <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+                  <div className="w-12 h-12 rounded-lg bg-[#FAF5EB] border border-[#E8DEC0] shrink-0 flex items-center justify-center relative shadow-2xs overflow-hidden">
+                    {it.imageUrl ? (
+                      <img
+                        src={it.imageUrl}
+                        alt={it.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    ) : it.colorHex ? (
+                      <span
+                        className="w-5 h-5 rounded-full border border-black/10 shadow-xs"
+                        style={{ backgroundColor: it.colorHex }}
+                        title={it.colorName || undefined}
+                      />
                     ) : (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#F5EFEB] text-[#7A6A5E] font-medium">
-                        {t('سجادة', 'Carpet')}
-                      </span>
+                      <Package className="w-5 h-5 text-[#8A796B]" />
+                    )}
+                    {it.imageUrl && it.colorHex && (
+                      <span
+                        className="absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full border border-white shadow-xs z-10"
+                        style={{ backgroundColor: it.colorHex }}
+                        title={it.colorName || undefined}
+                      />
                     )}
                   </div>
 
-                  {/* Specs, Color, and Finish Badges */}
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-[#7A6A5E]">
-                    {it.specs && (
-                      <span className="inline-flex items-center gap-1 font-medium bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#EAE3D8] text-[11px] text-[#251811]">
-                        <Ruler className="w-3 h-3 text-[#A27B5C]" />
-                        {it.specs}
-                      </span>
-                    )}
-                    {it.colorName && (
-                      <span className="inline-flex items-center gap-1 text-[11px] bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#EAE3D8]">
-                        {it.colorHex && (
-                          <span
-                            className="w-2.5 h-2.5 rounded-full border border-black/15 shrink-0 inline-block"
-                            style={{ backgroundColor: it.colorHex }}
-                          />
-                        )}
-                        <span>{it.colorName}</span>
-                      </span>
-                    )}
-                    {it.finish && (
-                      <span className="text-[11px] bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#EAE3D8] text-[#8A796B]">
-                        {it.finish}
-                      </span>
-                    )}
-                  </div>
+                  <div className="space-y-1.5 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-sm text-[#251811]">{it.title}</span>
+                      {it.isArwal ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FAF5EB] text-[#A27B5C] font-bold border border-[#E8DEC0]">
+                          {t('رول بالمتر', 'Roll runner')}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#F5EFEB] text-[#7A6A5E] font-medium">
+                          {t('سجادة', 'Carpet')}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Specs, Color, and Finish Badges */}
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-[#7A6A5E]">
+                      {it.specs && (
+                        <span className="inline-flex items-center gap-1 font-medium bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#EAE3D8] text-[11px] text-[#251811]">
+                          <Ruler className="w-3 h-3 text-[#A27B5C]" />
+                          {it.specs}
+                        </span>
+                      )}
+                      {it.colorName && (
+                        <span className="inline-flex items-center gap-1 text-[11px] bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#EAE3D8]">
+                          {it.colorHex && (
+                            <span
+                              className="w-2.5 h-2.5 rounded-full border border-black/15 shrink-0 inline-block"
+                              style={{ backgroundColor: it.colorHex }}
+                            />
+                          )}
+                          <span>{it.colorName}</span>
+                        </span>
+                      )}
+                      {it.finish && (
+                        <span className="text-[11px] bg-[#FAF8F5] px-2 py-0.5 rounded border border-[#EAE3D8] text-[#8A796B]">
+                          {it.finish}
+                        </span>
+                      )}
+                    </div>
 
                   {/* Quantity & Unit Price */}
                   <div className="text-[11px] text-[#8A796B] flex items-center gap-1.5 pt-0.5">
@@ -520,6 +571,7 @@ export default function OrderConfirmationView() {
                     <span>{t('سعر الوحدة:', 'Unit price:')} <strong className="text-[#251811]">{it.unitPrice.toLocaleString()} {t('ج.م', 'EGP')}</strong></span>
                   </div>
                 </div>
+              </div>
 
                 {/* Item Subtotal */}
                 <div className="text-start sm:text-end shrink-0 sm:self-center">

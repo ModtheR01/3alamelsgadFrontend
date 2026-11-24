@@ -1051,12 +1051,30 @@ export default function AccountView() {
                             {ord.items && ord.items.length > 0 && (
                               <div className="divide-y divide-[#F5EFE6] border border-[#EAE4DC] rounded-xl overflow-hidden bg-white">
                                 {ord.items.map((item, idx) => {
-                                  const isArwal = item.item_type === 'arwal';
+                                  const isArwal =
+                                    item.item_type === 'arwal' ||
+                                    item.product_type === 'ARWAL' ||
+                                    item.snapshot?.product_type === 'ARWAL' ||
+                                    Boolean(item.arwal || item.width || item.length);
                                   const title = isArwal
-                                    ? (isRtl ? item.arwal_name_ar || item.arwal_name_en : item.arwal_name_en || item.arwal_name_ar) || t('رول سجاد بالمتر', 'Carpet Runner')
-                                    : (isRtl ? item.product_name_ar || item.product_name_en || item.product_name : item.product_name_en || item.product_name_ar || item.product_name) || t('سجادة فاخرة', 'Luxury Carpet');
-                                  const colorName = isRtl ? (item.color_name_ar || item.color_name_en || item.color_name) : (item.color_name_en || item.color_name_ar || item.color_name);
-                                  const unitPrice = isArwal ? item.price_per_length : (item.unit_price ?? item.product_price);
+                                    ? (isRtl ? item.arwal_name_ar || item.arwal_name_en || item.snapshot?.name_ar : item.arwal_name_en || item.arwal_name_ar || item.snapshot?.name_en) || t('رول سجاد بالمتر', 'Carpet Runner')
+                                    : (isRtl ? item.product_name_ar || item.product_name_en || item.product_name || item.snapshot?.name_ar : item.product_name_en || item.product_name_ar || item.product_name || item.snapshot?.name_en) || t('سجادة فاخرة', 'Luxury Carpet');
+                                  const colorName = isRtl
+                                    ? (item.color_name_ar || item.color_name_en || item.color_name || item.snapshot?.color?.name_ar)
+                                    : (item.color_name_en || item.color_name_ar || item.color_name || item.snapshot?.color?.name_en);
+                                  const colorHex = item.color_hex_code || item.snapshot?.color?.hex_code;
+                                  const unitPrice = isArwal
+                                    ? (item.unit_price ?? item.price_per_length ?? item.snapshot?.unit_price ?? item.snapshot?.price_per_length)
+                                    : (item.unit_price ?? item.product_price ?? item.snapshot?.unit_price);
+                                  const width = item.width || item.snapshot?.width;
+                                  const length = item.length || item.snapshot?.length;
+                                  const sizeWidth = item.size_width || item.snapshot?.size?.width;
+                                  const sizeLength = item.size_length || item.snapshot?.size?.length;
+                                  const itemImageUrl =
+                                    item.image_url ||
+                                    item.snapshot?.image_url ||
+                                    (Array.isArray(item.image_urls) ? item.image_urls[0] : null) ||
+                                    (Array.isArray(item.snapshot?.image_urls) ? item.snapshot.image_urls[0] : null);
 
                                   return (
                                     <div
@@ -1064,15 +1082,31 @@ export default function AccountView() {
                                       className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF8F5]/40 transition-colors"
                                     >
                                       <div className="flex items-start sm:items-center gap-3 min-w-0">
-                                        <div className="w-10 h-10 rounded-lg bg-[#FAF5EB] border border-[#EAE4DC] shrink-0 flex items-center justify-center relative shadow-2xs">
-                                          {item.color_hex_code ? (
+                                        <div className="w-12 h-12 rounded-lg bg-[#FAF5EB] border border-[#EAE4DC] shrink-0 flex items-center justify-center relative shadow-2xs overflow-hidden">
+                                          {itemImageUrl ? (
+                                            <img
+                                              src={itemImageUrl}
+                                              alt={title}
+                                              className="w-full h-full object-cover"
+                                              onError={(e) => {
+                                                (e.target as HTMLElement).style.display = 'none';
+                                              }}
+                                            />
+                                          ) : colorHex ? (
                                             <span
                                               className="w-5 h-5 rounded-full border border-black/10 shadow-xs"
-                                              style={{ backgroundColor: item.color_hex_code }}
+                                              style={{ backgroundColor: colorHex }}
                                               title={colorName || undefined}
                                             />
                                           ) : (
                                             <Layers className="w-5 h-5 text-[#8F8880]" />
+                                          )}
+                                          {itemImageUrl && colorHex && (
+                                            <span
+                                              className="absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full border border-white shadow-xs z-10"
+                                              style={{ backgroundColor: colorHex }}
+                                              title={colorName || undefined}
+                                            />
                                           )}
                                         </div>
 
@@ -1100,17 +1134,17 @@ export default function AccountView() {
                                               <span className="flex items-center gap-1">
                                                 <span className="text-[#8F8880]">{t('المقاس:', 'Dimensions:')}</span>
                                                 <span className="font-semibold text-[#1C1A19]">
-                                                  {item.width ? `${item.width} ${t('سم عرض', 'cm width')}` : ''}
-                                                  {item.width && item.length ? ' × ' : ''}
-                                                  {item.length ? `${item.length} ${t('متر طول', 'm length')}` : ''}
+                                                  {width ? `${width} ${t('سم عرض', 'cm width')}` : ''}
+                                                  {width && length ? ' × ' : ''}
+                                                  {length ? `${length} ${t('متر طول', 'm length')}` : ''}
                                                 </span>
                                               </span>
                                             ) : (
-                                              item.size_width && item.size_length ? (
+                                              sizeWidth && sizeLength ? (
                                                 <span className="flex items-center gap-1">
                                                   <span className="text-[#8F8880]">{t('المقاس:', 'Size:')}</span>
                                                   <span className="font-semibold text-[#1C1A19]">
-                                                    {item.size_width} × {item.size_length} {t('سم', 'cm')}
+                                                    {sizeWidth} × {sizeLength} {t('سم', 'cm')}
                                                   </span>
                                                 </span>
                                               ) : null

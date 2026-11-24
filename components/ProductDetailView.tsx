@@ -729,7 +729,7 @@ ${localizedColorName ? `اللون: ${localizedColorName}\n` : ''}${selectedSize
             )}
 
             {/* Standard Sizes (if NOT ARAWAL and product has sizes) */}
-            {!isArawalProduct && sortedSizes && sortedSizes.length > 0 && (
+            {!isArawalProduct && product.sizes && product.sizes.length > 0 && sortedSizes && sortedSizes.length > 0 && (
               <div className="space-y-2">
                 <span className="text-xs font-bold text-[#251811]">
                   {t('المقاس:', 'Select Size:')}

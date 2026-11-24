@@ -27,6 +27,7 @@ import { productService } from '@/lib/api/services/productService';
 import { productImageService } from '@/lib/api/services/productImageService';
 import { categoryService, subcategoryService } from '@/lib/api/services/categoryService';
 import { uploadDirectToCloudinary, CloudinaryUploadResult } from '@/lib/api/cloudinary';
+import { safelyPrepareImageForUpload } from '@/lib/imageOptimization';
 import { mapBackendProduct } from '@/lib/store';
 
 export interface AiProductImageViewProps {
@@ -54,9 +55,12 @@ export default function AiProductImageView({
 
   // AI Processing states (Phase 2)
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStage, setProcessingStage] = useState<'idle' | 'optimizing' | 'uploading' | 'enhancing'>('idle');
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [processedBlob, setProcessedBlob] = useState<Blob | null>(null);
   const [processedImageUrl, setProcessedImageUrl] = useState<string | null>(null);
+  const [originalCloudinaryUrl, setOriginalCloudinaryUrl] = useState<string | null>(null);
+  const [originalCloudinaryPublicId, setOriginalCloudinaryPublicId] = useState<string | null>(null);
 
   // Preview modal state
   const [isZoomOpen, setIsZoomOpen] = useState(false);
@@ -241,6 +245,9 @@ export default function AiProductImageView({
     setCreateSuccess(false);
     setCreatedProductId(null);
     setCachedCloudinaryUpload(null);
+    setOriginalCloudinaryUrl(null);
+    setOriginalCloudinaryPublicId(null);
+    setProcessingStage('idle');
   }, []);
 
   // Handle file select from file input
@@ -279,6 +286,9 @@ export default function AiProductImageView({
     setCreateError(null);
     setCreatedProductId(null);
     setCachedCloudinaryUpload(null);
+    setOriginalCloudinaryUrl(null);
+    setOriginalCloudinaryPublicId(null);
+    setProcessingStage('idle');
   };
 
   // Phase 2: Run AI enhancement using real backend POST /api/products/process-rug/
@@ -293,23 +303,48 @@ export default function AiProductImageView({
       setCreateSuccess(false);
       setCreateError(null);
 
-      let fileToProcess = selectedFile;
-      if (!fileToProcess && selectedImage) {
-        // Fetch remote sample URL to convert into a real File
-        const response = await fetch(selectedImage);
-        const fetchedBlob = await response.blob();
-        fileToProcess = new File([fetchedBlob], imageFileName || 'rug-sample.jpg', {
-          type: fetchedBlob.type || 'image/jpeg',
+      let targetImageUrl = originalCloudinaryUrl;
+
+      // 1. If we don't have a Cloudinary URL yet, check if selectedImage is already a remote HTTPS URL
+      if (!targetImageUrl && selectedImage && !selectedImage.startsWith('blob:') && !selectedImage.startsWith('data:')) {
+        targetImageUrl = selectedImage;
+      }
+
+      // 2. If we need to upload the local file to Cloudinary
+      if (!targetImageUrl) {
+        let fileToProcess = selectedFile;
+        if (!fileToProcess && selectedImage) {
+          // Fetch remote sample URL to convert into a real File
+          const response = await fetch(selectedImage);
+          const fetchedBlob = await response.blob();
+          fileToProcess = new File([fetchedBlob], imageFileName || 'rug-sample.jpg', {
+            type: fetchedBlob.type || 'image/jpeg',
+          });
+          setSelectedFile(fileToProcess);
+        }
+
+        if (!fileToProcess) {
+          throw new Error('يرجى تحديد ملف صورة صالح للمعالجة.');
+        }
+
+        // 2A. Optimize / resize large images safely if needed (preserving aspect ratio, shape, and colors)
+        setProcessingStage('optimizing');
+        const fileToUpload = await safelyPrepareImageForUpload(fileToProcess);
+
+        // 2B. Upload original image directly from browser to Cloudinary (bypasses Vercel Serverless Function 4.5MB limit)
+        setProcessingStage('uploading');
+        const uploadRes = await uploadDirectToCloudinary(fileToUpload, {
+          folder: 'alamelsgad-products',
         });
-        setSelectedFile(fileToProcess);
+
+        targetImageUrl = uploadRes.secure_url;
+        setOriginalCloudinaryUrl(uploadRes.secure_url);
+        setOriginalCloudinaryPublicId(uploadRes.public_id);
       }
 
-      if (!fileToProcess) {
-        throw new Error('يرجى تحديد ملف صورة صالح للمعالجة.');
-      }
-
-      // Real authenticated call to POST /api/products/process-rug/
-      const result = await aiImageService.processRugImage(fileToProcess, fileToProcess.name);
+      // 3. Send the lightweight image URL (~100 bytes) to the AI processing service
+      setProcessingStage('enhancing');
+      const result = await aiImageService.processRugImage(targetImageUrl);
 
       // Create new object URL for binary preview
       if (processedObjectUrlRef.current && processedObjectUrlRef.current.startsWith('blob:')) {
@@ -326,6 +361,7 @@ export default function AiProductImageView({
       setProcessingError(msg);
     } finally {
       setIsProcessing(false);
+      setProcessingStage('idle');
     }
   };
 
@@ -653,7 +689,15 @@ export default function AiProductImageView({
               {isProcessing ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin text-[#EED8BE]" />
-                  <span>جاري معالجة الصورة عبر الخادم...</span>
+                  <span>
+                    {processingStage === 'optimizing'
+                      ? 'جاري فحص وضبط حجم الصورة...'
+                      : processingStage === 'uploading'
+                      ? 'جاري رفع الصورة إلى التخزين السحابي...'
+                      : processingStage === 'enhancing'
+                      ? 'جاري تحسين الصورة بالذكاء الاصطناعي...'
+                      : 'جاري معالجة الصورة عبر الخادم...'}
+                  </span>
                 </>
               ) : (
                 <>

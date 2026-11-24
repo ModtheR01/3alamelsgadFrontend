@@ -29,13 +29,19 @@ export interface BackendShippingAddress {
 export interface BackendOrderItem {
   id: number;
   item_type?: 'product' | 'arwal';
+  product_type?: 'PRODUCT' | 'ARWAL' | string;
   product?: number;
   product_id?: number;
   product_name?: string;
   product_name_ar?: string;
   product_name_en?: string;
+  product_description_ar?: string;
+  product_description_en?: string;
   product_price?: string;
   unit_price?: string;
+  image_url?: string;
+  image_urls?: string[];
+  snapshot?: Record<string, any>;
   color_name?: string | null;
   color_name_ar?: string | null;
   color_name_en?: string | null;
@@ -46,6 +52,8 @@ export interface BackendOrderItem {
   arwal?: number;
   arwal_name_ar?: string;
   arwal_name_en?: string;
+  arwal_description_ar?: string;
+  arwal_description_en?: string;
   width?: number;
   length?: string;
   price_per_length?: string;

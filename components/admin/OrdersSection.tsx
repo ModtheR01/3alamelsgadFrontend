@@ -206,10 +206,12 @@ export function formatOrderApiError(
 export function getOrderItemTitle(item: any): string {
   if (!item) return 'منتج غير محدد';
 
-  if (item.item_type === 'arwal') {
+  if (item.item_type === 'arwal' || item.product_type === 'ARWAL') {
     return (
       item.arwal_name_ar ||
       item.arwal_name_en ||
+      item.snapshot?.name_ar ||
+      item.snapshot?.name_en ||
       item.name_ar ||
       item.name_en ||
       (typeof item.arwal === 'object' &&
@@ -221,6 +223,8 @@ export function getOrderItemTitle(item: any): string {
   return (
     item.product_name_ar ||
     item.product_name_en ||
+    item.snapshot?.name_ar ||
+    item.snapshot?.name_en ||
     item.product_name ||
     item.name_ar ||
     item.name_en ||
@@ -250,6 +254,8 @@ export function getOrderItemColor(item: any): { name: string | null; hex: string
         item.selected_color?.name)) ||
     (typeof item.color === 'object' &&
       (item.color?.name_ar || item.color?.name_en || item.color?.name)) ||
+    item.snapshot?.color?.name_ar ||
+    item.snapshot?.color?.name_en ||
     null;
 
   const hex =
@@ -257,6 +263,7 @@ export function getOrderItemColor(item: any): { name: string | null; hex: string
     item.color_hex ||
     (typeof item.selected_color === 'object' && item.selected_color?.hex) ||
     (typeof item.color === 'object' && item.color?.hex) ||
+    item.snapshot?.color?.hex_code ||
     null;
 
   return { name, hex };
@@ -268,21 +275,27 @@ export function getOrderItemColor(item: any): { name: string | null; hex: string
 export function getOrderItemSpecs(item: any): string | null {
   if (!item) return null;
 
+  const isArwal = item.item_type === 'arwal' || item.product_type === 'ARWAL' || item.length || item.price_per_length || item.snapshot?.product_type === 'ARWAL';
+
   // Arwal runner by meter (width cm x length m)
-  if (item.item_type === 'arwal' || item.length || item.price_per_length) {
+  if (isArwal) {
     const parts: string[] = [];
-    if (item.width) {
-      parts.push(`عرض ${item.width} سم`);
+    const width = item.width || item.snapshot?.width;
+    const length = item.length || item.snapshot?.length;
+    if (width) {
+      parts.push(`عرض ${width} سم`);
     }
-    if (item.length) {
-      parts.push(`طول ${item.length} م`);
+    if (length) {
+      parts.push(`طول ${length} م`);
     }
     return parts.length > 0 ? parts.join(' × ') : 'رول بالمتر';
   }
 
   // Standard carpet (size_width x size_length)
-  if (item.size_width && item.size_length) {
-    let spec = `${item.size_width} × ${item.size_length} سم`;
+  const sizeWidth = item.size_width || item.snapshot?.size?.width;
+  const sizeLength = item.size_length || item.snapshot?.size?.length;
+  if (sizeWidth && sizeLength) {
+    let spec = `${sizeWidth} × ${sizeLength} سم`;
     if (item.selected_finish) {
       spec += ` (${item.selected_finish === 'GLOSSY' ? 'لامع' : 'مطفي'})`;
     }
@@ -977,10 +990,19 @@ export default function OrdersSection({
                         const title = getOrderItemTitle(item);
                         const color = getOrderItemColor(item);
                         const specs = getOrderItemSpecs(item);
-                        const isArwal = item.item_type === 'arwal';
+                        const isArwal =
+                          item.item_type === 'arwal' ||
+                          item.product_type === 'ARWAL' ||
+                          item.snapshot?.product_type === 'ARWAL' ||
+                          Boolean(item.arwal || item.width || item.length);
                         const unitPrice = isArwal
-                          ? item.price_per_length
-                          : (item.unit_price ?? item.product_price);
+                          ? (item.unit_price ?? item.price_per_length ?? item.snapshot?.unit_price ?? item.snapshot?.price_per_length)
+                          : (item.unit_price ?? item.product_price ?? item.snapshot?.unit_price);
+                        const imageUrl =
+                          item.image_url ||
+                          item.snapshot?.image_url ||
+                          (Array.isArray(item.image_urls) ? item.image_urls[0] : null) ||
+                          (Array.isArray(item.snapshot?.image_urls) ? item.snapshot.image_urls[0] : null);
 
                         return (
                           <tr
@@ -988,19 +1010,37 @@ export default function OrdersSection({
                             className="hover:bg-[#FAF8F5]/50 transition-colors"
                           >
                             <td className="py-2.5 px-3 font-bold text-[#241710]">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span>{title}</span>
-                                {isArwal && (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#FAF0E6] text-[#643D26] border border-[#E8D5C4]">
-                                    رول بالمتر
-                                  </span>
+                              <div className="flex items-center gap-2.5">
+                                {imageUrl ? (
+                                  <img
+                                    src={imageUrl}
+                                    alt={title}
+                                    className="w-10 h-10 rounded-lg object-cover border border-[#EAE3D8] shrink-0 bg-[#FAF8F5]"
+                                    onError={(e) => {
+                                      (e.target as HTMLElement).style.display = 'none';
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-lg border border-[#EAE3D8] shrink-0 bg-[#FAF8F5] flex items-center justify-center text-[#8C7A6B]">
+                                    <ShoppingBag className="w-4 h-4 opacity-40" />
+                                  </div>
                                 )}
+                                <div>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span>{title}</span>
+                                    {isArwal && (
+                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#FAF0E6] text-[#643D26] border border-[#E8D5C4]">
+                                        رول بالمتر
+                                      </span>
+                                    )}
+                                  </div>
+                                  {unitPrice && (
+                                    <span className="block text-[10px] text-[#8C7A6B] font-normal mt-0.5">
+                                      سعر القطعة: {Number(unitPrice).toLocaleString('ar-EG')} ج.م
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                              {unitPrice && (
-                                <span className="block text-[10px] text-[#8C7A6B] font-normal mt-0.5">
-                                  سعر القطعة: {Number(unitPrice).toLocaleString('ar-EG')} ج.م
-                                </span>
-                              )}
                             </td>
                             <td className="py-2.5 px-3 text-[#5C4A3E]">
                               <div className="space-y-1">
