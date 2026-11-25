@@ -81,11 +81,23 @@ export default function AiProductImageView({
   // Step 4: Product Linking states (Phase 3)
   const [actionChoice, setActionChoice] = useState<ActionChoice>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [selectedProductDetails, setSelectedProductDetails] = useState<Product | null>(null);
   const [isLinking, setIsLinking] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
   const [linkSuccess, setLinkSuccess] = useState(false);
   const [linkedImageUrl, setLinkedImageUrl] = useState<string | null>(null);
+
+  // Server-side Catalog & Pagination states
+  const [serverProducts, setServerProducts] = useState<Product[]>([]);
+  const [serverTotalCount, setServerTotalCount] = useState<number | null>(null);
+  const [serverPage, setServerPage] = useState<number>(1);
+  const [hasMoreServerProducts, setHasMoreServerProducts] = useState<boolean>(false);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [isServerActive, setIsServerActive] = useState<boolean>(false);
+  const [clientDisplayLimit, setClientDisplayLimit] = useState<number>(20);
 
   // Step 4: New product compact form state (Phase 4)
   const [newProductNameAr, setNewProductNameAr] = useState('');
@@ -200,21 +212,144 @@ export default function AiProductImageView({
   }, [filteredSubcategories, newProductSubcategory]);
 
 
-  // Derived filtered products for search
-  const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) return effectiveProducts.slice(0, 10);
-    const q = searchQuery.toLowerCase().trim();
-    return effectiveProducts.filter((p) =>
-      p.name.toLowerCase().includes(q) ||
-      (p.slug && p.slug.toLowerCase().includes(q)) ||
-      (p.categoryId && p.categoryId.toLowerCase().includes(q)) ||
-      Boolean((p as any).categoryName && (p as any).categoryName.toLowerCase().includes(q))
-    );
-  }, [effectiveProducts, searchQuery]);
+  // Debounce search query changes (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
+  // Fetch paginated catalog products from backend
+  const fetchCatalogPage = useCallback(
+    async (page: number, search: string, isAppend = false) => {
+      if (isAppend) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoadingCatalog(true);
+      }
+
+      try {
+        const response = await productService.getPaginatedProducts({
+          page,
+          page_size: 20,
+          search: search || undefined,
+        });
+
+        const rawResults = response?.results || [];
+        const mapped = rawResults.map((p) =>
+          mapBackendProduct(p, effectiveSubcategories)
+        );
+
+        setServerProducts((prev) => (isAppend ? [...prev, ...mapped] : mapped));
+        setServerTotalCount(
+          typeof response?.count === 'number'
+            ? response.count
+            : isAppend
+            ? (serverTotalCount || 0) + mapped.length
+            : mapped.length
+        );
+        setHasMoreServerProducts(Boolean(response?.next));
+        setServerPage(page);
+        setIsServerActive(true);
+      } catch {
+        // Fallback gracefully to client-side catalog if backend endpoint or connection is unavailable
+        setIsServerActive(false);
+      } finally {
+        setIsLoadingCatalog(false);
+        setIsLoadingMore(false);
+      }
+    },
+    [effectiveSubcategories, serverTotalCount]
+  );
+
+  // Fetch initial page or new search when user enters 'link_existing' or search query changes
+  useEffect(() => {
+    if (actionChoice === 'link_existing') {
+      fetchCatalogPage(1, debouncedSearchQuery, false);
+    }
+  }, [actionChoice, debouncedSearchQuery, fetchCatalogPage]);
+
+  // Pagination loader for infinite scroll or manual button
+  const loadNextPage = useCallback(() => {
+    if (isLoadingCatalog || isLoadingMore) return;
+
+    if (isServerActive) {
+      if (hasMoreServerProducts) {
+        fetchCatalogPage(serverPage + 1, debouncedSearchQuery, true);
+      }
+    } else {
+      setClientDisplayLimit((prev) => prev + 20);
+    }
+  }, [
+    isLoadingCatalog,
+    isLoadingMore,
+    isServerActive,
+    hasMoreServerProducts,
+    serverPage,
+    debouncedSearchQuery,
+    fetchCatalogPage,
+  ]);
+
+  // Derived filtered products for search & display
+  const filteredProducts = useMemo(() => {
+    if (isServerActive) {
+      return serverProducts;
+    }
+
+    // Local fallback: filter over effectiveProducts without 10-item limit
+    if (!searchQuery.trim()) {
+      return effectiveProducts.slice(0, clientDisplayLimit);
+    }
+    const q = searchQuery.toLowerCase().trim();
+    const matched = effectiveProducts.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.slug && p.slug.toLowerCase().includes(q)) ||
+        (p.categoryId && p.categoryId.toLowerCase().includes(q)) ||
+        Boolean((p as any).categoryName && (p as any).categoryName.toLowerCase().includes(q))
+    );
+    return matched.slice(0, clientDisplayLimit);
+  }, [isServerActive, serverProducts, searchQuery, effectiveProducts, clientDisplayLimit]);
+
+  // Total matching products count
+  const totalDisplayCount = useMemo(() => {
+    if (isServerActive && serverTotalCount !== null) {
+      return serverTotalCount;
+    }
+    if (!searchQuery.trim()) {
+      return effectiveProducts.length;
+    }
+    const q = searchQuery.toLowerCase().trim();
+    return effectiveProducts.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.slug && p.slug.toLowerCase().includes(q)) ||
+        (p.categoryId && p.categoryId.toLowerCase().includes(q)) ||
+        Boolean((p as any).categoryName && (p as any).categoryName.toLowerCase().includes(q))
+    ).length;
+  }, [isServerActive, serverTotalCount, searchQuery, effectiveProducts]);
+
+  // Has more items indicator
+  const hasMoreToDisplay = useMemo(() => {
+    if (isServerActive) {
+      return hasMoreServerProducts;
+    }
+    return filteredProducts.length < totalDisplayCount;
+  }, [isServerActive, hasMoreServerProducts, filteredProducts.length, totalDisplayCount]);
+
+  // Retain selected product across pagination, infinite scroll, and search
   const selectedProduct = useMemo(() => {
-    return effectiveProducts.find((p) => String(p.id) === String(selectedProductId));
-  }, [effectiveProducts, selectedProductId]);
+    if (!selectedProductId) return null;
+    if (selectedProductDetails && String(selectedProductDetails.id) === String(selectedProductId)) {
+      return selectedProductDetails;
+    }
+    return (
+      serverProducts.find((p) => String(p.id) === String(selectedProductId)) ||
+      effectiveProducts.find((p) => String(p.id) === String(selectedProductId)) ||
+      null
+    );
+  }, [selectedProductId, selectedProductDetails, serverProducts, effectiveProducts]);
 
   // Current active step calculation
   const currentStep = useMemo(() => {
@@ -279,6 +414,11 @@ export default function AiProductImageView({
     setProcessedImageUrl(null);
     setActionChoice(null);
     setSelectedProductId('');
+    setSelectedProductDetails(null);
+    setSearchQuery('');
+    setDebouncedSearchQuery('');
+    setServerPage(1);
+    setClientDisplayLimit(20);
     setLinkSuccess(false);
     setLinkError(null);
     setLinkedImageUrl(null);
@@ -390,7 +530,7 @@ export default function AiProductImageView({
 
       // 3. Calculate safe sort_order to satisfy backend uniqueness constraint
       const numericProductId = Number(selectedProductId);
-      const existingProduct = effectiveProducts.find((p) => String(p.id) === String(selectedProductId));
+      const existingProduct = selectedProduct || effectiveProducts.find((p) => String(p.id) === String(selectedProductId));
       const existingRecords = existingProduct?.imageRecords || [];
       const maxSortOrder = existingRecords.reduce(
         (max, record) => Math.max(max, record.sort_order ?? 0),
@@ -414,6 +554,11 @@ export default function AiProductImageView({
 
       if (onAssignImageToProduct) {
         onAssignImageToProduct(selectedProductId, uploadRes.secure_url);
+      }
+
+      // Refresh local paginated catalog view
+      if (actionChoice === 'link_existing') {
+        fetchCatalogPage(1, debouncedSearchQuery, false);
       }
 
       setLinkedImageUrl(uploadRes.secure_url);
@@ -953,9 +1098,16 @@ export default function AiProductImageView({
           {actionChoice === 'link_existing' && (
             <div className="pt-4 border-t border-[#EAE3D8] space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <label className="text-xs font-black text-[#241710]">
-                  اختر المنتج من الكتالوج
-                </label>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-black text-[#241710]">
+                    اختر المنتج من الكتالوج
+                  </label>
+                  {totalDisplayCount > 0 && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#FAF5EB] text-[#8C7A6B] border border-[#E8DEC0]">
+                      عرض {filteredProducts.length} من أصل {totalDisplayCount} منتج
+                    </span>
+                  )}
+                </div>
                 {/* Search Bar */}
                 <div className="relative w-full sm:w-72">
                   <Search className="w-4 h-4 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2" />
@@ -964,75 +1116,134 @@ export default function AiProductImageView({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="ابحث عن منتج..."
-                    className="w-full pr-9 pl-3 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5]/60 text-[#241710] placeholder-[#8C7A6B] focus:outline-none focus:border-[#241710] focus:bg-white transition-all"
+                    className="w-full pr-9 pl-8 py-2 text-xs rounded-xl border border-[#EAE3D8] bg-[#FAF8F5]/60 text-[#241710] placeholder-[#8C7A6B] focus:outline-none focus:border-[#241710] focus:bg-white transition-all"
                   />
+                  {isLoadingCatalog && (
+                    <RefreshCw className="w-3.5 h-3.5 text-[#A27B5C] animate-spin absolute left-3 top-1/2 -translate-y-1/2" />
+                  )}
+                  {!isLoadingCatalog && searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="w-4 h-4 text-[#8C7A6B] hover:text-[#241710] absolute left-3 top-1/2 -translate-y-1/2 flex items-center justify-center transition-colors"
+                      title="مسح البحث"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Product Match List */}
-              <div className="border border-[#EAE3D8] rounded-xl divide-y divide-[#EAE3D8] max-h-64 overflow-y-auto">
-                {filteredProducts.length === 0 ? (
+              {/* Product Match List with Infinite Scroll / Pagination */}
+              <div
+                onScroll={(e) => {
+                  const target = e.currentTarget;
+                  const scrollBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+                  if (scrollBottom < 60 && hasMoreToDisplay && !isLoadingMore && !isLoadingCatalog) {
+                    loadNextPage();
+                  }
+                }}
+                className="border border-[#EAE3D8] rounded-xl divide-y divide-[#EAE3D8] max-h-72 overflow-y-auto"
+              >
+                {isLoadingCatalog && filteredProducts.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-[#8C7A6B] flex flex-col items-center justify-center gap-2">
+                    <RefreshCw className="w-5 h-5 animate-spin text-[#A27B5C]" />
+                    <span>جارٍ تحميل المنتجات من الكتالوج...</span>
+                  </div>
+                ) : filteredProducts.length === 0 ? (
                   <div className="p-6 text-center text-xs text-[#8C7A6B]">
                     لا توجد منتجات مطابقة للبحث
                   </div>
                 ) : (
-                  filteredProducts.map((p) => {
-                    const isSelected = String(selectedProductId) === String(p.id);
-                    const primaryThumb = p.images?.[0] || '';
-                    return (
-                      <div
-                        key={p.id}
-                        onClick={() => {
-                          setSelectedProductId(String(p.id));
-                          setLinkSuccess(false);
-                          setLinkError(null);
-                        }}
-                        className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
-                          isSelected
-                            ? 'bg-[#FAF5EB]'
-                            : 'hover:bg-[#FAF8F5]'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-[#EAE3D8] bg-stone-100 shrink-0">
-                            {primaryThumb ? (
-                              <Image
-                                src={primaryThumb}
-                                alt={p.name}
-                                fill
-                                className="object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-[10px] text-stone-400">
-                                لا صورة
-                              </div>
-                            )}
+                  <>
+                    {filteredProducts.map((p) => {
+                      const isSelected = String(selectedProductId) === String(p.id);
+                      const primaryThumb = p.images?.[0] || '';
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => {
+                            setSelectedProductId(String(p.id));
+                            setSelectedProductDetails(p);
+                            setLinkSuccess(false);
+                            setLinkError(null);
+                          }}
+                          className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-[#FAF5EB]'
+                              : 'hover:bg-[#FAF8F5]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-[#EAE3D8] bg-stone-100 shrink-0">
+                              {primaryThumb ? (
+                                <Image
+                                  src={primaryThumb}
+                                  alt={p.name}
+                                  fill
+                                  className="object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-[10px] text-stone-400">
+                                  لا صورة
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-black text-[#241710] line-clamp-1">
+                                {p.name}
+                              </h4>
+                              <p className="text-[11px] text-[#8C7A6B] mt-0.5">
+                                {p.price?.toLocaleString()} ج.م
+                                {(p as any).categoryName ? ` • ${(p as any).categoryName}` : ''}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="text-xs font-black text-[#241710] line-clamp-1">
-                              {p.name}
-                            </h4>
-                            <p className="text-[11px] text-[#8C7A6B] mt-0.5">
-                              {p.price?.toLocaleString()} ج.م
-                              {(p as any).categoryName ? ` • ${(p as any).categoryName}` : ''}
-                            </p>
-                          </div>
-                        </div>
 
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
-                              isSelected
-                                ? 'bg-[#241710] border-[#241710] text-white'
-                                : 'border-[#D8CEBF] bg-white'
-                            }`}
-                          >
-                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
+                                isSelected
+                                  ? 'bg-[#241710] border-[#241710] text-white'
+                                  : 'border-[#D8CEBF] bg-white'
+                              }`}
+                            >
+                              {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                            </span>
+                          </div>
                         </div>
+                      );
+                    })}
+
+                    {/* Pagination / Infinite Scroll Loading State */}
+                    {isLoadingMore && (
+                      <div className="p-3 text-center text-xs text-[#8C7A6B] flex items-center justify-center gap-2 bg-[#FAF8F5]/50">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#A27B5C]" />
+                        <span>جارٍ تحميل المزيد من المنتجات...</span>
                       </div>
-                    );
-                  })
+                    )}
+
+                    {/* Manual Load More Button if not auto-triggered */}
+                    {!isLoadingMore && hasMoreToDisplay && (
+                      <div className="p-2 text-center bg-[#FAF8F5]/40">
+                        <button
+                          type="button"
+                          onClick={loadNextPage}
+                          className="w-full py-2 px-3 text-xs font-bold text-[#A27B5C] hover:text-[#241710] hover:bg-[#FAF5EB] rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          <span>عرض المزيد من المنتجات</span>
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* End of list confirmation */}
+                    {!isLoadingMore && !hasMoreToDisplay && filteredProducts.length > 0 && (
+                      <div className="p-2.5 text-center text-[11px] text-[#8C7A6B] bg-[#FAF8F5]/30">
+                        تم عرض جميع المنتجات ({filteredProducts.length})
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 

@@ -26,6 +26,30 @@ export const productService = {
   },
 
   /**
+   * Get paginated products with full pagination metadata (count, next, previous, results)
+   * GET /api/products/
+   */
+  async getPaginatedProducts(params: SearchParams = {}): Promise<PaginatedResponse<BackendProduct>> {
+    const response = await apiClient.get<PaginatedResponse<BackendProduct> | BackendProduct[]>('/products/', {
+      params: { page_size: 20, ...params },
+    });
+    if (Array.isArray(response)) {
+      return {
+        count: response.length,
+        next: null,
+        previous: null,
+        results: response,
+      };
+    }
+    return {
+      count: response?.count ?? (Array.isArray(response?.results) ? response.results.length : 0),
+      next: response?.next ?? null,
+      previous: response?.previous ?? null,
+      results: Array.isArray(response?.results) ? response.results : [],
+    };
+  },
+
+  /**
    * Get a single product by ID
    * GET /api/products/<id>/
    */
